@@ -71,6 +71,30 @@ export default function CooperativeDetailPage() {
     router.push('/superadmin/pending')
   }
 
+  async function handleConfirmReject() {
+    if (!rejectReason.trim()) {
+      setError('Please provide a rejection reason before submitting.')
+      return
+    }
+
+    setActionLoading(true)
+    setError('')
+    const supabase = createClient()
+
+    const { error: coopError } = await supabase
+      .from('cooperatives')
+      .update({ status: 'Rejected', rejection_reason: rejectReason.trim() })
+      .eq('id', id)
+
+    if (coopError) {
+      setError(coopError.message)
+      setActionLoading(false)
+      return
+    }
+
+    router.push('/superadmin/pending')
+  }
+
   async function handleDeactivate() {
     setActionLoading(true)
     setError('')
@@ -105,19 +129,14 @@ export default function CooperativeDetailPage() {
     router.push('/superadmin/cooperatives')
   }
 
-  async function handleConfirmReject() {
-    if (!rejectReason.trim()) {
-      setError('Please provide a rejection reason before submitting.')
-      return
-    }
-
+  async function handleReactivate() {
     setActionLoading(true)
     setError('')
     const supabase = createClient()
 
     const { error: coopError } = await supabase
       .from('cooperatives')
-      .update({ status: 'Rejected', rejection_reason: rejectReason.trim() })
+      .update({ status: 'Active' })
       .eq('id', id)
 
     if (coopError) {
@@ -126,7 +145,19 @@ export default function CooperativeDetailPage() {
       return
     }
 
-    router.push('/superadmin/pending')
+    // Restore access for everyone under this cooperative
+    const { error: userError } = await supabase
+      .from('users')
+      .update({ is_active: true })
+      .eq('cooperative_id', id)
+
+    if (userError) {
+      setError(userError.message)
+      setActionLoading(false)
+      return
+    }
+
+    router.push('/superadmin/cooperatives')
   }
 
   if (loading) return <p className="text-sm text-gray-500">Loading…</p>
@@ -141,6 +172,7 @@ export default function CooperativeDetailPage() {
 
   const isPending = coop.status === 'Pending Approval'
   const isActive = coop.status === 'Active'
+  const isDeactivated = coop.status === 'Deactivated'
 
   return (
     <div className="max-w-2xl">
@@ -287,6 +319,18 @@ export default function CooperativeDetailPage() {
                 Cancel
               </button>
             </div>
+          </div>
+        )}
+
+        {isDeactivated && (
+          <div className="mt-6">
+            <button
+              onClick={handleReactivate}
+              disabled={actionLoading}
+              className="w-full bg-blue-700 hover:bg-blue-800 disabled:opacity-60 text-white font-semibold text-sm py-2.5 rounded-lg transition-colors"
+            >
+              {actionLoading ? 'Reactivating…' : 'Reactivate Cooperative'}
+            </button>
           </div>
         )}
       </div>
