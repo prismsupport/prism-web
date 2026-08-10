@@ -30,20 +30,18 @@ export default function SuperadminLoginPage() {
       return
     }
 
-    // Step 2: check if this logged-in user IS the superadmin
-    // We compare against the email stored in env vars, not a database table,
-    // since the manuscript's ERD only defines consumer/supervisor/lineman.
-    const loggedInEmail = data.user.email
+    // Step 2: check if this logged-in user IS a real superadmin by looking them up in the super_admins table.
+    const loggedInUserId = data.user.id
 
     const res = await fetch('/api/superadmin/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: loggedInEmail }),
+      body: JSON.stringify({ userId: loggedInUserId }),
     })
     const result = await res.json()
 
     if (!result.isSuperadmin) {
-      // not the superadmin — sign them out immediately, don't let them stay logged in
+      // not the superadmin — sign out immediately
       await supabase.auth.signOut()
       setError('This account is not authorized as Superadmin.')
       setLoading(false)
