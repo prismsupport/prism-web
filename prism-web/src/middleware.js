@@ -22,8 +22,7 @@ export async function middleware(request) {
     return NextResponse.redirect(new URL('/superadmin/login', request.url))
   }
 
-  // Confirm this specific user is an active superadmin, not just any
-  // logged-in Supabase user (e.g. a consumer or supervisor account).
+  // Confirm this specific user is an active superadmin, not just any logged-in Supabase user
   const { data: superadmin } = await supabase
     .from('super_admins')
     .select('id, is_active')

@@ -112,9 +112,7 @@ export default function CooperativeDetailPage() {
       return
     }
 
-    // Everyone under this cooperative (Supervisor, Linemen, Consumers)
-    // loses access, per spec — enforced by flipping is_active off
-    // for every user row tied to this cooperative.
+    // Everyone under this cooperative (Supervisor, Linemen, Consumers) loses access
     const { error: userError } = await supabase
       .from('users')
       .update({ is_active: false })
