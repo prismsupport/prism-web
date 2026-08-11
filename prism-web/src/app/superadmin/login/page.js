@@ -49,7 +49,7 @@ export default function SuperadminLoginPage() {
     }
 
     // Step 3: success — go to the dashboard
-    router.push('/superadmin/dashboard')
+    router.push('/superadmin/cooperatives')
   }
 
   return (

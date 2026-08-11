@@ -68,7 +68,7 @@ export default function CooperativeDetailPage() {
       return
     }
 
-    router.push('/superadmin/pending')
+    router.push('/superadmin/cooperatives')
   }
 
   async function handleConfirmReject() {
@@ -92,7 +92,7 @@ export default function CooperativeDetailPage() {
       return
     }
 
-    router.push('/superadmin/pending')
+    router.push('/superadmin/cooperatives')
   }
 
   async function handleDeactivate() {
@@ -175,10 +175,10 @@ export default function CooperativeDetailPage() {
   return (
     <div className="max-w-2xl">
       <button
-        onClick={() => router.push('/superadmin/pending')}
+        onClick={() => router.push('/superadmin/cooperatives')}
         className="text-sm text-blue-700 font-medium mb-4"
       >
-        ← Back to Pending Registrations
+        ← Back to Cooperatives
       </button>
 
       <div className="bg-white rounded-xl border border-gray-200 p-6">
