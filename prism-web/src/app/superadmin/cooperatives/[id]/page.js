@@ -207,7 +207,7 @@ export default function CooperativeDetailPage() {
   const isDeactivated = coop.status === 'Deactivated'
 
   return (
-    <div className="max-w-6xl">
+    <div className="max-w-8xl">
       <button
         onClick={() => router.push('/superadmin/cooperatives')}
         className="text-sm text-blue-700 font-medium mb-4"
