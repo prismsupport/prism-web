@@ -1,17 +1,16 @@
-const statusStyles = {
-  'Pending Approval': 'bg-amber-50 text-amber-700 border-amber-200',
-  Active: 'bg-green-50 text-green-700 border-green-200',
-  Rejected: 'bg-red-50 text-red-700 border-red-200',
-  Deactivated: 'bg-gray-100 text-gray-600 border-gray-200',
+const statusColors = {
+  'Pending Approval': 'text-red-600',
+  Active: 'text-green-600',
+  Rejected: 'text-amber-500',
+  Deactivated: 'text-gray-900',
 }
 
 export default function StatusBadge({ status }) {
-  const style = statusStyles[status] || 'bg-gray-100 text-gray-600 border-gray-200'
+  const color = statusColors[status] || 'text-gray-600'
 
   return (
-    <span
-      className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border ${style}`}
-    >
+    <span className={`inline-flex items-center gap-1.5 text-sm font-medium ${color}`}>
+      <span className="w-1.5 h-1.5 rounded-full bg-current" />
       {status}
     </span>
   )

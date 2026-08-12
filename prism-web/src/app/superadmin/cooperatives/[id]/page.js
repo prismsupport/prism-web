@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import StatusBadge from '@/components/StatusBadge'
+import Card from '@/components/ui/Card'
 
 export default function CooperativeDetailPage() {
   const { id } = useParams()
@@ -206,7 +207,7 @@ export default function CooperativeDetailPage() {
   const isDeactivated = coop.status === 'Deactivated'
 
   return (
-    <div className="max-w-8xl">
+    <div className="max-w-6xl">
       <button
         onClick={() => router.push('/superadmin/cooperatives')}
         className="text-sm text-blue-700 font-medium mb-4"
@@ -216,7 +217,7 @@ export default function CooperativeDetailPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         {/* Left: details + actions */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <Card>
           <div className="flex items-start justify-between mb-4">
             <h1 className="text-xl font-bold text-gray-900">
               {coop.cooperative_name}
@@ -366,10 +367,10 @@ export default function CooperativeDetailPage() {
               </button>
             </div>
           )}
-        </div>
+        </Card>
 
         {/* Right: status history */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <Card>
           <h2 className="font-semibold text-gray-900 mb-4">Status History</h2>
 
           {logs.length === 0 ? (
@@ -405,7 +406,7 @@ export default function CooperativeDetailPage() {
               ))}
             </ul>
           )}
-        </div>
+        </Card>
       </div>
     </div>
   )
