@@ -25,7 +25,7 @@ export default function SuperadminLayout({ children }) {
         rightContent={
           <button
             onClick={handleLogout}
-            className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
+            className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors cursor-pointer"
           >
             Logout
           </button>

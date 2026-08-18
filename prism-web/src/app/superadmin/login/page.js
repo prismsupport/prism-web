@@ -100,7 +100,7 @@ export default function SuperadminLoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-blue-700 hover:bg-blue-800 disabled:opacity-60 text-white font-semibold text-sm py-3 rounded-lg transition-colors"
+              className="w-full bg-blue-700 hover:bg-blue-800 disabled:opacity-60 text-white font-semibold text-sm py-3 rounded-lg transition-colors cursor-pointer"
             >
               {loading ? 'Signing in…' : 'Log In'}
             </button>
