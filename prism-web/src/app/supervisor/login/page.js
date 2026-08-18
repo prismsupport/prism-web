@@ -88,7 +88,7 @@ export default function SupervisorLoginPage() {
     }
 
     // status === 'Active' — real access granted
-    router.push('/supervisor/dashboard')
+    router.push('/supervisor/dispatch')
   }
 
   return (

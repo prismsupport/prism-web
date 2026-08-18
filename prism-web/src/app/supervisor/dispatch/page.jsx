@@ -9,9 +9,10 @@ import {
   Truck,
   UserCog,
 } from "lucide-react";
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import StatusBadge from "@/components/StatusBadge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import StatCard from "@/components/ui/StatCard";
 import {
   Select,
@@ -29,6 +30,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  formatArea,
+  formatTime,
+  PRIORITY_LABELS,
+  PRIORITY_PILL_COLORS,
+  STATUS_LABELS,
+} from "@/lib/reports";
+import { cn } from "@/lib/utils";
 import {
   getReportStatusCounts,
   getReports,
@@ -50,30 +59,6 @@ const columns = [
 
 const skeletonRowKeys = ["s1", "s2", "s3", "s4", "s5", "s6"];
 
-// report_status enum -> display label. StatusBadge is keyed by these labels.
-const STATUS_LABELS = {
-  pending: "Pending",
-  dispatched: "Dispatched",
-  in_progress: "In Progress",
-  qa_review: "QA Review",
-  resolved: "Resolved",
-  cancelled: "Cancelled",
-};
-
-const PRIORITY_LABELS = {
-  low: "Low",
-  medium: "Medium",
-  high: "High",
-  critical: "Critical",
-};
-
-const PRIORITY_PILL_COLORS = {
-  low: "bg-blue-50 text-blue-700",
-  medium: "bg-amber-50 text-amber-700",
-  high: "bg-red-50 text-red-700",
-  critical: "bg-red-600 text-white",
-};
-
 // Passed to Select so the trigger shows the label while the value stays the enum.
 const STATUS_FILTER_ITEMS = { all: "All Statuses", ...STATUS_LABELS };
 const PRIORITY_FILTER_ITEMS = { all: "All Priorities", ...PRIORITY_LABELS };
@@ -86,23 +71,6 @@ const statCards = [
 ];
 
 const cardStatuses = statCards.map((card) => card.status);
-
-function formatArea(report) {
-  // zone may be stored either as "5" or already as "Zone 5"
-  const zone = report.zone?.trim();
-  const zoneText = zone && (/^zone\b/i.test(zone) ? zone : `Zone ${zone}`);
-
-  return [zoneText, report.barangay, report.municipality]
-    .filter(Boolean)
-    .join(", ");
-}
-
-function formatTime(timestamp) {
-  return new Date(timestamp).toLocaleTimeString("en-PH", {
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
 
 export default function DispatchPage() {
   const [statusFilter, setStatusFilter] = useState("all");
@@ -386,14 +354,18 @@ export default function DispatchPage() {
                       </TableCell>
 
                       <TableCell className="px-5 py-4">
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          disabled
-                          className="rounded-lg bg-blue-50 text-blue-700"
+                        <Link
+                          href={`/supervisor/dispatch/${report.report_id}`}
+                          className={cn(
+                            buttonVariants({
+                              variant: "secondary",
+                              size: "sm",
+                            }),
+                            "rounded-lg bg-blue-50 text-blue-700",
+                          )}
                         >
                           Details
-                        </Button>
+                        </Link>
                       </TableCell>
                     </TableRow>
                   );

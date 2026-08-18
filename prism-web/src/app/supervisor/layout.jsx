@@ -1,7 +1,16 @@
+'use client'
+
+import { usePathname } from 'next/navigation'
 import Header from "@/components/header";
 import Sidebar from "@/components/sidebar";
 
 export default function SupervisorLayout({ children }) {
+  const pathname = usePathname()
+
+  if (pathname === '/supervisor/login' || pathname === '/supervisor/register') {
+    return children
+  }
+
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
       <Sidebar />
