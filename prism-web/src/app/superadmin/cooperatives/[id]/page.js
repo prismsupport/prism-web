@@ -210,7 +210,7 @@ export default function CooperativeDetailPage() {
     <div className="max-w-8xl">
       <button
         onClick={() => router.push('/superadmin/cooperatives')}
-        className="text-sm text-blue-700 font-medium mb-4"
+        className="text-sm text-blue-700 font-medium mb-4 cursor-pointer"
       >
         ← Back to All Cooperatives
       </button>
@@ -269,14 +269,14 @@ export default function CooperativeDetailPage() {
               <button
                 onClick={handleApprove}
                 disabled={actionLoading}
-                className="flex-1 bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white font-semibold text-sm py-2.5 rounded-lg transition-colors"
+                className="flex-1 bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white font-semibold text-sm py-2.5 rounded-lg transition-colors cursor-pointer"
               >
                 {actionLoading ? 'Processing…' : 'Approve'}
               </button>
               <button
                 onClick={() => setShowRejectBox(true)}
                 disabled={actionLoading}
-                className="flex-1 bg-red-50 hover:bg-red-100 text-red-700 font-semibold text-sm py-2.5 rounded-lg transition-colors border border-red-200"
+                className="flex-1 bg-red-50 hover:bg-red-100 text-red-700 font-semibold text-sm py-2.5 rounded-lg transition-colors border border-red-200 cursor-pointer"
               >
                 Reject
               </button>
@@ -299,7 +299,7 @@ export default function CooperativeDetailPage() {
                 <button
                   onClick={handleConfirmReject}
                   disabled={actionLoading}
-                  className="flex-1 bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white font-semibold text-sm py-2.5 rounded-lg transition-colors"
+                  className="flex-1 bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white font-semibold text-sm py-2.5 rounded-lg transition-colors cursor-pointer"
                 >
                   {actionLoading ? 'Submitting…' : 'Confirm Rejection'}
                 </button>
@@ -310,7 +310,7 @@ export default function CooperativeDetailPage() {
                     setError('')
                   }}
                   disabled={actionLoading}
-                  className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-sm py-2.5 rounded-lg transition-colors"
+                  className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-sm py-2.5 rounded-lg transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
@@ -323,7 +323,7 @@ export default function CooperativeDetailPage() {
               <button
                 onClick={() => setShowDeactivateConfirm(true)}
                 disabled={actionLoading}
-                className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-sm py-2.5 rounded-lg transition-colors"
+                className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-sm py-2.5 rounded-lg transition-colors cursor-pointer"
               >
                 Deactivate Cooperative
               </button>
@@ -341,14 +341,14 @@ export default function CooperativeDetailPage() {
                 <button
                   onClick={handleDeactivate}
                   disabled={actionLoading}
-                  className="flex-1 bg-gray-800 hover:bg-gray-900 disabled:opacity-60 text-white font-semibold text-sm py-2.5 rounded-lg transition-colors"
+                  className="flex-1 bg-gray-800 hover:bg-gray-900 disabled:opacity-60 text-white font-semibold text-sm py-2.5 rounded-lg transition-colors cursor-pointer"
                 >
                   {actionLoading ? 'Deactivating…' : 'Yes, Deactivate'}
                 </button>
                 <button
                   onClick={() => setShowDeactivateConfirm(false)}
                   disabled={actionLoading}
-                  className="flex-1 bg-white hover:bg-gray-100 text-gray-700 font-semibold text-sm py-2.5 rounded-lg transition-colors border border-gray-200"
+                  className="flex-1 bg-white hover:bg-gray-100 text-gray-700 font-semibold text-sm py-2.5 rounded-lg transition-colors border border-gray-200 cursor-pointer"
                 >
                   Cancel
                 </button>
@@ -361,7 +361,7 @@ export default function CooperativeDetailPage() {
               <button
                 onClick={handleReactivate}
                 disabled={actionLoading}
-                className="w-full bg-blue-700 hover:bg-blue-800 disabled:opacity-60 text-white font-semibold text-sm py-2.5 rounded-lg transition-colors"
+                className="w-full bg-blue-700 hover:bg-blue-800 disabled:opacity-60 text-white font-semibold text-sm py-2.5 rounded-lg transition-colors cursor-pointer"
               >
                 {actionLoading ? 'Reactivating…' : 'Reactivate Cooperative'}
               </button>

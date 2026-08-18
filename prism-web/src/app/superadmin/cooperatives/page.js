@@ -153,7 +153,7 @@ export default function AllCooperativesPage() {
         {statusFilter !== 'All' && (
           <button
             onClick={() => handleCardClick('All')}
-            className="text-sm text-blue-700 font-medium whitespace-nowrap"
+            className="text-sm text-blue-700 font-medium whitespace-nowrap cursor-pointer"
           >
             Clear filter
           </button>
@@ -273,7 +273,7 @@ export default function AllCooperativesPage() {
               <button
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page === 1}
-                className="px-3 py-1.5 rounded-lg text-xs font-medium text-gray-600 border border-gray-200 disabled:opacity-40 hover:bg-white"
+                className="px-3 py-1.5 rounded-lg text-xs font-medium text-gray-600 border border-gray-200 disabled:opacity-40 hover:bg-white cursor-pointer"
               >
                 ‹
               </button>
@@ -283,7 +283,7 @@ export default function AllCooperativesPage() {
               <button
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={page === totalPages}
-                className="px-3 py-1.5 rounded-lg text-xs font-medium text-gray-600 border border-gray-200 disabled:opacity-40 hover:bg-white"
+                className="px-3 py-1.5 rounded-lg text-xs font-medium text-gray-600 border border-gray-200 disabled:opacity-40 hover:bg-white cursor-pointer"
               >
                 ›
               </button>
