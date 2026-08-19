@@ -72,3 +72,26 @@ export async function getReportStatusCounts(statuses) {
 
   return counts;
 }
+
+// Live updates for one report row. Returns an unsubscribe function for useEffect cleanup.
+export function subscribeToReportChanges(reportId, onUpdate) {
+  const supabase = createClient();
+
+  const channel = supabase
+    .channel(`report-${reportId}`)
+    .on(
+      "postgres_changes",
+      {
+        event: "UPDATE",
+        schema: "public",
+        table: "reports",
+        filter: `report_id=eq.${reportId}`,
+      },
+      (payload) => onUpdate(payload.new),
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}

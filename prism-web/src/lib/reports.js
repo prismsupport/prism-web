@@ -17,6 +17,11 @@ export const PRIORITY_LABELS = {
   critical: "Critical",
 };
 
+export const PRIORITY_LEVELS = Object.keys(PRIORITY_LABELS);
+
+// Priority is only editable while the report is still being worked on.
+export const CLOSED_REPORT_STATUSES = ["cancelled", "resolved"];
+
 export const PRIORITY_PILL_COLORS = {
   low: "bg-blue-50 text-blue-700",
   medium: "bg-amber-50 text-amber-700",

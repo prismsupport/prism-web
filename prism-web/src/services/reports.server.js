@@ -1,3 +1,4 @@
+import { CLOSED_REPORT_STATUSES } from "@/lib/reports";
 import { createClient } from "@/lib/supabase/server";
 
 // Kept apart from reports.js because that file is imported by the client-side
@@ -103,5 +104,25 @@ export async function declineReport(reportId, reason) {
   }
 
   // Nothing comes back when RLS blocks the update or the report is gone
+  return data;
+}
+
+export async function setReportPriority(reportId, priority) {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("reports")
+    .update({ priority, updated_at: new Date().toISOString() })
+    .eq("report_id", reportId)
+    // Closed reports keep the priority they were resolved/declined with
+    .not("status", "in", `(${CLOSED_REPORT_STATUSES.join(",")})`)
+    .select("report_id, priority")
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  // Nothing comes back when the report is closed, gone, or RLS blocked the write
   return data;
 }

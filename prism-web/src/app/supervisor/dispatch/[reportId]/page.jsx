@@ -1,20 +1,23 @@
 import { Clock, MapPin, Search, X } from "lucide-react";
-import Link from "next/link";
 import { revalidatePath } from "next/cache";
+import Link from "next/link";
 import DeclineReportDialog from "@/components/DeclineReportDialog";
 import ReportMap from "@/components/ReportMap";
 import ReportPhoto from "@/components/ReportPhoto";
+import ReportPriorityPicker from "@/components/ReportPriorityPicker";
 import StatusBadge from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
 import {
   formatArea,
   formatDateTime,
-  PRIORITY_LABELS,
+  PRIORITY_LEVELS,
   STATUS_LABELS,
 } from "@/lib/reports";
-import { declineReport, getReportById } from "@/services/reports.server";
-
-const PRIORITY_LEVELS = Object.keys(PRIORITY_LABELS);
+import {
+  declineReport,
+  getReportById,
+  setReportPriority,
+} from "@/services/reports.server";
 
 function PanelMessage({ title, description }) {
   return (
@@ -57,6 +60,37 @@ async function declineReportAction(reportId, reason) {
     return {
       ok: false,
       message: "We couldn't decline this report right now. Please try again.",
+    };
+  }
+
+  revalidatePath("/supervisor/dispatch");
+  revalidatePath(`/supervisor/dispatch/${reportId}`);
+
+  return { ok: true };
+}
+
+async function setReportPriorityAction(reportId, priority) {
+  "use server";
+
+  if (!reportId || !PRIORITY_LEVELS.includes(priority)) {
+    return { ok: false, message: "That priority isn't valid." };
+  }
+
+  try {
+    const updated = await setReportPriority(reportId, priority);
+
+    if (!updated) {
+      return {
+        ok: false,
+        message:
+          "This report's priority can't be changed anymore. Refresh the page to see its current state.",
+      };
+    }
+  } catch (error) {
+    console.error("Failed to set report priority", error);
+    return {
+      ok: false,
+      message: "We couldn't save the priority right now. Please try again.",
     };
   }
 
@@ -160,37 +194,12 @@ export default async function ReportDetailPage({ params }) {
               <p className="text-[10px] font-bold tracking-wide text-gray-500 uppercase">
                 Incident Priority
               </p>
-              {!report.priority && (
-                <p className="text-[10px] text-gray-400">Not set yet</p>
-              )}
-              <ul className="mt-1.5 space-y-1">
-                {PRIORITY_LEVELS.map((level) => {
-                  const isCurrent = report.priority === level;
-
-                  return (
-                    <li key={level} className="flex items-center gap-2">
-                      <span
-                        className={`flex h-3 w-3 shrink-0 items-center justify-center rounded-full border ${
-                          isCurrent
-                            ? "border-blue-600"
-                            : "border-gray-300 bg-white"
-                        }`}
-                      >
-                        {isCurrent && (
-                          <span className="h-1.5 w-1.5 rounded-full bg-blue-600" />
-                        )}
-                      </span>
-                      <span
-                        className={`text-[10px] font-semibold tracking-wide uppercase ${
-                          isCurrent ? "text-gray-900" : "text-gray-500"
-                        }`}
-                      >
-                        {PRIORITY_LABELS[level]}
-                      </span>
-                    </li>
-                  );
-                })}
-              </ul>
+              <ReportPriorityPicker
+                reportId={report.report_id}
+                priority={report.priority}
+                status={report.status}
+                onChangePriority={setReportPriorityAction}
+              />
             </div>
           </div>
 
