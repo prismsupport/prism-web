@@ -216,7 +216,6 @@ export default function CooperativeDetailPage() {
       </button>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-        {/* Left: details + actions */}
         <Card>
           <div className="flex items-start justify-between mb-4">
             <h1 className="text-xl font-bold text-gray-900">
@@ -368,8 +367,7 @@ export default function CooperativeDetailPage() {
             </div>
           )}
         </Card>
-
-        {/* Right: status history */}
+        
         <Card>
           <h2 className="font-semibold text-gray-900 mb-4">Status History</h2>
 

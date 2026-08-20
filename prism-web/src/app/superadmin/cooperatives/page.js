@@ -113,7 +113,6 @@ export default function AllCooperativesPage() {
         filter.
       </p>
 
-      {/* Summary / filter cards */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
         {statusCards.map((card) => (
           <StatCard
@@ -166,7 +165,6 @@ export default function AllCooperativesPage() {
         </p>
       )}
 
-      {/* Table */}
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <table className="w-full text-sm">
           <thead>
@@ -199,9 +197,6 @@ export default function AllCooperativesPage() {
 
             {!loading &&
               cooperatives.map((coop) => {
-                // "Last Updated" only means something once the row has
-                // actually changed — if updated_at still equals created_at,
-                // nothing has happened to it since submission.
                 const hasBeenUpdated = coop.updated_at !== coop.created_at
                 const isPending = coop.status === 'Pending Approval'
 
@@ -262,7 +257,6 @@ export default function AllCooperativesPage() {
           </tbody>
         </table>
 
-        {/* Pagination */}
         {!loading && totalCount > 0 && (
           <div className="flex items-center justify-between px-5 py-3 border-t border-gray-100 bg-gray-50">
             <p className="text-xs text-gray-500">
