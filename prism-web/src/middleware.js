@@ -4,7 +4,7 @@ import { createMiddlewareClient } from '@/lib/supabase/middleware'
 export async function middleware(request) {
   const { pathname } = request.nextUrl
 
-  // Only guard /superadmin routes, and don't guard the login page itself
+  // guards /superadmin routes, except the login page
   const isSuperadminRoute = pathname.startsWith('/superadmin')
   const isLoginPage = pathname === '/superadmin/login'
 
@@ -22,7 +22,7 @@ export async function middleware(request) {
     return NextResponse.redirect(new URL('/superadmin/login', request.url))
   }
 
-  // Confirm this specific user is an active superadmin, not just any logged-in Supabase user
+  // Confirm user is active superadmin, not just any logged-in Supabase user.
   const { data: superadmin } = await supabase
     .from('super_admins')
     .select('id, is_active')

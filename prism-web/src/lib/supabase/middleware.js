@@ -1,4 +1,5 @@
-//creates a connection to Supabase that can read the visitor's login cookie (to check "are they logged in?") and refresh it if needed
+// This creates a Supabase server client that can read the current request cookies,
+// so protected routes can check auth state before rendering or redirecting.
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
 
