@@ -1,0 +1,380 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import { useParams, useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
+import ReportMap from '@/components/ui/ReportMap'
+import Modal from '@/components/ui/Modal'
+
+function labelize(value) {
+  return value
+    .split('_')
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ')
+}
+
+const statusColor = {
+  pending: 'text-red-600',
+  dispatched: 'text-amber-600',
+  in_progress: 'text-amber-600',
+  qa_review: 'text-blue-600',
+  resolved: 'text-green-600',
+  cancelled: 'text-gray-400',
+}
+
+export default function ReportReviewPage() {
+  const { id } = useParams()
+  const router = useRouter()
+
+  const [report, setReport] = useState(null)
+  const [reporterName, setReporterName] = useState('')
+  const [assignment, setAssignment] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  const [showAssignModal, setShowAssignModal] = useState(false)
+  const [showDeclineBox, setShowDeclineBox] = useState(false)
+  const [declineReason, setDeclineReason] = useState('')
+  const [actionLoading, setActionLoading] = useState(false)
+
+  useEffect(() => {
+    loadReport()
+  }, [id])
+
+  async function loadReport() {
+    setLoading(true)
+    setError('')
+    const supabase = createClient()
+
+    const { data: reportData, error: reportError } = await supabase
+      .rpc('get_report_with_location', { p_report_id: id })
+      .single()
+
+    if (reportError) {
+      setError(reportError.message)
+      setLoading(false)
+      return
+    }
+
+    setReport(reportData)
+
+    const { data: consumer } = await supabase
+      .from('users')
+      .select('first_name, last_name')
+      .eq('id', reportData.consumer_id)
+      .single()
+
+    if (consumer) {
+      setReporterName(`${consumer.first_name} ${consumer.last_name}`)
+    }
+
+    const { data: assignmentData } = await supabase
+      .from('job_assignments')
+      .select('*')
+      .eq('report_id', id)
+      .order('assigned_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    setAssignment(assignmentData)
+    setLoading(false)
+  }
+
+  async function handleConfirmDecline() {
+    if (!declineReason.trim()) {
+      setError('Please provide a reason before declining.')
+      return
+    }
+    setActionLoading(true)
+    setError('')
+    const supabase = createClient()
+
+    const { error: updateError } = await supabase
+      .from('reports')
+      .update({ status: 'cancelled', decline_reason: declineReason.trim() })
+      .eq('report_id', id)
+
+    if (updateError) {
+      setError(updateError.message)
+      setActionLoading(false)
+      return
+    }
+
+    router.push('/supervisor/dispatch')
+  }
+
+  if (loading) return <p className="text-sm text-gray-500">Loading…</p>
+
+    if (!report) {
+    return (
+      <p className="text-sm text-red-600">
+        {error || 'Report not found.'}
+      </p>
+    )
+  }
+
+  const isPending = report.status === 'pending' && !assignment
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-8rem)]">
+      <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <ReportMap
+          lat={report.lat}
+          lng={report.lng}
+          label={report.nearest_landmark || report.barangay}
+        />
+      </div>
+
+      <div className="overflow-y-auto space-y-6">
+        <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <div className="flex items-start justify-between mb-4">
+            <div>
+              <h1 className="text-lg font-bold text-gray-900">Report Details</h1>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Ticket: {report.ticket_number}
+              </p>
+              <p className="text-xs text-gray-500">
+                Report from{' '}
+                <span className="text-blue-700 font-medium">{reporterName}</span>
+              </p>
+            </div>
+          </div>
+
+          <div className="bg-gray-50 rounded-lg p-3 mb-4">
+            <p className="text-xs font-bold text-gray-500 uppercase mb-1">
+              Current Ticket Status
+            </p>
+            <p className={`text-sm font-bold ${statusColor[report.status]}`}>
+              ● {labelize(assignment ? assignment.status : report.status)}
+            </p>
+          </div>
+
+          <div className="space-y-3 text-sm">
+            <div>
+              <p className="text-xs text-gray-400">Time Reported</p>
+              <p className="text-gray-900">
+                {new Date(report.created_at).toLocaleString('en-PH', {
+                  month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit',
+                })}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-400">Location</p>
+              <p className="text-gray-900 font-medium">
+                {report.nearest_landmark || `${report.barangay}, ${report.municipality}`}
+              </p>
+              <p className="text-gray-500 text-xs">
+                Zone {report.zone || '—'}, {report.barangay}, {report.municipality}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-400">Description</p>
+              <p className="text-gray-700 bg-gray-50 rounded-lg p-3 mt-1">
+                "{report.report_details}"
+              </p>
+            </div>
+            {report.other_homes_affected && (
+              <p className="text-xs text-amber-600 font-medium">
+                ⚠ Consumer indicated nearby households are also affected
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <h2 className="text-sm font-bold text-gray-900 mb-3">Photo Evidence</h2>
+                    {report.photo_url ? (
+            <img
+              src={report.photo_url}
+              alt="Report evidence"
+              className="w-full rounded-lg border border-gray-200"
+            />
+          ) : (
+            <p className="text-sm text-gray-400 italic">No photo submitted.</p>
+          )}
+        </div>
+
+        {error && (
+          <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+            {error}
+          </p>
+        )}
+
+        {isPending && !showDeclineBox && (
+          <div className="space-y-3">
+            <button
+              onClick={() => setShowAssignModal(true)}
+              className="w-full bg-blue-700 hover:bg-blue-800 text-white font-semibold text-sm py-3 rounded-lg transition-colors"
+            >
+              Assign Lineman
+            </button>
+            <button
+              onClick={() => setShowDeclineBox(true)}
+              className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold text-sm py-3 rounded-lg transition-colors"
+            >
+              Decline Report
+            </button>
+          </div>
+        )}
+
+        {isPending && showDeclineBox && (
+          <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <label className="block text-xs font-bold tracking-wide text-gray-600 mb-1.5">
+              REASON FOR DECLINING
+            </label>
+            <textarea
+              value={declineReason}
+              onChange={(e) => setDeclineReason(e.target.value)}
+              rows={3}
+              placeholder="Explain why this report is being declined…"
+              className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm placeholder-gray-400 mb-3"
+            />
+            <div className="flex gap-3">
+              <button
+                onClick={handleConfirmDecline}
+                disabled={actionLoading}
+                className="flex-1 bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white font-semibold text-sm py-2.5 rounded-lg"
+              >
+                {actionLoading ? 'Submitting…' : 'Confirm Decline'}
+              </button>
+              <button
+                onClick={() => setShowDeclineBox(false)}
+                className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-sm py-2.5 rounded-lg"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
+        {assignment && (
+          <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <h2 className="text-sm font-bold text-gray-900 mb-2">Assigned Lineman</h2>
+            <p className="text-sm text-gray-700">
+              Status: <span className="font-medium">{labelize(assignment.status)}</span>
+            </p>
+            <p className="text-xs text-gray-400 mt-1">
+              Assigned:{' '}
+              {new Date(assignment.assigned_at).toLocaleString('en-PH', {
+                month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit',
+              })}
+            </p>
+          </div>
+        )}
+      </div>
+
+      {showAssignModal && (
+        <AssignLinemanModal
+          reportId={id}
+          onClose={() => setShowAssignModal(false)}
+          onAssigned={() => {
+            setShowAssignModal(false)
+            router.push('/supervisor/dispatch')
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+function AssignLinemanModal({ reportId, onClose, onAssigned }) {
+  const [linemen, setLinemen] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [assigning, setAssigning] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    async function loadLinemen() {
+      const supabase = createClient()
+      const { data, error: rpcError } = await supabase.rpc(
+        'get_lineman_recommendations',
+        { p_report_id: reportId }
+      )
+      if (rpcError) setError(rpcError.message)
+      setLinemen(data || [])
+      setLoading(false)
+    }
+    loadLinemen()
+  }, [reportId])
+
+  async function handleAssign(linemanId) {
+    setAssigning(true)
+    setError('')
+    const supabase = createClient()
+
+    const { error: assignError } = await supabase.from('job_assignments').insert({
+      report_id: reportId,
+      lineman_id: linemanId,
+      status: 'assigned',
+      assigned_at: new Date().toISOString(),
+    })
+
+    if (assignError) {
+      setError(assignError.message)
+      setAssigning(false)
+      return
+    }
+
+    const { error: reportError } = await supabase
+      .from('reports')
+      .update({ status: 'dispatched' })
+      .eq('report_id', reportId)
+
+    if (reportError) {
+      setError(reportError.message)
+      setAssigning(false)
+      return
+    }
+
+    onAssigned()
+  }
+
+  return (
+    <Modal title="Assign Lineman" onClose={onClose}>
+      <p className="text-sm text-gray-500 mb-4 -mt-2">
+        Ranked by proximity where location is known, otherwise by current
+        workload.
+      </p>
+
+      {loading && <p className="text-sm text-gray-500">Loading recommendations…</p>}
+
+      {error && (
+        <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-4">
+          {error}
+        </p>
+      )}
+
+      {!loading && linemen.length === 0 && (
+        <p className="text-sm text-gray-500">No available linemen found.</p>
+      )}
+
+      <div className="space-y-2">
+        {linemen.map((l) => (
+          <div
+            key={l.lineman_id}
+            className="flex items-center justify-between border border-gray-200 rounded-lg p-3"
+          >
+            <div>
+              <p className="text-sm font-semibold text-gray-900">
+                {l.first_name} {l.last_name}
+              </p>
+              <p className="text-xs text-gray-500">
+                {l.assigned_area_office || 'No area set'} • {l.active_jobs} active job
+                {l.active_jobs === 1 ? '' : 's'}
+                {l.distance_meters != null &&
+                  ` • ${Math.round(l.distance_meters)}m away`}
+              </p>
+            </div>
+            <button
+              onClick={() => handleAssign(l.lineman_id)}
+              disabled={assigning}
+              className="bg-blue-700 hover:bg-blue-800 disabled:opacity-60 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-colors"
+            >
+              Assign
+            </button>
+          </div>
+        ))}
+      </div>
+    </Modal>
+  )
+}
