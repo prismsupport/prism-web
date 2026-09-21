@@ -6,6 +6,9 @@ import Modal from '@/components/ui/Modal'
 import FormSection from '@/components/ui/FormSection'
 import FormField from '@/components/ui/FormField'
 import StatusDot from '@/components/ui/StatusDot'
+import Pagination from '@/components/ui/Pagination'
+
+const PAGE_SIZE = 10
 
 export default function UsersPage() {
   const [activeTab, setActiveTab] = useState('lineman')
@@ -22,6 +25,9 @@ export default function UsersPage() {
   const [sortOrder, setSortOrder] = useState('Name (A-Z)')
   const [billingStatusFilter, setBillingStatusFilter] = useState('all')
 
+  const [linemanPage, setLinemanPage] = useState(1)
+  const [consumerPage, setConsumerPage] = useState(1)
+  
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [selectedLineman, setSelectedLineman] = useState(null)
   const [selectedConsumer, setSelectedConsumer] = useState(null)
@@ -154,13 +160,19 @@ export default function UsersPage() {
     setSelectedConsumer(null)
   }
 
-  const filteredLinemen = linemen
+    const filteredLinemen = linemen
     .filter((l) => areaFilter === 'All Area' || l.assigned_area_office === areaFilter)
     .sort((a, b) =>
       sortOrder === 'Name (A-Z)'
         ? a.first_name.localeCompare(b.first_name)
         : b.first_name.localeCompare(a.first_name)
     )
+
+  const linemanTotalPages = Math.max(1, Math.ceil(filteredLinemen.length / PAGE_SIZE))
+  const paginatedLinemen = filteredLinemen.slice(
+    (linemanPage - 1) * PAGE_SIZE,
+    linemanPage * PAGE_SIZE
+  )
 
   return (
     <div>
@@ -219,7 +231,10 @@ export default function UsersPage() {
                 </span>
                 <select
                   value={areaFilter}
-                  onChange={(e) => setAreaFilter(e.target.value)}
+                  onChange={(e) => {
+                    setAreaFilter(e.target.value)
+                    setLinemanPage(1)
+                  }}
                   className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white"
                 >
                   <option>All Area</option>
@@ -234,7 +249,10 @@ export default function UsersPage() {
                 </span>
                 <select
                   value={sortOrder}
-                  onChange={(e) => setSortOrder(e.target.value)}
+                  onChange={(e) => {
+                    setSortOrder(e.target.value)
+                    setLinemanPage(1)
+                  }}
                   className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white"
                 >
                   <option>Name (A-Z)</option>
@@ -276,7 +294,7 @@ export default function UsersPage() {
                   </tr>
                 )}
                 {!loading &&
-                  filteredLinemen.map((l) => (
+                  paginatedLinemen.map((l) => (
                     <tr key={l.id} className="border-b border-gray-100 last:border-0">
                       <td className="px-5 py-4 font-medium text-gray-900">
                         {l.first_name} {l.last_name}
@@ -297,6 +315,15 @@ export default function UsersPage() {
                   ))}
               </tbody>
             </table>
+            {!loading && (
+              <Pagination
+                page={linemanPage}
+                totalPages={linemanTotalPages}
+                totalCount={filteredLinemen.length}
+                pageSize={PAGE_SIZE}
+                onPageChange={setLinemanPage}
+              />
+            )}
           </div>
         </>
       ) : activeTab === 'consumer' ? (
@@ -334,7 +361,9 @@ export default function UsersPage() {
                   </tr>
                 )}
                 {!loading &&
-                  consumers.map((c) => (
+                  consumers
+                    .slice((consumerPage - 1) * PAGE_SIZE, consumerPage * PAGE_SIZE)
+                    .map((c) => (
                     <tr key={c.id} className="border-b border-gray-100 last:border-0">
                       <td className="px-5 py-4 font-medium text-gray-900">
                         {c.first_name} {c.last_name}
@@ -357,6 +386,15 @@ export default function UsersPage() {
                   ))}
               </tbody>
             </table>
+            {!loading && (
+              <Pagination
+                page={consumerPage}
+                totalPages={Math.max(1, Math.ceil(consumers.length / PAGE_SIZE))}
+                totalCount={consumers.length}
+                pageSize={PAGE_SIZE}
+                onPageChange={setConsumerPage}
+              />
+            )}
           </div>
         </>
       ) : (
@@ -869,6 +907,7 @@ function ManageAreaOfficesModal({ cooperativeId, areaOffices, onClose, onUpdated
 
 // ---------- Billing Requests tab content ----------
 function BillingRequestsTab({ billingRequests, statusFilter, onFilterChange, onSelectRequest }) {
+  const [billingPage, setBillingPage] = useState(1)
   const counts = {
     all: billingRequests.length,
     pending: billingRequests.filter((r) => r.status === 'pending').length,
@@ -880,6 +919,12 @@ function BillingRequestsTab({ billingRequests, statusFilter, onFilterChange, onS
     statusFilter === 'all'
       ? billingRequests
       : billingRequests.filter((r) => r.status === statusFilter)
+
+  const billingTotalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const paginatedBilling = filtered.slice(
+    (billingPage - 1) * PAGE_SIZE,
+    billingPage * PAGE_SIZE
+  )
 
   const cards = [
     { key: 'all', label: 'All Requests', color: 'text-blue-700' },
@@ -901,7 +946,10 @@ function BillingRequestsTab({ billingRequests, statusFilter, onFilterChange, onS
           return (
             <button
               key={c.key}
-              onClick={() => onFilterChange(c.key)}
+              onClick={() => {
+                onFilterChange(c.key)
+                setBillingPage(1)
+              }}
               className={`text-left bg-white rounded-xl border p-4 transition-all ${
                 isActive ? 'border-blue-600 ring-1 ring-blue-600' : 'border-gray-200 hover:border-gray-300'
               }`}
@@ -935,7 +983,7 @@ function BillingRequestsTab({ billingRequests, statusFilter, onFilterChange, onS
                 </td>
               </tr>
             )}
-            {filtered.map((r) => (
+            {paginatedBilling.map((r) => (
               <tr key={r.link_id} className="border-b border-gray-100 last:border-0">
                 <td className="px-5 py-4 font-medium text-gray-900">
                   {r.consumerName?.first_name} {r.consumerName?.last_name}
@@ -968,6 +1016,13 @@ function BillingRequestsTab({ billingRequests, statusFilter, onFilterChange, onS
             ))}
           </tbody>
         </table>
+        <Pagination
+          page={billingPage}
+          totalPages={billingTotalPages}
+          totalCount={filtered.length}
+          pageSize={PAGE_SIZE}
+          onPageChange={setBillingPage}
+        />
       </div>
     </div>
   )

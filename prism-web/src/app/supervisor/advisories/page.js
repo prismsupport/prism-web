@@ -3,6 +3,9 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Modal from '@/components/ui/Modal'
+import Pagination from '@/components/ui/Pagination'
+
+const PAGE_SIZE = 10
 
 const SCOPE_TYPES = ['entire_cooperative', 'feeder', 'municipality', 'barangay']
 
@@ -47,6 +50,7 @@ export default function AdvisoriesPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
+  const [page, setPage] = useState(1)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [editingAdvisory, setEditingAdvisory] = useState(null)
   const [deletingAdvisory, setDeletingAdvisory] = useState(null)
@@ -146,6 +150,9 @@ export default function AdvisoriesPage() {
     return statusMatch && areaMatch
   })
 
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+
   return (
     <div>
       <h1 className="text-2xl font-bold text-gray-900">Advisories Management</h1>
@@ -159,28 +166,40 @@ export default function AdvisoriesPage() {
           value={counts.all}
           color="text-blue-700"
           active={statusFilter === 'all'}
-          onClick={() => setStatusFilter('all')}
+          onClick={() => {
+            setStatusFilter('all')
+            setPage(1)
+          }}
         />
         <StatCard
           label="Upcoming"
           value={counts.upcoming}
           color="text-amber-600"
           active={statusFilter === 'upcoming'}
-          onClick={() => setStatusFilter('upcoming')}
+          onClick={() => {
+            setStatusFilter('upcoming')
+            setPage(1)
+          }}
         />
         <StatCard
           label="Active"
           value={counts.active}
           color="text-green-600"
           active={statusFilter === 'active'}
-          onClick={() => setStatusFilter('active')}
+          onClick={() => {
+            setStatusFilter('active')
+            setPage(1)
+          }}
         />
         <StatCard
           label="Completed"
           value={counts.completed}
           color="text-gray-900"
           active={statusFilter === 'completed'}
-          onClick={() => setStatusFilter('completed')}
+          onClick={() => {
+            setStatusFilter('completed')
+            setPage(1)
+          }}
         />
       </div>
 
@@ -189,7 +208,10 @@ export default function AdvisoriesPage() {
           <span className="text-xs font-bold text-gray-500 tracking-wide">AREA</span>
           <select
             value={areaFilter}
-            onChange={(e) => setAreaFilter(e.target.value)}
+            onChange={(e) => {
+              setAreaFilter(e.target.value)
+              setPage(1)
+            }}
             className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white"
           >
             <option>All Area</option>
@@ -242,7 +264,7 @@ export default function AdvisoriesPage() {
               </tr>
             )}
             {!loading &&
-              filtered.map((a) => (
+              paginated.map((a) => (
                 <tr key={a.advisory_id} className="border-b border-gray-100 last:border-0">
                   <td className="px-5 py-4 font-semibold text-gray-900">{a.title}</td>
                   <td className="px-5 py-4 text-gray-600 max-w-xs truncate">
@@ -300,6 +322,15 @@ export default function AdvisoriesPage() {
               ))}
           </tbody>
         </table>
+        {!loading && (
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            totalCount={filtered.length}
+            pageSize={PAGE_SIZE}
+            onPageChange={setPage}
+          />
+        )}
       </div>
 
       {(showCreateModal || editingAdvisory) && (

@@ -3,6 +3,9 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Modal from '@/components/ui/Modal'
+import Pagination from '@/components/ui/Pagination'
+
+const PAGE_SIZE = 10
 
 const CATEGORIES = ['billing', 'technical', 'outages']
 
@@ -20,6 +23,9 @@ export default function FaqManagementPage() {
   const [inquiries, setInquiries] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+
+  const [entriesPage, setEntriesPage] = useState(1)
+  const [inquiriesPage, setInquiriesPage] = useState(1)
 
   const [showAddModal, setShowAddModal] = useState(false)
   const [editingEntry, setEditingEntry] = useState(null)
@@ -126,13 +132,19 @@ export default function FaqManagementPage() {
           <div className="flex gap-2">
             <TabButton
               active={activeTab === 'all'}
-              onClick={() => setActiveTab('all')}
+              onClick={() => {
+                setActiveTab('all')
+                setEntriesPage(1)
+              }}
             >
               All Categories
             </TabButton>
             <TabButton
               active={activeTab === 'unanswered'}
-              onClick={() => setActiveTab('unanswered')}
+              onClick={() => {
+                setActiveTab('unanswered')
+                setInquiriesPage(1)
+              }}
             >
               Unanswered{' '}
               {inquiries.length > 0 && (
@@ -145,7 +157,10 @@ export default function FaqManagementPage() {
               <TabButton
                 key={cat}
                 active={activeTab === cat}
-                onClick={() => setActiveTab(cat)}
+                onClick={() => {
+                  setActiveTab(cat)
+                  setEntriesPage(1)
+                }}
               >
                 {cat.charAt(0).toUpperCase() + cat.slice(1)}
               </TabButton>
@@ -168,7 +183,9 @@ export default function FaqManagementPage() {
             {inquiries.length === 0 && (
               <p className="text-sm text-gray-500 p-5">No pending inquiries.</p>
             )}
-            {inquiries.map((inq) => (
+            {inquiries
+              .slice((inquiriesPage - 1) * PAGE_SIZE, inquiriesPage * PAGE_SIZE)
+              .map((inq) => (
               <div
                 key={inq.faq_inquiries_id}
                 className="flex items-center justify-between gap-4 px-5 py-4 border-b border-gray-100 last:border-0"
@@ -199,6 +216,13 @@ export default function FaqManagementPage() {
                 </button>
               </div>
             ))}
+            <Pagination
+              page={inquiriesPage}
+              totalPages={Math.max(1, Math.ceil(inquiries.length / PAGE_SIZE))}
+              totalCount={inquiries.length}
+              pageSize={PAGE_SIZE}
+              onPageChange={setInquiriesPage}
+            />
           </div>
         )}
 
@@ -207,7 +231,9 @@ export default function FaqManagementPage() {
             {filteredEntries.length === 0 && (
               <p className="text-sm text-gray-500 p-5">No FAQ entries yet.</p>
             )}
-            {filteredEntries.map((entry) => (
+            {filteredEntries
+              .slice((entriesPage - 1) * PAGE_SIZE, entriesPage * PAGE_SIZE)
+              .map((entry) => (
               <div
                 key={entry.faq_id}
                 className="flex items-start justify-between gap-4 px-5 py-4 border-b border-gray-100 last:border-0"
@@ -252,6 +278,13 @@ export default function FaqManagementPage() {
                 </div>
               </div>
             ))}
+            <Pagination
+              page={entriesPage}
+              totalPages={Math.max(1, Math.ceil(filteredEntries.length / PAGE_SIZE))}
+              totalCount={filteredEntries.length}
+              pageSize={PAGE_SIZE}
+              onPageChange={setEntriesPage}
+            />
           </div>
         )}
       </div>
