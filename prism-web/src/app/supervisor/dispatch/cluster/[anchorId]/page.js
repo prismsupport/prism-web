@@ -281,9 +281,11 @@ export default function ClusterReviewPage() {
           ● ACTIVE INCIDENT
         </div>
         <ReportMap
-          lat={anchorReport?.lat}
-          lng={anchorReport?.lng}
-          label={anchorReport?.nearest_landmark || anchorReport?.barangay}
+          markers={members.map((m) => ({
+            lat: m.lat,
+            lng: m.lng,
+            label: `${m.reporterName?.first_name || ''} ${m.reporterName?.last_name || ''} — ${m.ticket_number}`,
+          }))}
         />
       </div>
 
