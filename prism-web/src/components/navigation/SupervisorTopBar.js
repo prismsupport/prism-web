@@ -1,14 +1,23 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 export default function SupervisorTopBar({ supervisorName, onLogout }) {
+  const router = useRouter();
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [searchText, setSearchText] = useState("");
+
+  function handleSearchSubmit(event) {
+    event.preventDefault();
+    const query = searchText.trim();
+    if (query) router.push(`/supervisor/search?q=${encodeURIComponent(query)}`);
+  }
 
   return (
     <header className="sticky top-0 z-30 flex shrink-0 items-center justify-between border-b border-gray-200 bg-white px-8 py-4">
-      <div className="relative w-full max-w-lg">
+      <form onSubmit={handleSearchSubmit} className="relative w-full max-w-lg">
         <svg
           xmlns="http://www.w3.org/2000/svg"
           viewBox="0 0 24 24"
@@ -23,10 +32,13 @@ export default function SupervisorTopBar({ supervisorName, onLogout }) {
         </svg>
         <input
           type="text"
+          aria-label="Search reports, tickets, or users"
           placeholder="Search reports, tickets, or users..."
+          value={searchText}
+          onChange={(event) => setSearchText(event.target.value)}
           className="w-full rounded-lg border border-gray-200 bg-gray-50 py-2.5 pl-9 pr-3.5 text-sm placeholder-gray-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-600"
         />
-      </div>
+      </form>
 
       <div className="relative ml-4">
         <button
