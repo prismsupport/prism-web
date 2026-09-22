@@ -462,7 +462,9 @@ export default function DispatchPage() {
                         : 'Unassigned'}
                     </td>
                     <td className="px-5 py-4 text-gray-600">
-                      {formatDateTime(assignment?.assigned_at || t.updated_at || t.created_at)}
+                      {formatDateTime(
+                        assignment?.updated_at || assignment?.assigned_at || t.updated_at || t.created_at
+                      )}
                     </td>
                     <td className="px-5 py-4">
                       {isReviewable ? (
