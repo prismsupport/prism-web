@@ -6,13 +6,15 @@ export default function ReportMap({ lat, lng, label, markers }) {
   const containerRef = useRef(null)
   const mapRef = useRef(null)
 
-  const points = markers && markers.length > 0 ? markers : lat != null ? [{ lat, lng, label }] : []
+  const rawPoints = markers && markers.length > 0 ? markers : lat != null ? [{ lat, lng, label }] : []
+  const points = rawPoints.filter((p) => p.lat != null && p.lng != null)
 
   useEffect(() => {
-    if (!containerRef.current || mapRef.current || points.length === 0) return
+    let cancelled = false
+    if (!containerRef.current || points.length === 0) return
 
     import('leaflet').then((L) => {
-      if (mapRef.current) return
+      if (cancelled || mapRef.current) return
 
       delete L.Icon.Default.prototype._getIconUrl
       L.Icon.Default.mergeOptions({
@@ -29,26 +31,24 @@ export default function ReportMap({ lat, lng, label, markers }) {
         attribution: '&copy; OpenStreetMap contributors',
       }).addTo(map)
 
-      const markerGroup = []
-      points.forEach((p) => {
-        const marker = L.marker([p.lat, p.lng]).addTo(map).bindPopup(p.label || 'Location')
-        markerGroup.push(marker)
-      })
+      const markerInstances = points.map((p) =>
+        L.marker([p.lat, p.lng]).addTo(map).bindPopup(p.label || 'Location')
+      )
 
-      // If there's more than one point, fit the map to show all of them
       if (points.length > 1) {
-        const group = L.featureGroup(markerGroup)
+        const group = L.featureGroup(markerInstances)
         map.fitBounds(group.getBounds().pad(0.2))
       }
     })
 
     return () => {
+      cancelled = true
       if (mapRef.current) {
         mapRef.current.remove()
         mapRef.current = null
       }
     }
-  }, [points])
+  }, [JSON.stringify(points)])
 
   if (points.length === 0) {
     return (
