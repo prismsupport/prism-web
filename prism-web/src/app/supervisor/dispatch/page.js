@@ -64,6 +64,7 @@ export default function DispatchPage() {
   const [assignments, setAssignments] = useState([])
   const [linemenNames, setLinemenNames] = useState({})
   const [clusters, setClusters] = useState([])
+  const [masterTickets, setMasterTickets] = useState([])
 
   const [priorityFilter, setPriorityFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
@@ -106,9 +107,24 @@ export default function DispatchPage() {
       .order('created_at', { ascending: false })
 
     if (reportError) setError(reportError.message)
-    setReports(reportData || [])
 
-    const reportIds = (reportData || []).map((r) => r.report_id)
+    // Reports already folded into a master ticket are represented by that
+    // ticket instead, not listed individually anymore.
+    const standaloneReports = (reportData || []).filter((r) => !r.master_id)
+    setReports(standaloneReports)
+
+    const { data: masterData, error: masterError } = await supabase
+      .from('master_tickets')
+      .select('*')
+      .eq('cooperative_id', coopId)
+      .order('created_at', { ascending: false })
+
+    if (masterError) setError((prev) => prev || masterError.message)
+    setMasterTickets(masterData || [])
+
+    const reportIds = standaloneReports.map((r) => r.report_id)
+    const masterIds = (masterData || []).map((m) => m.master_id)
+
     let assignmentData = []
     if (reportIds.length > 0) {
       const { data } = await supabase
@@ -116,7 +132,15 @@ export default function DispatchPage() {
         .select('*')
         .in('report_id', reportIds)
         .order('assigned_at', { ascending: false })
-      assignmentData = data || []
+      assignmentData = [...assignmentData, ...(data || [])]
+    }
+    if (masterIds.length > 0) {
+      const { data } = await supabase
+        .from('job_assignments')
+        .select('*')
+        .in('master_id', masterIds)
+        .order('assigned_at', { ascending: false })
+      assignmentData = [...assignmentData, ...(data || [])]
     }
     setAssignments(assignmentData)
 
@@ -145,8 +169,10 @@ export default function DispatchPage() {
     setLoading(false)
   }
 
-  function assignmentFor(reportId) {
-    return assignments.find((a) => a.report_id === reportId)
+  function assignmentFor(reportId, masterId) {
+    return assignments.find(
+      (a) => (reportId && a.report_id === reportId) || (masterId && a.master_id === masterId)
+    )
   }
 
   // The single source of truth for "what bucket is this report really in"
@@ -163,17 +189,33 @@ export default function DispatchPage() {
     return assignment ? assignment.status : report.status
   }
 
-  const counts = {
-    pending: reports.filter((r) => bucketFor(r) === 'pending').length,
-    dispatched: reports.filter((r) => bucketFor(r) === 'dispatched').length,
-    in_progress: reports.filter((r) => bucketFor(r) === 'in_progress').length,
-    qa_review: reports.filter((r) => bucketFor(r) === 'qa_review').length,
-    resolved: reports.filter((r) => bucketFor(r) === 'resolved').length,
+  const allTickets = [
+    ...reports.map((r) => ({ ...r, kind: 'report', ticketKey: r.report_id })),
+    ...masterTickets.map((m) => ({ ...m, kind: 'master', ticketKey: m.master_id })),
+  ]
+
+  function bucketForTicket(ticket) {
+    const assignment =
+      ticket.kind === 'report'
+        ? assignmentFor(ticket.report_id, null)
+        : assignmentFor(null, ticket.master_id)
+    if (assignment) {
+      return ASSIGNMENT_TO_BUCKET[assignment.status] || ticket.status
+    }
+    return ticket.status
   }
 
-  const filtered = reports.filter((r) => {
-    const priorityMatch = priorityFilter === 'all' || r.priority === priorityFilter
-    const statusMatch = statusFilter === 'all' || bucketFor(r) === statusFilter
+  const counts = {
+    pending: allTickets.filter((t) => bucketForTicket(t) === 'pending').length,
+    dispatched: allTickets.filter((t) => bucketForTicket(t) === 'dispatched').length,
+    in_progress: allTickets.filter((t) => bucketForTicket(t) === 'in_progress').length,
+    qa_review: allTickets.filter((t) => bucketForTicket(t) === 'qa_review').length,
+    resolved: allTickets.filter((t) => bucketForTicket(t) === 'resolved').length,
+  }
+
+  const filtered = allTickets.filter((t) => {
+    const priorityMatch = priorityFilter === 'all' || t.priority === priorityFilter
+    const statusMatch = statusFilter === 'all' || bucketForTicket(t) === statusFilter
     return priorityMatch && statusMatch
   })
 
@@ -278,14 +320,12 @@ export default function DispatchPage() {
             </select>
           </div>
         </div>
-        <button
-          onClick={() =>
-            alert('Manual Master Ticket creation is a separate feature — not built yet.')
-          }
-          className="bg-blue-700 hover:bg-blue-800 text-white text-sm font-semibold px-4 py-2.5 rounded-lg transition-colors"
+        <Link
+          href="/supervisor/dispatch/create-master-ticket"
+          className="bg-blue-700 hover:bg-blue-800 text-white text-sm font-semibold px-4 py-2.5 rounded-lg transition-colors inline-block"
         >
           + Create Master Ticket
-        </button>
+        </Link>
       </div>
 
       {error && (
@@ -353,17 +393,30 @@ export default function DispatchPage() {
               </tr>
             )}
             {!loading &&
-              paginated.map((r) => {
-                const assignment = assignmentFor(r.report_id)
-                const bucket = bucketFor(r)
-                const status = displayStatus(r)
-                const isClustered = clusteredReportIds.has(r.report_id)
-                const isReviewable = !assignment && r.status === 'pending'
+              paginated.map((t) => {
+                const isMaster = t.kind === 'master'
+                const assignment = isMaster
+                  ? assignmentFor(null, t.master_id)
+                  : assignmentFor(t.report_id, null)
+                const bucket = bucketForTicket(t)
+                const status = assignment ? assignment.status : t.status
+                const isClustered = !isMaster && clusteredReportIds.has(t.report_id)
+                const isReviewable = !isMaster && !assignment && t.status === 'pending'
+                const detailHref = isMaster
+                  ? `/supervisor/dispatch/master/${t.master_id}`
+                  : `/supervisor/dispatch/report/${t.report_id}`
 
                 return (
-                  <tr key={r.report_id} className="border-b border-gray-100 last:border-0">
+                  <tr key={t.ticketKey} className="border-b border-gray-100 last:border-0">
                     <td className="px-5 py-4">
-                      <p className="font-semibold text-gray-900">{r.ticket_number}</p>
+                      <p className="font-semibold text-gray-900">
+                        {isMaster ? t.master_ticket : t.ticket_number}
+                        {isMaster && (
+                          <span className="ml-2 text-xs font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded">
+                            MASTER · {t.report_count}
+                          </span>
+                        )}
+                      </p>
                       {isClustered && (
                         <p className="text-xs text-green-600 font-medium flex items-center gap-1 mt-0.5">
                           <span className="w-1.5 h-1.5 rounded-full bg-green-600" />
@@ -372,11 +425,11 @@ export default function DispatchPage() {
                       )}
                     </td>
                     <td className="px-5 py-4">
-                      {r.priority ? (
+                      {t.priority ? (
                         <span
-                          className={`inline-block text-xs font-bold px-2 py-0.5 rounded uppercase ${priorityStyles[r.priority]}`}
+                          className={`inline-block text-xs font-bold px-2 py-0.5 rounded uppercase ${priorityStyles[t.priority]}`}
                         >
-                          {r.priority}
+                          {t.priority}
                         </span>
                       ) : (
                         <span className="inline-block text-xs font-bold px-2 py-0.5 rounded uppercase bg-gray-100 text-gray-500">
@@ -386,11 +439,13 @@ export default function DispatchPage() {
                     </td>
                     <td className="px-5 py-4">
                       <p className="font-medium text-gray-900">
-                        {r.nearest_landmark || `${r.barangay}, ${r.municipality}`}
+                        {isMaster
+                          ? `${t.barangay}, ${t.municipality}`
+                          : t.nearest_landmark || `${t.barangay}, ${t.municipality}`}
                       </p>
                       <p className="text-xs text-gray-400">
-                        Zone {r.zone || '—'}, {r.barangay}, {r.municipality} •{' '}
-                        {formatTime(r.created_at)}
+                        {!isMaster && `Zone ${t.zone || '—'}, `}
+                        {t.barangay}, {t.municipality} • {formatTime(t.created_at)}
                       </p>
                     </td>
                     <td className="px-5 py-4">
@@ -407,19 +462,19 @@ export default function DispatchPage() {
                         : 'Unassigned'}
                     </td>
                     <td className="px-5 py-4 text-gray-600">
-                      {formatDateTime(assignment?.assigned_at || r.updated_at || r.created_at)}
+                      {formatDateTime(assignment?.assigned_at || t.updated_at || t.created_at)}
                     </td>
                     <td className="px-5 py-4">
                       {isReviewable ? (
                         <Link
-                          href={`/supervisor/dispatch/report/${r.report_id}`}
+                          href={detailHref}
                           className="bg-blue-700 hover:bg-blue-800 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-colors inline-block"
                         >
                           Review
                         </Link>
                       ) : (
                         <Link
-                          href={`/supervisor/dispatch/report/${r.report_id}`}
+                          href={detailHref}
                           className="bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold px-4 py-2 rounded-lg transition-colors inline-block"
                         >
                           Details

@@ -109,7 +109,6 @@ export default function ClusterReviewPage() {
     }
 
     const merged = (allReports || [])
-      .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
       .map((r) => {
         const isAnchor = r.report_id === anchorId
         const distance =
@@ -127,6 +126,7 @@ export default function ClusterReviewPage() {
           minutesApart,
         }
       })
+      .sort((a, b) => (b.isAnchor ? 1 : 0) - (a.isAnchor ? 1 : 0) || a.distance - b.distance)
 
     setMembers(merged)
     setLoading(false)
@@ -313,10 +313,7 @@ export default function ClusterReviewPage() {
               const isExpanded = expandedId === m.report_id
               return (
                 <div key={m.report_id} className="border border-gray-200 rounded-lg">
-                  <button
-                    onClick={() => setExpandedId(isExpanded ? null : m.report_id)}
-                    className="w-full flex items-center justify-between p-3 text-left"
-                  >
+                  <div className="w-full flex items-center justify-between p-3">
                     <div>
                       <p className="text-sm font-semibold text-gray-900">
                         {m.reporterName?.first_name} {m.reporterName?.last_name}
@@ -326,21 +323,25 @@ export default function ClusterReviewPage() {
                           </span>
                         )}
                       </p>
-                      <p className="text-xs text-gray-400">
-                        {m.ticket_number}
-                        {!m.isAnchor && (
-                          <>
-                            {' '}
-                            • {Math.round(m.distance)}m from anchor •{' '}
+                      <p className="text-xs text-gray-400 mt-0.5">{m.ticket_number}</p>
+                      {!m.isAnchor && (
+                        <>
+                          <p className="text-xs text-gray-400">
+                            {Math.round(m.distance)}m from anchor
+                          </p>
+                          <p className="text-xs text-gray-400">
                             {Math.round(m.minutesApart)} min apart
-                          </>
-                        )}
-                      </p>
+                          </p>
+                        </>
+                      )}
                     </div>
-                    <span className="text-gray-400 text-xs">
-                      {isExpanded ? '▲ Hide' : '▼ Review'}
-                    </span>
-                  </button>
+                    <button
+                      onClick={() => setExpandedId(isExpanded ? null : m.report_id)}
+                      className="bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap"
+                    >
+                      {isExpanded ? 'Hide' : 'Review'}
+                    </button>
+                  </div>
 
                   {isExpanded && (
                     <div className="border-t border-gray-100 p-3 text-sm space-y-2">
