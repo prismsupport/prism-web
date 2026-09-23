@@ -6,21 +6,18 @@ import { createClient } from '@/lib/supabase/client'
 import ReportMap from '@/components/ui/ReportMap'
 import LinemanRecommendationPanel from '@/components/ui/LinemanRecommendationPanel'
 import QAReviewSection from '@/components/ui/QAReviewSection'
+import TicketDetailHeader from '@/components/dispatch/TicketDetailHeader'
+import TicketStatusPriority from '@/components/dispatch/TicketStatusPriority'
+import AssignedLinemanCard from '@/components/dispatch/AssignedLinemanCard'
+import JobOrderStatusLog from '@/components/dispatch/JobOrderStatusLog'
+import LinemanDispatchedModal from '@/components/dispatch/LinemanDispatchedModal'
+import ResolveTicketBar from '@/components/dispatch/ResolveTicketBar'
 
 function labelize(value) {
   return value
     .split('_')
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join(' ')
-}
-
-const statusColor = {
-  pending: 'text-red-600',
-  dispatched: 'text-amber-600',
-  in_progress: 'text-amber-600',
-  qa_review: 'text-blue-600',
-  resolved: 'text-green-600',
-  cancelled: 'text-gray-400',
 }
 
 export default function MasterTicketDetailPage() {
@@ -30,8 +27,8 @@ export default function MasterTicketDetailPage() {
   const [master, setMaster] = useState(null)
   const [members, setMembers] = useState([])
   const [assignment, setAssignment] = useState(null)
-  const [statusLogs, setStatusLogs] = useState([])
   const [assignedLinemanName, setAssignedLinemanName] = useState('')
+  const [statusLogs, setStatusLogs] = useState([])
   const [cooperativeId, setCooperativeId] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -41,6 +38,9 @@ export default function MasterTicketDetailPage() {
   const [linemenLoading, setLinemenLoading] = useState(false)
   const [linemenError, setLinemenError] = useState('')
   const [assigning, setAssigning] = useState(false)
+  const [actionLoading, setActionLoading] = useState(false)
+
+  const [dispatchedInfo, setDispatchedInfo] = useState(null)
 
   useEffect(() => {
     loadMaster()
@@ -195,7 +195,35 @@ export default function MasterTicketDetailPage() {
       return
     }
 
-    router.push('/supervisor/dispatch')
+    const pickedLineman = linemen.find((l) => l.id === linemanId || l.lineman_id === linemanId)
+
+    setDispatchedInfo({
+      linemanName: pickedLineman?.full_name || pickedLineman?.name || 'Assigned',
+      ticketNumber: master.master_ticket,
+      location: master.barangay,
+      barangay: master.municipality,
+      priority: master.priority,
+    })
+    setAssigning(false)
+    setShowAssignPanel(false)
+  }
+
+  async function handleReopen() {
+    setActionLoading(true)
+    const supabase = createClient()
+    const { error: updateError } = await supabase
+      .from('job_assignments')
+      .update({ status: 'in_progress' })
+      .eq('assignment_id', assignment.assignment_id)
+
+    if (updateError) {
+      setError(updateError.message)
+      setActionLoading(false)
+      return
+    }
+
+    setActionLoading(false)
+    loadMaster()
   }
 
   if (loading) return <p className="text-sm text-gray-500">Loading…</p>
@@ -207,6 +235,8 @@ export default function MasterTicketDetailPage() {
       </p>
     )
   }
+
+  const currentStatus = assignment ? assignment.status : master.status
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-8rem)]">
@@ -237,34 +267,14 @@ export default function MasterTicketDetailPage() {
       ) : (
         <div className="overflow-y-auto space-y-6">
           <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <h1 className="text-lg font-bold text-gray-900 mb-1">
-              Ticket: {master.master_ticket}
-            </h1>
+            <TicketDetailHeader
+              ticketNumber={master.master_ticket}
+              onClose={() => router.push('/supervisor/dispatch')}
+            />
 
-            <div className="grid grid-cols-2 gap-3 mt-4">
-              <div className="bg-gray-50 rounded-lg p-3">
-                <p className="text-xs font-bold text-gray-500 uppercase mb-1">
-                  Current Status
-                </p>
-                <p
-                  className={`text-sm font-bold ${
-                    statusColor[assignment ? assignment.status : master.status]
-                  }`}
-                >
-                  ● {labelize(assignment ? assignment.status : master.status)}
-                </p>
-              </div>
-              <div className="bg-gray-50 rounded-lg p-3">
-                <p className="text-xs font-bold text-gray-500 uppercase mb-1">
-                  Priority
-                </p>
-                <p className="text-sm font-bold text-red-600">
-                  {master.priority ? labelize(master.priority) : 'None'}
-                </p>
-              </div>
-            </div>
+            <TicketStatusPriority status={currentStatus} priority={master.priority} />
 
-            <div className="mt-4 text-sm">
+            <div className="text-sm">
               <p className="text-xs text-gray-400">Location</p>
               <p className="text-gray-900 font-medium">
                 {master.barangay}, {master.municipality}
@@ -305,49 +315,12 @@ export default function MasterTicketDetailPage() {
             <QAReviewSection assignment={assignment} onReviewed={loadMaster} />
           )}
 
-                    {statusLogs.length > 0 && (
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
-              <h2 className="text-sm font-bold text-gray-900 mb-3">Job Order Status Log</h2>
-              <div className="space-y-2">
-                {statusLogs.map((log) => (
-                  <div
-                    key={log.id}
-                    className="flex items-center justify-between border border-gray-200 rounded-lg p-3"
-                  >
-                    <p className="text-sm font-medium text-gray-900">
-                      ● {labelize(log.new_status)}
-                    </p>
-                    <p className="text-xs text-gray-400">
-                      Status Updated:{' '}
-                      {new Date(log.changed_at).toLocaleTimeString('en-PH', {
-                        hour: 'numeric',
-                        minute: '2-digit',
-                      })}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
           {assignment ? (
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
-              <h2 className="text-sm font-bold text-gray-900 mb-3">
-                Assigned Lineman
-              </h2>
-              <div className="flex items-center justify-between border-2 border-blue-600 rounded-lg p-3">
-                <p className="text-sm font-semibold text-gray-900">
-                  {assignedLinemanName || 'Assigned'}
-                </p>
-                <span className="text-xs text-gray-400">
-                  Assigned:{' '}
-                  {new Date(assignment.assigned_at).toLocaleTimeString('en-PH', {
-                    hour: 'numeric',
-                    minute: '2-digit',
-                  })}
-                </span>
-              </div>
-            </div>
+            <>
+              <AssignedLinemanCard name={assignedLinemanName} assignedAt={assignment.assigned_at} />
+              <ResolveTicketBar status={assignment.status} onReopen={handleReopen} loading={actionLoading} />
+              <JobOrderStatusLog logs={statusLogs} />
+            </>
           ) : (
             <button
               onClick={handleOpenAssignPanel}
@@ -357,6 +330,16 @@ export default function MasterTicketDetailPage() {
             </button>
           )}
         </div>
+      )}
+
+      {dispatchedInfo && (
+        <LinemanDispatchedModal
+          linemanName={dispatchedInfo.linemanName}
+          ticketNumber={dispatchedInfo.ticketNumber}
+          location={dispatchedInfo.location}
+          barangay={dispatchedInfo.barangay}
+          priority={dispatchedInfo.priority}
+        />
       )}
     </div>
   )

@@ -6,22 +6,14 @@ import { createClient } from '@/lib/supabase/client'
 import ReportMap from '@/components/ui/ReportMap'
 import LinemanRecommendationPanel from '@/components/ui/LinemanRecommendationPanel'
 import QAReviewSection from '@/components/ui/QAReviewSection'
-
-function labelize(value) {
-  return value
-    .split('_')
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(' ')
-}
-
-const statusColor = {
-  pending: 'text-red-600',
-  dispatched: 'text-amber-600',
-  in_progress: 'text-amber-600',
-  qa_review: 'text-blue-600',
-  resolved: 'text-green-600',
-  cancelled: 'text-gray-400',
-}
+import TicketDetailHeader from '@/components/dispatch/TicketDetailHeader'
+import TicketStatusPriority from '@/components/dispatch/TicketStatusPriority'
+import AssignedLinemanCard from '@/components/dispatch/AssignedLinemanCard'
+import JobOrderStatusLog from '@/components/dispatch/JobOrderStatusLog'
+import PhotoEvidenceCard from '@/components/dispatch/PhotoEvidenceCard'
+import DeclineReportModal from '@/components/dispatch/DeclineReportModal'
+import LinemanDispatchedModal from '@/components/dispatch/LinemanDispatchedModal'
+import ResolveTicketBar from '@/components/dispatch/ResolveTicketBar'
 
 export default function ReportReviewPage() {
   const { id } = useParams()
@@ -42,9 +34,10 @@ export default function ReportReviewPage() {
   const [linemenError, setLinemenError] = useState('')
   const [assigning, setAssigning] = useState(false)
 
-  const [showDeclineBox, setShowDeclineBox] = useState(false)
-  const [declineReason, setDeclineReason] = useState('')
+  const [showDeclineModal, setShowDeclineModal] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
+
+  const [dispatchedInfo, setDispatchedInfo] = useState(null) // holds data for success modal
 
   useEffect(() => {
     loadReport()
@@ -163,21 +156,27 @@ export default function ReportReviewPage() {
       return
     }
 
-    router.push('/supervisor/dispatch')
+    const pickedLineman = linemen.find((l) => l.id === linemanId || l.lineman_id === linemanId)
+
+    setDispatchedInfo({
+      linemanName: pickedLineman?.full_name || pickedLineman?.name || 'Assigned',
+      ticketNumber: report.ticket_number,
+      location: report.nearest_landmark || report.barangay,
+      barangay: `Zone ${report.zone || '—'}, ${report.barangay}`,
+      priority: report.priority,
+    })
+    setAssigning(false)
+    setShowAssignPanel(false)
   }
 
-  async function handleConfirmDecline() {
-    if (!declineReason.trim()) {
-      setError('Please provide a reason before declining.')
-      return
-    }
+  async function handleConfirmDecline(reason) {
     setActionLoading(true)
     setError('')
     const supabase = createClient()
 
     const { error: updateError } = await supabase
       .from('reports')
-      .update({ status: 'cancelled', decline_reason: declineReason.trim() })
+      .update({ status: 'cancelled', decline_reason: reason })
       .eq('report_id', id)
 
     if (updateError) {
@@ -189,6 +188,24 @@ export default function ReportReviewPage() {
     router.push('/supervisor/dispatch')
   }
 
+  async function handleReopen() {
+    setActionLoading(true)
+    const supabase = createClient()
+    const { error: updateError } = await supabase
+      .from('job_assignments')
+      .update({ status: 'in_progress' })
+      .eq('assignment_id', assignment.assignment_id)
+
+    if (updateError) {
+      setError(updateError.message)
+      setActionLoading(false)
+      return
+    }
+
+    setActionLoading(false)
+    loadReport()
+  }
+
   if (loading) return <p className="text-sm text-gray-500">Loading…</p>
 
   if (!report) {
@@ -196,6 +213,7 @@ export default function ReportReviewPage() {
   }
 
   const isPending = report.status === 'pending' && !assignment
+  const currentStatus = assignment ? assignment.status : report.status
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-8rem)]">
@@ -221,27 +239,13 @@ export default function ReportReviewPage() {
       ) : (
         <div className="overflow-y-auto space-y-6">
           <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <div className="flex items-start justify-between mb-4">
-              <div>
-                <h1 className="text-lg font-bold text-gray-900">Report Details</h1>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  Ticket: {report.ticket_number}
-                </p>
-                <p className="text-xs text-gray-500">
-                  Report from{' '}
-                  <span className="text-blue-700 font-medium">{reporterName}</span>
-                </p>
-              </div>
-            </div>
+            <TicketDetailHeader
+              ticketNumber={report.ticket_number}
+              reporterName={reporterName}
+              onClose={() => router.push('/supervisor/dispatch')}
+            />
 
-            <div className="bg-gray-50 rounded-lg p-3 mb-4">
-              <p className="text-xs font-bold text-gray-500 uppercase mb-1">
-                Current Ticket Status
-              </p>
-              <p className={`text-sm font-bold ${statusColor[report.status]}`}>
-                ● {labelize(assignment ? assignment.status : report.status)}
-              </p>
-            </div>
+            <TicketStatusPriority status={currentStatus} priority={report.priority} />
 
             <div className="space-y-3 text-sm">
               <div>
@@ -252,6 +256,16 @@ export default function ReportReviewPage() {
                   })}
                 </p>
               </div>
+              {assignment?.completed_at && (
+                <div>
+                  <p className="text-xs text-gray-400">Time Restored</p>
+                  <p className="text-gray-900">
+                    {new Date(assignment.completed_at).toLocaleString('en-PH', {
+                      month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit',
+                    })}
+                  </p>
+                </div>
+              )}
               <div>
                 <p className="text-xs text-gray-400">Location</p>
                 <p className="text-gray-900 font-medium">
@@ -290,18 +304,7 @@ export default function ReportReviewPage() {
             </div>
           )}
 
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <h2 className="text-sm font-bold text-gray-900 mb-3">Photo Evidence</h2>
-            {photoSignedUrl ? (
-              <img
-                src={photoSignedUrl}
-                alt="Report evidence"
-                className="w-full rounded-lg border border-gray-200"
-              />
-            ) : (
-              <p className="text-sm text-gray-400 italic">No photo submitted.</p>
-            )}
-          </div>
+          <PhotoEvidenceCard status={currentStatus} photoUrl={photoSignedUrl} />
 
           {error && (
             <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
@@ -309,7 +312,7 @@ export default function ReportReviewPage() {
             </p>
           )}
 
-          {isPending && !showDeclineBox && (
+          {isPending && (
             <div className="space-y-3">
               <button
                 onClick={handleOpenAssignPanel}
@@ -318,7 +321,7 @@ export default function ReportReviewPage() {
                 Assign Lineman
               </button>
               <button
-                onClick={() => setShowDeclineBox(true)}
+                onClick={() => setShowDeclineModal(true)}
                 className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold text-sm py-3 rounded-lg transition-colors"
               >
                 Decline Report
@@ -326,84 +329,38 @@ export default function ReportReviewPage() {
             </div>
           )}
 
-          {isPending && showDeclineBox && (
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
-              <label className="block text-xs font-bold tracking-wide text-gray-600 mb-1.5">
-                REASON FOR DECLINING
-              </label>
-              <textarea
-                value={declineReason}
-                onChange={(e) => setDeclineReason(e.target.value)}
-                rows={3}
-                placeholder="Explain why this report is being declined…"
-                className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm placeholder-gray-400 mb-3"
-              />
-              <div className="flex gap-3">
-                <button
-                  onClick={handleConfirmDecline}
-                  disabled={actionLoading}
-                  className="flex-1 bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white font-semibold text-sm py-2.5 rounded-lg"
-                >
-                  {actionLoading ? 'Submitting…' : 'Confirm Decline'}
-                </button>
-                <button
-                  onClick={() => setShowDeclineBox(false)}
-                  className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-sm py-2.5 rounded-lg"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          )}
-
           {assignment && (assignment.status === 'fixed' || assignment.status === 'resolved') && (
             <QAReviewSection assignment={assignment} onReviewed={loadReport} />
           )}
 
-          {statusLogs.length > 0 && (
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
-              <h2 className="text-sm font-bold text-gray-900 mb-3">Job Order Status Log</h2>
-              <div className="space-y-2">
-                {statusLogs.map((log) => (
-                  <div
-                    key={log.id}
-                    className="flex items-center justify-between border border-gray-200 rounded-lg p-3"
-                  >
-                    <p className="text-sm font-medium text-gray-900">
-                      ● {labelize(log.new_status)}
-                    </p>
-                    <p className="text-xs text-gray-400">
-                      Status Updated:{' '}
-                      {new Date(log.changed_at).toLocaleTimeString('en-PH', {
-                        hour: 'numeric',
-                        minute: '2-digit',
-                      })}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
+          {assignment && (
+            <AssignedLinemanCard name={assignedLinemanName} assignedAt={assignment.assigned_at} />
           )}
 
-          {assignment && (
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
-              <h2 className="text-sm font-bold text-gray-900 mb-2">Assigned Lineman</h2>
-              <p className="text-sm font-semibold text-gray-900">
-                {assignedLinemanName || 'Assigned'}
-              </p>
-              <p className="text-sm text-gray-700">
-                Status:{' '}
-                <span className="font-medium">{labelize(assignment.status)}</span>
-              </p>
-              <p className="text-xs text-gray-400 mt-1">
-                Assigned:{' '}
-                {new Date(assignment.assigned_at).toLocaleString('en-PH', {
-                  month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit',
-                })}
-              </p>
-            </div>
-          )}
+          <ResolveTicketBar status={assignment?.status} onReopen={handleReopen} loading={actionLoading} />
+
+          <JobOrderStatusLog logs={statusLogs} />
         </div>
+      )}
+
+      {showDeclineModal && (
+        <DeclineReportModal
+          reporterName={reporterName}
+          ticketNumber={report.ticket_number}
+          onConfirm={handleConfirmDecline}
+          onCancel={() => setShowDeclineModal(false)}
+          loading={actionLoading}
+        />
+      )}
+
+      {dispatchedInfo && (
+        <LinemanDispatchedModal
+          linemanName={dispatchedInfo.linemanName}
+          ticketNumber={dispatchedInfo.ticketNumber}
+          location={dispatchedInfo.location}
+          barangay={dispatchedInfo.barangay}
+          priority={dispatchedInfo.priority}
+        />
       )}
     </div>
   )
