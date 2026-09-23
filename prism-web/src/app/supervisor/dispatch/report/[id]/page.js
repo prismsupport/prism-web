@@ -320,7 +320,7 @@ export default function ReportReviewPage() {
             </div>
           )}
 
-          {assignment && assignment.status === 'fixed' && (
+          {assignment && (assignment.status === 'fixed' || assignment.status === 'resolved') && (
             <QAReviewSection assignment={assignment} onReviewed={loadReport} />
           )}
 

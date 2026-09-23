@@ -293,7 +293,7 @@ export default function MasterTicketDetailPage() {
             </div>
           </div>
 
-          {assignment && assignment.status === 'fixed' && (
+          {assignment && (assignment.status === 'fixed' || assignment.status === 'resolved') && (
             <QAReviewSection assignment={assignment} onReviewed={loadMaster} />
           )}
 

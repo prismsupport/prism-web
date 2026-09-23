@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 
 export default function QAReviewSection({ assignment, onReviewed }) {
   const [photoUrl, setPhotoUrl] = useState(null)
+  const [voiceUrl, setVoiceUrl] = useState(null)
   const [loading, setLoading] = useState(true)
   const [showRejectBox, setShowRejectBox] = useState(false)
   const [remarks, setRemarks] = useState('')
@@ -12,20 +13,27 @@ export default function QAReviewSection({ assignment, onReviewed }) {
   const [actionLoading, setActionLoading] = useState(false)
 
   useState(() => {
-    async function loadPhoto() {
-      if (!assignment.photo_url) {
-        setLoading(false)
-        return
-      }
-      const supabase = createClient()
+  async function loadMedia() {
+    const supabase = createClient()
+
+    if (assignment.photo_url) {
       const { data } = await supabase.storage
         .from('assignment-proofs')
         .createSignedUrl(assignment.photo_url, 3600)
       if (data) setPhotoUrl(data.signedUrl)
-      setLoading(false)
     }
-    loadPhoto()
-  }, [assignment.photo_url])
+
+    if (assignment.voice_record) {
+      const { data } = await supabase.storage
+        .from('assignment-proofs')
+        .createSignedUrl(assignment.voice_record, 3600)
+      if (data) setVoiceUrl(data.signedUrl)
+    }
+
+    setLoading(false)
+  }
+  loadMedia()
+}, [assignment.photo_url, assignment.voice_record])
 
   async function handleApprove() {
     setActionLoading(true)
@@ -137,7 +145,7 @@ export default function QAReviewSection({ assignment, onReviewed }) {
           <div>
             <p className="text-xs text-gray-400 mb-1">Voice Record</p>
             <audio controls className="w-full">
-              <source src={assignment.voice_record} />
+              <source src={voiceUrl} />
             </audio>
           </div>
         )}
@@ -149,7 +157,11 @@ export default function QAReviewSection({ assignment, onReviewed }) {
         </p>
       )}
 
-      {!showRejectBox ? (
+      {assignment.status === 'resolved' ? (
+        <p className="text-sm text-green-700 bg-green-50 border border-green-100 rounded-lg px-3 py-2 font-medium">
+          ✓ Approved and marked as Resolved
+        </p>
+      ) : !showRejectBox ? (
         <div className="flex gap-3">
           <button
             onClick={handleApprove}
