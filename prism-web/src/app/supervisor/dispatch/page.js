@@ -64,6 +64,7 @@ export default function DispatchPage() {
   const [assignments, setAssignments] = useState([])
   const [linemenNames, setLinemenNames] = useState({})
   const [clusters, setClusters] = useState([])
+  const [joinSuggestions, setJoinSuggestions] = useState([])
   const [masterTickets, setMasterTickets] = useState([])
 
   const [priorityFilter, setPriorityFilter] = useState('all')
@@ -165,6 +166,13 @@ export default function DispatchPage() {
     )
     if (clusterError) setError((prev) => prev || clusterError.message)
     setClusters(clusterData || [])
+
+    const { data: joinData, error: joinError } = await supabase.rpc(
+      'get_join_suggestions',
+      { p_cooperative_id: coopId }
+    )
+    if (joinError) setError((prev) => prev || joinError.message)
+    setJoinSuggestions(joinData || [])
 
     setLoading(false)
   }
@@ -333,6 +341,36 @@ export default function DispatchPage() {
           {error}
         </p>
       )}
+
+      {joinSuggestions.map((s) => (
+        <div
+          key={s.report_id}
+          className="flex items-center justify-between bg-white rounded-xl border border-gray-200 p-4 mb-4"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-purple-50 flex items-center justify-center text-purple-700">
+              ⚟
+            </div>
+            <div>
+              <p className="text-sm font-bold text-gray-900">
+                POSSIBLE MATCH TO EXISTING TICKET
+              </p>
+              <p className="text-sm text-gray-600">
+                <span className="font-medium">{s.ticket_number}</span> may belong to{' '}
+                <span className="text-purple-700 font-medium">{s.target_label}</span>
+                {'   '}Confidence:{' '}
+                <span className="font-semibold text-green-600">{s.score}%</span>
+              </p>
+            </div>
+          </div>
+          <Link
+            href={`/supervisor/dispatch/join/${s.report_id}`}
+            className="bg-purple-700 hover:bg-purple-800 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors whitespace-nowrap"
+          >
+            Review Match
+          </Link>
+        </div>
+      ))}
 
       {clusters.map((cluster) => (
         <div
