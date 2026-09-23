@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import ReportMap from '@/components/ui/ReportMap'
 import LinemanRecommendationPanel from '@/components/ui/LinemanRecommendationPanel'
+import QAReviewSection from '@/components/ui/QAReviewSection'
 
 function labelize(value) {
   return value
@@ -317,6 +318,10 @@ export default function ReportReviewPage() {
                 </button>
               </div>
             </div>
+          )}
+
+          {assignment && assignment.status === 'fixed' && (
+            <QAReviewSection assignment={assignment} onReviewed={loadReport} />
           )}
 
           {assignment && (

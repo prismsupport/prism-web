@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import ReportMap from '@/components/ui/ReportMap'
 import LinemanRecommendationPanel from '@/components/ui/LinemanRecommendationPanel'
+import QAReviewSection from '@/components/ui/QAReviewSection'
 
 function labelize(value) {
   return value
@@ -79,11 +80,19 @@ export default function MasterTicketDetailPage() {
 
     setMaster({ ...masterData, _lat: geo?.lat, _lng: geo?.lng })
 
-    const { data: memberReports } = await supabase
+    const { data: memberReportIds } = await supabase
       .from('reports')
-      .select('report_id, ticket_number, zone, barangay, municipality, consumer_id, created_at')
+      .select('report_id')
       .eq('master_id', id)
-      .order('created_at', { ascending: true })
+
+    const ids = (memberReportIds || []).map((r) => r.report_id)
+    let memberReports = []
+    if (ids.length > 0) {
+      const { data } = await supabase.rpc('get_reports_with_location', {
+        p_report_ids: ids,
+      })
+      memberReports = data || []
+    }
 
     const consumerIds = (memberReports || []).map((r) => r.consumer_id)
     let consumerNames = []
@@ -198,9 +207,11 @@ export default function MasterTicketDetailPage() {
           ● ACTIVE INCIDENT
         </div>
         <ReportMap
-          lat={master._lat}
-          lng={master._lng}
-          label={`${master.barangay}, ${master.municipality}`}
+          markers={members.map((m) => ({
+            lat: m.lat,
+            lng: m.lng,
+            label: `${m.reporterName?.first_name || ''} ${m.reporterName?.last_name || ''} — ${m.ticket_number}`,
+          }))}
         />
       </div>
 
@@ -281,6 +292,10 @@ export default function MasterTicketDetailPage() {
               ))}
             </div>
           </div>
+
+          {assignment && assignment.status === 'fixed' && (
+            <QAReviewSection assignment={assignment} onReviewed={loadMaster} />
+          )}
 
           {assignment ? (
             <div className="bg-white rounded-xl border border-gray-200 p-6">
