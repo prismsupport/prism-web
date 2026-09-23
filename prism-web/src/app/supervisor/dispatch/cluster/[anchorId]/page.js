@@ -294,9 +294,12 @@ export default function ClusterReviewPage() {
           <h1 className="text-lg font-bold text-gray-900 mb-1">
             Potential Duplicate Cluster
           </h1>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-gray-500 mb-3">
             {cluster.area_label} • Overall Confidence:{' '}
             <span className="font-semibold text-green-600">{cluster.confidence}%</span>
+          </p>
+          <p className="text-sm text-blue-700 bg-blue-50 rounded-lg px-3 py-2">
+            The system recommends grouping these reports into one Master Ticket.
           </p>
         </div>
 
