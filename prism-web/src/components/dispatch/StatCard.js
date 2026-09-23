@@ -1,0 +1,15 @@
+export default function StatCard({ label, value, color, active, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`text-left bg-white rounded-xl border p-4 transition-all ${
+        active ? 'border-blue-600 ring-1 ring-blue-600' : 'border-gray-200 hover:border-gray-300'
+      }`}
+    >
+      <p className="text-xs font-bold tracking-wide text-gray-400 uppercase mb-1">
+        {label}
+      </p>
+      <p className={`text-2xl font-bold ${color}`}>{value}</p>
+    </button>
+  )
+}

@@ -4,16 +4,12 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import Pagination from '@/components/ui/Pagination'
+import DispatchStatCards from '@/components/dispatch/DispatchStatCards'
+import DispatchFilters from '@/components/dispatch/DispatchFilters'
+import DuplicateSuggestionCard from '@/components/dispatch/DuplicateSuggestionCard'
+import DispatchTicketRow from '@/components/dispatch/DispatchTicketRow'
 
-const PRIORITIES = ['low', 'medium', 'high', 'critical']
 const PAGE_SIZE = 10
-
-const priorityStyles = {
-  low: 'bg-blue-50 text-blue-700',
-  medium: 'bg-amber-50 text-amber-700',
-  high: 'bg-red-50 text-red-700',
-  critical: 'bg-red-100 text-red-800',
-}
 
 // Maps the more detailed job_assignments.status onto the coarser
 // reports.status "bucket" it belongs to, so counts/filters/table all agree.
@@ -24,39 +20,6 @@ const ASSIGNMENT_TO_BUCKET = {
   in_progress: 'in_progress',
   fixed: 'qa_review',
   resolved: 'resolved',
-}
-
-const bucketColor = {
-  pending: 'text-red-600',
-  dispatched: 'text-amber-600',
-  in_progress: 'text-amber-600',
-  qa_review: 'text-blue-600',
-  resolved: 'text-green-600',
-  cancelled: 'text-gray-400',
-}
-
-function labelize(value) {
-  return value
-    .split('_')
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(' ')
-}
-
-function formatDateTime(dateString) {
-  return new Date(dateString).toLocaleString('en-PH', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  })
-}
-
-function formatTime(dateString) {
-  return new Date(dateString).toLocaleTimeString('en-PH', {
-    hour: 'numeric',
-    minute: '2-digit',
-  })
 }
 
 export default function DispatchPage() {
@@ -109,8 +72,6 @@ export default function DispatchPage() {
 
     if (reportError) setError(reportError.message)
 
-    // Reports already folded into a master ticket are represented by that
-    // ticket instead, not listed individually anymore.
     const standaloneReports = (reportData || []).filter((r) => !r.master_id)
     setReports(standaloneReports)
 
@@ -183,20 +144,6 @@ export default function DispatchPage() {
     )
   }
 
-  // The single source of truth for "what bucket is this report really in"
-  function bucketFor(report) {
-    const assignment = assignmentFor(report.report_id)
-    if (assignment) {
-      return ASSIGNMENT_TO_BUCKET[assignment.status] || report.status
-    }
-    return report.status
-  }
-
-  function displayStatus(report) {
-    const assignment = assignmentFor(report.report_id)
-    return assignment ? assignment.status : report.status
-  }
-
   const allTickets = [
     ...reports.map((r) => ({ ...r, kind: 'report', ticketKey: r.report_id })),
     ...masterTickets.map((m) => ({ ...m, kind: 'master', ticketKey: m.master_id })),
@@ -244,97 +191,19 @@ export default function DispatchPage() {
         Real-time tickets monitoring and lineman coordination.
       </p>
 
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-        <StatCard
-          label="Pending"
-          value={counts.pending}
-          color="text-red-600"
-          active={statusFilter === 'pending'}
-          onClick={() =>
-            handleFilterChange(setStatusFilter, statusFilter === 'pending' ? 'all' : 'pending')
-          }
-        />
-        <StatCard
-          label="Dispatched"
-          value={counts.dispatched}
-          color="text-amber-600"
-          active={statusFilter === 'dispatched'}
-          onClick={() =>
-            handleFilterChange(setStatusFilter, statusFilter === 'dispatched' ? 'all' : 'dispatched')
-          }
-        />
-        <StatCard
-          label="In Progress"
-          value={counts.in_progress}
-          color="text-green-600"
-          active={statusFilter === 'in_progress'}
-          onClick={() =>
-            handleFilterChange(setStatusFilter, statusFilter === 'in_progress' ? 'all' : 'in_progress')
-          }
-        />
-        <StatCard
-          label="QA Review"
-          value={counts.qa_review}
-          color="text-blue-700"
-          active={statusFilter === 'qa_review'}
-          onClick={() =>
-            handleFilterChange(setStatusFilter, statusFilter === 'qa_review' ? 'all' : 'qa_review')
-          }
-        />
-        <StatCard
-          label="Resolved"
-          value={counts.resolved}
-          color="text-gray-900"
-          active={statusFilter === 'resolved'}
-          onClick={() =>
-            handleFilterChange(setStatusFilter, statusFilter === 'resolved' ? 'all' : 'resolved')
-          }
-        />
-      </div>
+      <DispatchStatCards
+        counts={counts}
+        statusFilter={statusFilter}
+        onFilterChange={(value) => handleFilterChange(setStatusFilter, value)}
+      />
 
-      <div className="flex items-center justify-between bg-white rounded-xl border border-gray-200 p-4 mb-6">
-        <div className="flex items-center gap-6">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-gray-500 tracking-wide">PRIORITY</span>
-            <select
-              value={priorityFilter}
-              onChange={(e) => handleFilterChange(setPriorityFilter, e.target.value)}
-              className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white"
-            >
-              <option value="all">All Priorities</option>
-              {PRIORITIES.map((p) => (
-                <option key={p} value={p}>
-                  {labelize(p)}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-gray-500 tracking-wide">
-              JOB ORDER STATUS
-            </span>
-            <select
-              value={statusFilter}
-              onChange={(e) => handleFilterChange(setStatusFilter, e.target.value)}
-              className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white"
-            >
-              <option value="all">All Statuses</option>
-              {Object.keys(counts).map((s) => (
-                <option key={s} value={s}>
-                  {labelize(s)}
-                </option>
-              ))}
-              <option value="cancelled">Cancelled</option>
-            </select>
-          </div>
-        </div>
-        <Link
-          href="/supervisor/dispatch/create-master-ticket"
-          className="bg-blue-700 hover:bg-blue-800 text-white text-sm font-semibold px-4 py-2.5 rounded-lg transition-colors inline-block"
-        >
-          + Create Master Ticket
-        </Link>
-      </div>
+      <DispatchFilters
+        priorityFilter={priorityFilter}
+        onPriorityChange={(value) => handleFilterChange(setPriorityFilter, value)}
+        statusFilter={statusFilter}
+        onStatusChange={(value) => handleFilterChange(setStatusFilter, value)}
+        statusOptions={Object.keys(counts)}
+      />
 
       {error && (
         <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-4">
@@ -343,63 +212,38 @@ export default function DispatchPage() {
       )}
 
       {joinSuggestions.map((s) => (
-        <div
+        <DuplicateSuggestionCard
           key={s.report_id}
-          className="flex items-center justify-between bg-white rounded-xl border border-gray-200 p-4 mb-4"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-purple-50 flex items-center justify-center text-purple-700">
-              ⚟
-            </div>
-            <div>
-              <p className="text-sm font-bold text-gray-900">
-                POSSIBLE MATCH TO EXISTING TICKET
-              </p>
-              <p className="text-sm text-gray-600">
-                <span className="font-medium">{s.ticket_number}</span> may belong to{' '}
-                <span className="text-purple-700 font-medium">{s.target_label}</span>
-                {'   '}Confidence:{' '}
-                <span className="font-semibold text-green-600">{s.score}%</span>
-              </p>
-            </div>
-          </div>
-          <Link
-            href={`/supervisor/dispatch/join/${s.report_id}`}
-            className="bg-purple-700 hover:bg-purple-800 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors whitespace-nowrap"
-          >
-            Review Match
-          </Link>
-        </div>
+          type="join"
+          title="POSSIBLE MATCH TO EXISTING TICKET"
+          description={
+            <>
+              <span className="font-medium">{s.ticket_number}</span> may belong to{' '}
+              <span className="text-purple-700 font-medium">{s.target_label}</span>
+              {'   '}Confidence: <span className="font-semibold text-green-600">{s.score}%</span>
+            </>
+          }
+          href={`/supervisor/dispatch/join/${s.report_id}`}
+          buttonLabel="Review Match"
+        />
       ))}
 
       {clusters.map((cluster) => (
-        <div
+        <DuplicateSuggestionCard
           key={cluster.cluster_anchor_id}
-          className="flex items-center justify-between bg-white rounded-xl border border-gray-200 p-4 mb-4"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center text-blue-700">
-              ⚟
-            </div>
-            <div>
-              <p className="text-sm font-bold text-gray-900">POTENTIAL DUPLICATE</p>
-              <p className="text-sm text-gray-600">
-                <span className="text-blue-700 font-medium">{cluster.area_label}</span>
-                {'   '}Confidence:{' '}
-                <span className="font-semibold text-green-600">{cluster.confidence}%</span>
-                {'   '}Related Reports:{' '}
-                <span className="font-semibold">{cluster.related_count}</span>
-                {'   '}Status: Pending Administrator Review
-              </p>
-            </div>
-          </div>
-          <Link
-            href={`/supervisor/dispatch/cluster/${cluster.cluster_anchor_id}`}
-            className="bg-blue-700 hover:bg-blue-800 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors whitespace-nowrap"
-          >
-            Review Cluster
-          </Link>
-        </div>
+          type="cluster"
+          title="POTENTIAL DUPLICATE"
+          description={
+            <>
+              <span className="text-blue-700 font-medium">{cluster.area_label}</span>
+              {'   '}Confidence: <span className="font-semibold text-green-600">{cluster.confidence}%</span>
+              {'   '}Related Reports: <span className="font-semibold">{cluster.related_count}</span>
+              {'   '}Status: Pending Administrator Review
+            </>
+          }
+          href={`/supervisor/dispatch/cluster/${cluster.cluster_anchor_id}`}
+          buttonLabel="Review Cluster"
+        />
       ))}
 
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
@@ -436,92 +280,15 @@ export default function DispatchPage() {
                 const assignment = isMaster
                   ? assignmentFor(null, t.master_id)
                   : assignmentFor(t.report_id, null)
-                const bucket = bucketForTicket(t)
-                const status = assignment ? assignment.status : t.status
-                const isClustered = !isMaster && clusteredReportIds.has(t.report_id)
-                const isReviewable = !isMaster && !assignment && t.status === 'pending'
-                const detailHref = isMaster
-                  ? `/supervisor/dispatch/master/${t.master_id}`
-                  : `/supervisor/dispatch/report/${t.report_id}`
-
                 return (
-                  <tr key={t.ticketKey} className="border-b border-gray-100 last:border-0">
-                    <td className="px-5 py-4">
-                      <p className="font-semibold text-gray-900">
-                        {isMaster ? t.master_ticket : t.ticket_number}
-                        {isMaster && (
-                          <span className="ml-2 text-xs font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded">
-                            MASTER · {t.report_count}
-                          </span>
-                        )}
-                      </p>
-                      {isClustered && (
-                        <p className="text-xs text-green-600 font-medium flex items-center gap-1 mt-0.5">
-                          <span className="w-1.5 h-1.5 rounded-full bg-green-600" />
-                          Highly Likely Duplicate
-                        </p>
-                      )}
-                    </td>
-                    <td className="px-5 py-4">
-                      {t.priority ? (
-                        <span
-                          className={`inline-block text-xs font-bold px-2 py-0.5 rounded uppercase ${priorityStyles[t.priority]}`}
-                        >
-                          {t.priority}
-                        </span>
-                      ) : (
-                        <span className="inline-block text-xs font-bold px-2 py-0.5 rounded uppercase bg-gray-100 text-gray-500">
-                          None
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-5 py-4">
-                      <p className="font-medium text-gray-900">
-                        {isMaster
-                          ? `${t.barangay}, ${t.municipality}`
-                          : t.nearest_landmark || `${t.barangay}, ${t.municipality}`}
-                      </p>
-                      <p className="text-xs text-gray-400">
-                        {!isMaster && `Zone ${t.zone || '—'}, `}
-                        {t.barangay}, {t.municipality} • {formatTime(t.created_at)}
-                      </p>
-                    </td>
-                    <td className="px-5 py-4">
-                      <span
-                        className={`inline-flex items-center gap-1.5 font-medium ${bucketColor[bucket]}`}
-                      >
-                        <span className="w-1.5 h-1.5 rounded-full bg-current" />
-                        {labelize(status)}
-                      </span>
-                    </td>
-                    <td className="px-5 py-4 text-gray-700">
-                      {assignment
-                        ? linemenNames[assignment.lineman_id] || 'Assigned'
-                        : 'Unassigned'}
-                    </td>
-                    <td className="px-5 py-4 text-gray-600">
-                      {formatDateTime(
-                        assignment?.updated_at || assignment?.assigned_at || t.updated_at || t.created_at
-                      )}
-                    </td>
-                    <td className="px-5 py-4">
-                      {isReviewable ? (
-                        <Link
-                          href={detailHref}
-                          className="bg-blue-700 hover:bg-blue-800 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-colors inline-block"
-                        >
-                          Review
-                        </Link>
-                      ) : (
-                        <Link
-                          href={detailHref}
-                          className="bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold px-4 py-2 rounded-lg transition-colors inline-block"
-                        >
-                          Details
-                        </Link>
-                      )}
-                    </td>
-                  </tr>
+                  <DispatchTicketRow
+                    key={t.ticketKey}
+                    ticket={t}
+                    assignment={assignment}
+                    bucket={bucketForTicket(t)}
+                    isClustered={!isMaster && clusteredReportIds.has(t.report_id)}
+                    assigneeName={assignment ? linemenNames[assignment.lineman_id] : null}
+                  />
                 )
               })}
           </tbody>
@@ -536,24 +303,7 @@ export default function DispatchPage() {
             onPageChange={setPage}
           />
         )}
-        
       </div>
     </div>
-  )
-}
-
-function StatCard({ label, value, color, active, onClick }) {
-  return (
-    <button
-      onClick={onClick}
-      className={`text-left bg-white rounded-xl border p-4 transition-all ${
-        active ? 'border-blue-600 ring-1 ring-blue-600' : 'border-gray-200 hover:border-gray-300'
-      }`}
-    >
-      <p className="text-xs font-bold tracking-wide text-gray-400 uppercase mb-1">
-        {label}
-      </p>
-      <p className={`text-2xl font-bold ${color}`}>{value}</p>
-    </button>
   )
 }
