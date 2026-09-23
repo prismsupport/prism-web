@@ -30,6 +30,8 @@ export default function ReportReviewPage() {
   const [report, setReport] = useState(null)
   const [reporterName, setReporterName] = useState('')
   const [assignment, setAssignment] = useState(null)
+  const [assignedLinemanName, setAssignedLinemanName] = useState('')
+  const [statusLogs, setStatusLogs] = useState([])
   const [photoSignedUrl, setPhotoSignedUrl] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -91,6 +93,25 @@ export default function ReportReviewPage() {
       .maybeSingle()
 
     setAssignment(assignmentData)
+
+    if (assignmentData) {
+      const { data: lineman } = await supabase
+        .from('users')
+        .select('first_name, last_name')
+        .eq('id', assignmentData.lineman_id)
+        .single()
+      if (lineman) {
+        setAssignedLinemanName(`${lineman.first_name} ${lineman.last_name}`)
+      }
+
+      const { data: logs } = await supabase
+        .from('job_assignment_status_logs')
+        .select('*')
+        .eq('assignment_id', assignmentData.assignment_id)
+        .order('changed_at', { ascending: true })
+      setStatusLogs(logs || [])
+    }
+
     setLoading(false)
   }
 
@@ -254,6 +275,21 @@ export default function ReportReviewPage() {
             </div>
           </div>
 
+          {report.status === 'cancelled' && (
+            <div className="bg-red-50 border border-red-200 rounded-xl p-6">
+              <h2 className="text-sm font-bold text-red-700 mb-2">Report Declined</h2>
+              <p className="text-sm text-gray-700 bg-white rounded-lg p-3 border border-red-100">
+                {report.decline_reason || 'No reason provided.'}
+              </p>
+              <p className="text-xs text-gray-400 mt-2">
+                Declined:{' '}
+                {new Date(report.updated_at).toLocaleString('en-PH', {
+                  month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit',
+                })}
+              </p>
+            </div>
+          )}
+
           <div className="bg-white rounded-xl border border-gray-200 p-6">
             <h2 className="text-sm font-bold text-gray-900 mb-3">Photo Evidence</h2>
             {photoSignedUrl ? (
@@ -324,9 +360,37 @@ export default function ReportReviewPage() {
             <QAReviewSection assignment={assignment} onReviewed={loadReport} />
           )}
 
+          {statusLogs.length > 0 && (
+            <div className="bg-white rounded-xl border border-gray-200 p-6">
+              <h2 className="text-sm font-bold text-gray-900 mb-3">Job Order Status Log</h2>
+              <div className="space-y-2">
+                {statusLogs.map((log) => (
+                  <div
+                    key={log.id}
+                    className="flex items-center justify-between border border-gray-200 rounded-lg p-3"
+                  >
+                    <p className="text-sm font-medium text-gray-900">
+                      ● {labelize(log.new_status)}
+                    </p>
+                    <p className="text-xs text-gray-400">
+                      Status Updated:{' '}
+                      {new Date(log.changed_at).toLocaleTimeString('en-PH', {
+                        hour: 'numeric',
+                        minute: '2-digit',
+                      })}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {assignment && (
             <div className="bg-white rounded-xl border border-gray-200 p-6">
               <h2 className="text-sm font-bold text-gray-900 mb-2">Assigned Lineman</h2>
+              <p className="text-sm font-semibold text-gray-900">
+                {assignedLinemanName || 'Assigned'}
+              </p>
               <p className="text-sm text-gray-700">
                 Status:{' '}
                 <span className="font-medium">{labelize(assignment.status)}</span>

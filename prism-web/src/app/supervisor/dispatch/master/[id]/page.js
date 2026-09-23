@@ -30,6 +30,7 @@ export default function MasterTicketDetailPage() {
   const [master, setMaster] = useState(null)
   const [members, setMembers] = useState([])
   const [assignment, setAssignment] = useState(null)
+  const [statusLogs, setStatusLogs] = useState([])
   const [assignedLinemanName, setAssignedLinemanName] = useState('')
   const [cooperativeId, setCooperativeId] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -130,6 +131,13 @@ export default function MasterTicketDetailPage() {
       if (lineman) {
         setAssignedLinemanName(`${lineman.first_name} ${lineman.last_name}`)
       }
+
+      const { data: logs } = await supabase
+        .from('job_assignment_status_logs')
+        .select('*')
+        .eq('assignment_id', assignmentData.assignment_id)
+        .order('changed_at', { ascending: true })
+      setStatusLogs(logs || [])
     }
 
     setLoading(false)
@@ -295,6 +303,31 @@ export default function MasterTicketDetailPage() {
 
           {assignment && (assignment.status === 'fixed' || assignment.status === 'resolved') && (
             <QAReviewSection assignment={assignment} onReviewed={loadMaster} />
+          )}
+
+                    {statusLogs.length > 0 && (
+            <div className="bg-white rounded-xl border border-gray-200 p-6">
+              <h2 className="text-sm font-bold text-gray-900 mb-3">Job Order Status Log</h2>
+              <div className="space-y-2">
+                {statusLogs.map((log) => (
+                  <div
+                    key={log.id}
+                    className="flex items-center justify-between border border-gray-200 rounded-lg p-3"
+                  >
+                    <p className="text-sm font-medium text-gray-900">
+                      ● {labelize(log.new_status)}
+                    </p>
+                    <p className="text-xs text-gray-400">
+                      Status Updated:{' '}
+                      {new Date(log.changed_at).toLocaleTimeString('en-PH', {
+                        hour: 'numeric',
+                        minute: '2-digit',
+                      })}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
 
           {assignment ? (
