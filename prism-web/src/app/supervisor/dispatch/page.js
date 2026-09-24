@@ -28,6 +28,7 @@ export default function DispatchPage() {
   const [linemenNames, setLinemenNames] = useState({})
   const [clusters, setClusters] = useState([])
   const [joinSuggestions, setJoinSuggestions] = useState([])
+  const [reopenRequests, setReopenRequests] = useState([])
   const [masterTickets, setMasterTickets] = useState([])
 
   const [priorityFilter, setPriorityFilter] = useState('all')
@@ -135,6 +136,14 @@ export default function DispatchPage() {
     if (joinError) setError((prev) => prev || joinError.message)
     setJoinSuggestions(joinData || [])
 
+    const { data: reopenData, error: reopenError } = await supabase
+      .from('reopen_requests')
+      .select('reopen_id, report_id, description, requested_at, reports(ticket_number, consumer_id)')
+      .eq('status', 'pending')
+
+    if (reopenError) setError((prev) => prev || reopenError.message)
+    setReopenRequests(reopenData || [])
+
     setLoading(false)
   }
 
@@ -210,6 +219,31 @@ export default function DispatchPage() {
           {error}
         </p>
       )}
+      {reopenRequests.map((r) => (
+        <div
+          key={r.reopen_id}
+          className="flex items-center justify-between bg-white rounded-xl border border-amber-200 p-4 mb-4"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-amber-50 flex items-center justify-center text-amber-700">
+              ↺
+            </div>
+            <div>
+              <p className="text-sm font-bold text-gray-900">TICKET REOPEN REQUEST</p>
+              <p className="text-sm text-gray-600">
+                <span className="font-medium">{r.reports?.ticket_number}</span> — Consumer
+                requested this resolved ticket be reopened
+              </p>
+            </div>
+          </div>
+          <Link
+            href={`/supervisor/dispatch/reopen/${r.reopen_id}`}
+            className="bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors whitespace-nowrap"
+          >
+            Review Request
+          </Link>
+        </div>
+      ))}
 
       {joinSuggestions.map((s) => (
         <DuplicateSuggestionCard
