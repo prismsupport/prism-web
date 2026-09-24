@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import BackToDispatchLink from '@/components/dispatch/BackToDispatchLink'
 
 const MAX_DISTANCE_METERS = 500
 
@@ -155,12 +156,7 @@ export default function CreateMasterTicketPage() {
 
   return (
     <div>
-      <button
-        onClick={() => router.push('/supervisor/dispatch')}
-        className="text-sm text-blue-700 font-medium mb-4"
-      >
-        ← Back to Dispatch
-      </button>
+      <BackToDispatchLink withMarginBottom />
 
       <h1 className="text-2xl font-bold text-gray-900">Create Master Ticket</h1>
       <p className="text-sm text-gray-500 mt-1 mb-6">

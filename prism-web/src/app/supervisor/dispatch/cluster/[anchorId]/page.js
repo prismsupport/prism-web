@@ -4,6 +4,10 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import ReportMap from '@/components/ui/ReportMap'
+import SuggestionConfidenceBanner from '@/components/dispatch/SuggestionConfidenceBanner'
+import ClusterMemberList from '@/components/dispatch/ClusterMemberList'
+import MasterTicketSuccessCard from '@/components/dispatch/MasterTicketSuccessCard'
+import BackToDispatchLink from '@/components/dispatch/BackToDispatchLink'
 
 function generateMasterTicketNumber() {
   const date = new Date().toISOString().slice(0, 10).replace(/-/g, '')
@@ -11,7 +15,6 @@ function generateMasterTicketNumber() {
   return `MT-${date}-${random}`
 }
 
-// Simple straight-line distance between two coordinates, in meters.
 function distanceMeters(lat1, lng1, lat2, lng2) {
   const R = 6371000
   const dLat = ((lat2 - lat1) * Math.PI) / 180
@@ -83,7 +86,6 @@ export default function ClusterReviewPage() {
 
     setCluster(match)
 
-    // One batch call for every report in the cluster, with real coordinates
     const { data: allReports, error: reportsError } = await supabase.rpc(
       'get_reports_with_location',
       { p_report_ids: match.report_ids }
@@ -201,60 +203,12 @@ export default function ClusterReviewPage() {
 
   if (successData) {
     return (
-      <div className="max-w-lg mx-auto">
-        <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
-          <div className="w-14 h-14 bg-blue-50 text-blue-700 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
-            ✓
-          </div>
-          <h1 className="text-xl font-bold text-gray-900 mb-2">
-            Master Ticket Created Successfully
-          </h1>
-          <p className="text-sm text-gray-500 mb-6">
-            Master Ticket{' '}
-            <span className="font-semibold text-gray-700">
-              #{successData.masterTicketNumber}
-            </span>{' '}
-            has been successfully created. All {successData.reportCount} individual
-            reports have been linked.
-          </p>
-
-          <div className="bg-gray-50 rounded-lg border border-gray-200 p-4 grid grid-cols-3 gap-2 text-left mb-6">
-            <div>
-              <p className="text-xs text-gray-400 uppercase font-bold">
-                Master Ticket ID
-              </p>
-              <p className="text-sm font-semibold text-gray-900">
-                {successData.masterTicketNumber}
-              </p>
-            </div>
-            <div>
-              <p className="text-xs text-gray-400 uppercase font-bold">Location</p>
-              <p className="text-sm font-semibold text-gray-900">
-                {successData.areaLabel}
-              </p>
-            </div>
-            <div>
-              <p className="text-xs text-gray-400 uppercase font-bold">
-                Linked Reports
-              </p>
-              <p className="text-sm font-semibold text-gray-900">
-                {successData.reportCount} Reports
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="border-t border-gray-100 mt-0 bg-white rounded-b-xl border-x border-b border-gray-200 p-6">
-          <button
-            onClick={() =>
-              router.push(`/supervisor/dispatch/master/${successData.masterId}`)
-            }
-            className="w-full bg-blue-700 hover:bg-blue-800 text-white font-semibold text-sm py-3 rounded-lg transition-colors"
-          >
-            Assign Lineman
-          </button>
-        </div>
-      </div>
+      <MasterTicketSuccessCard
+        masterTicketNumber={successData.masterTicketNumber}
+        areaLabel={successData.areaLabel}
+        reportCount={successData.reportCount}
+        onAssignLineman={() => router.push(`/supervisor/dispatch/master/${successData.masterId}`)}
+      />
     )
   }
 
@@ -264,12 +218,7 @@ export default function ClusterReviewPage() {
         <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-4">
           {error}
         </p>
-        <button
-          onClick={() => router.push('/supervisor/dispatch')}
-          className="text-sm text-blue-700 font-medium"
-        >
-          ← Back to Dispatch
-        </button>
+        <BackToDispatchLink />
       </div>
     )
   }
@@ -290,104 +239,19 @@ export default function ClusterReviewPage() {
       </div>
 
       <div className="overflow-y-auto space-y-6">
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h1 className="text-lg font-bold text-gray-900 mb-1">
-            Potential Duplicate Cluster
-          </h1>
-          <p className="text-sm text-gray-500 mb-3">
-            {cluster.area_label} • Overall Confidence:{' '}
-            <span className="font-semibold text-green-600">{cluster.confidence}%</span>
-          </p>
-          <p className="text-sm text-blue-700 bg-blue-50 rounded-lg px-3 py-2">
-            The system recommends grouping these reports into one Master Ticket.
-          </p>
-        </div>
+        <SuggestionConfidenceBanner
+          title="Potential Duplicate Cluster"
+          confidence={cluster.confidence}
+          subtitlePrefix={`${cluster.area_label} • Overall `}
+          theme="blue"
+          description="The system recommends grouping these reports into one Master Ticket."
+        />
 
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-bold text-gray-900">
-              Reports in this Cluster
-            </h2>
-            <span className="bg-blue-50 text-blue-700 text-xs font-bold px-2 py-1 rounded">
-              TOTAL: {members.length}
-            </span>
-          </div>
-
-          <div className="space-y-2">
-            {members.map((m) => {
-              const isExpanded = expandedId === m.report_id
-              return (
-                <div key={m.report_id} className="border border-gray-200 rounded-lg">
-                  <div className="w-full flex items-center justify-between p-3">
-                    <div>
-                      <p className="text-sm font-semibold text-gray-900">
-                        {m.reporterName?.first_name} {m.reporterName?.last_name}
-                        {m.isAnchor && (
-                          <span className="ml-2 text-xs font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded">
-                            ANCHOR
-                          </span>
-                        )}
-                      </p>
-                      <p className="text-xs text-gray-400 mt-0.5">{m.ticket_number}</p>
-                      {!m.isAnchor && (
-                        <>
-                          <p className="text-xs text-gray-400">
-                            {Math.round(m.distance)}m from anchor
-                          </p>
-                          <p className="text-xs text-gray-400">
-                            {Math.round(m.minutesApart)} min apart
-                          </p>
-                        </>
-                      )}
-                    </div>
-                    <button
-                      onClick={() => setExpandedId(isExpanded ? null : m.report_id)}
-                      className="bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap"
-                    >
-                      {isExpanded ? 'Hide' : 'Review'}
-                    </button>
-                  </div>
-
-                  {isExpanded && (
-                    <div className="border-t border-gray-100 p-3 text-sm space-y-2">
-                      <div>
-                        <p className="text-xs text-gray-400">Location</p>
-                        <p className="text-gray-900">
-                          {m.nearest_landmark || `${m.barangay}, ${m.municipality}`}
-                        </p>
-                        <p className="text-gray-500 text-xs">
-                          Zone {m.zone || '—'}, {m.barangay}, {m.municipality}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-400">Description</p>
-                        <p className="text-gray-700 bg-gray-50 rounded-lg p-2 mt-1">
-                          "{m.report_details}"
-                        </p>
-                      </div>
-                      {m.photo_url ? (
-                        <img
-                          src={m.photo_url}
-                          alt="Report evidence"
-                          className="w-full rounded-lg border border-gray-200"
-                        />
-                      ) : (
-                        <p className="text-xs text-gray-400 italic">
-                          No photo submitted.
-                        </p>
-                      )}
-                      {m.other_homes_affected && (
-                        <p className="text-xs text-amber-600 font-medium">
-                          ⚠ Nearby households also affected
-                        </p>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        </div>
+        <ClusterMemberList
+          members={members}
+          expandedId={expandedId}
+          onToggleExpand={setExpandedId}
+        />
 
         {error && (
           <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">

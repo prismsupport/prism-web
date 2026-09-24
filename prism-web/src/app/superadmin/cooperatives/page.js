@@ -1,10 +1,10 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import StatusBadge from '@/components/StatusBadge'
 import StatCard from '@/components/ui/StatCard'
+import Pagination from '@/components/ui/Pagination'
+import CooperativeRow from '@/components/superadmin/CooperativeRow'
 
 const PAGE_SIZE = 10
 
@@ -196,93 +196,20 @@ export default function AllCooperativesPage() {
             )}
 
             {!loading &&
-              cooperatives.map((coop) => {
-                const hasBeenUpdated = coop.updated_at !== coop.created_at
-                const isPending = coop.status === 'Pending Approval'
-
-                return (
-                  <tr
-                    key={coop.id}
-                    className="border-b border-gray-100 last:border-0 hover:bg-gray-50"
-                  >
-                    <td className="px-5 py-4">
-                      <span className="font-semibold text-gray-900 uppercase">
-                        {coop.cooperative_name}
-                      </span>
-                    </td>
-                    <td className="px-5 py-4">
-                      <p className="font-medium text-gray-800 uppercase text-xs">
-                        {coop.municipality}, {coop.province}
-                      </p>
-                      <p className="text-gray-400 text-xs mt-0.5">
-                        {coop.office_address}
-                      </p>
-                    </td>
-                    <td className="px-5 py-4 text-gray-600">
-                      {coop.official_email}
-                    </td>
-                    <td className="px-5 py-4 text-gray-600">
-                      {new Date(coop.created_at).toLocaleDateString('en-PH', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric',
-                      })}
-                    </td>
-                    <td className="px-5 py-4 text-gray-600">
-                      {hasBeenUpdated
-                        ? new Date(coop.updated_at).toLocaleDateString(
-                            'en-PH',
-                            { year: 'numeric', month: 'long', day: 'numeric' }
-                          )
-                        : '—'}
-                    </td>
-                    <td className="px-5 py-4">
-                      <StatusBadge status={coop.status} />
-                    </td>
-                    <td className="px-5 py-4">
-                      <Link
-                        href={`/superadmin/cooperatives/${coop.id}`}
-                        className={
-                          isPending
-                            ? 'inline-block bg-blue-700 hover:bg-blue-800 text-white text-xs font-semibold px-3.5 py-1.5 rounded-lg transition-colors'
-                            : 'inline-block bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold px-3.5 py-1.5 rounded-lg transition-colors'
-                        }
-                      >
-                        {isPending ? 'Review' : 'Details'}
-                      </Link>
-                    </td>
-                  </tr>
-                )
-              })}
+              cooperatives.map((coop) => (
+                <CooperativeRow key={coop.id} coop={coop} />
+              ))}
           </tbody>
         </table>
 
-        {!loading && totalCount > 0 && (
-          <div className="flex items-center justify-between px-5 py-3 border-t border-gray-100 bg-gray-50">
-            <p className="text-xs text-gray-500">
-              Showing {(page - 1) * PAGE_SIZE + 1} to{' '}
-              {Math.min(page * PAGE_SIZE, totalCount)} of {totalCount} entries
-            </p>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page === 1}
-                className="px-3 py-1.5 rounded-lg text-xs font-medium text-gray-600 border border-gray-200 disabled:opacity-40 hover:bg-white"
-              >
-                ‹
-              </button>
-              <span className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-blue-700">
-                Page {page} of {totalPages}
-              </span>
-              <button
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                disabled={page === totalPages}
-                className="px-3 py-1.5 rounded-lg text-xs font-medium text-gray-600 border border-gray-200 disabled:opacity-40 hover:bg-white"
-              >
-                ›
-              </button>
-            </div>
-          </div>
+        {!loading && (
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            totalCount={totalCount}
+            pageSize={PAGE_SIZE}
+            onPageChange={setPage}
+          />
         )}
       </div>
     </div>

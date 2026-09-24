@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import ReportMap from '@/components/ui/ReportMap'
+import SuggestionConfidenceBanner from '@/components/dispatch/SuggestionConfidenceBanner'
+import TicketSummaryCard from '@/components/dispatch/TicketSummaryCard'
 
 function generateMasterTicketNumber() {
   const date = new Date().toISOString().slice(0, 10).replace(/-/g, '')
@@ -29,7 +31,7 @@ export default function JoinReviewPage() {
     loadData()
   }, [reportId])
 
-    async function loadData() {
+  async function loadData() {
     setLoading(true)
     setError('')
     const supabase = createClient()
@@ -121,8 +123,6 @@ export default function JoinReviewPage() {
         .update({ report_count: (masterRow?.report_count || 1) + 1 })
         .eq('master_id', suggestion.target_id)
     } else {
-      // Target is a standalone active report — create a brand-new master
-      // ticket for the pair, inheriting the target's current progress.
       const { data: newMaster, error: masterError } = await supabase
         .from('master_tickets')
         .insert({
@@ -155,8 +155,6 @@ export default function JoinReviewPage() {
         return
       }
 
-      // Carry the target's existing assignment (if any) over to the new
-      // master ticket, so its progress history isn't orphaned.
       await supabase
         .from('job_assignments')
         .update({ master_id: newMaster.master_id })
@@ -200,36 +198,31 @@ export default function JoinReviewPage() {
       </div>
 
       <div className="overflow-y-auto space-y-6">
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h1 className="text-lg font-bold text-gray-900 mb-1">Possible Match</h1>
-          <p className="text-sm text-gray-500 mb-3">
-            Confidence: <span className="font-semibold text-green-600">{suggestion.score}%</span>
-          </p>
-          <p className="text-sm text-purple-700 bg-purple-50 rounded-lg px-3 py-2">
-            The system suggests {report.ticket_number} may be the same outage as{' '}
-            {suggestion.target_label}, which is already{' '}
-            {suggestion.target_type === 'master' ? 'a Master Ticket' : 'being worked on'}.
-          </p>
-        </div>
+        <SuggestionConfidenceBanner
+          title="Possible Match"
+          confidence={suggestion.score}
+          theme="purple"
+          description={
+            <>
+              The system suggests {report.ticket_number} may be the same outage as{' '}
+              {suggestion.target_label}, which is already{' '}
+              {suggestion.target_type === 'master' ? 'a Master Ticket' : 'being worked on'}.
+            </>
+          }
+        />
 
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h2 className="text-sm font-bold text-gray-900 mb-2">New Report</h2>
-          <p className="text-sm text-gray-900 font-medium">{report.ticket_number}</p>
-          <p className="text-xs text-gray-500 mt-1">
-            {report.nearest_landmark || `${report.barangay}, ${report.municipality}`}
-          </p>
-          <p className="text-sm text-gray-700 bg-gray-50 rounded-lg p-3 mt-2">
-            "{report.report_details}"
-          </p>
-        </div>
+        <TicketSummaryCard
+          title="New Report"
+          ticketLabel={report.ticket_number}
+          location={report.nearest_landmark || `${report.barangay}, ${report.municipality}`}
+          description={report.report_details}
+        />
 
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h2 className="text-sm font-bold text-gray-900 mb-2">
-            Existing {suggestion.target_type === 'master' ? 'Master Ticket' : 'Report'}
-          </h2>
-          <p className="text-sm text-gray-900 font-medium">{suggestion.target_label}</p>
-          <p className="text-xs text-gray-500 mt-1">Current status: {targetStatus}</p>
-        </div>
+        <TicketSummaryCard
+          title={`Existing ${suggestion.target_type === 'master' ? 'Master Ticket' : 'Report'}`}
+          ticketLabel={suggestion.target_label}
+          meta={`Current status: ${targetStatus}`}
+        />
 
         {error && (
           <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
