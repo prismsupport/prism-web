@@ -14,6 +14,7 @@ import PhotoEvidenceCard from '@/components/dispatch/PhotoEvidenceCard'
 import DeclineReportModal from '@/components/dispatch/DeclineReportModal'
 import LinemanDispatchedModal from '@/components/dispatch/LinemanDispatchedModal'
 import ResolveTicketBar from '@/components/dispatch/ResolveTicketBar'
+import { reopenAssignment } from '@/lib/dispatch/reopenAssignment'
 
 export default function ReportReviewPage() {
   const { id } = useParams()
@@ -189,22 +190,21 @@ export default function ReportReviewPage() {
   }
 
   async function handleReopen() {
-    setActionLoading(true)
-    const supabase = createClient()
-    const { error: updateError } = await supabase
-      .from('job_assignments')
-      .update({ status: 'in_progress' })
-      .eq('assignment_id', assignment.assignment_id)
+  setActionLoading(true)
+  const { error: reopenError } = await reopenAssignment({
+    reportId: id, 
+    linemanId: assignment.lineman_id,
+  })
 
-    if (updateError) {
-      setError(updateError.message)
-      setActionLoading(false)
-      return
-    }
-
+  if (reopenError) {
+    setError(reopenError)
     setActionLoading(false)
-    loadReport()
+    return
   }
+
+  setActionLoading(false)
+  loadReport() 
+}
 
   if (loading) return <p className="text-sm text-gray-500">Loading…</p>
 
@@ -242,6 +242,7 @@ export default function ReportReviewPage() {
             <TicketDetailHeader
               ticketNumber={report.ticket_number}
               reporterName={reporterName}
+              reopened={!!report.reopened_at}
               onClose={() => router.push('/supervisor/dispatch')}
             />
 
@@ -330,7 +331,7 @@ export default function ReportReviewPage() {
           )}
 
           {assignment && (assignment.status === 'fixed' || assignment.status === 'resolved') && (
-            <QAReviewSection assignment={assignment} onReviewed={loadReport} />
+            <QAReviewSection assignment={assignment} reportId={id} onReviewed={loadReport} />
           )}
 
           {assignment && (

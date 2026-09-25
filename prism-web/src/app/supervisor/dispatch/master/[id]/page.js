@@ -12,6 +12,7 @@ import AssignedLinemanCard from '@/components/dispatch/AssignedLinemanCard'
 import JobOrderStatusLog from '@/components/dispatch/JobOrderStatusLog'
 import LinemanDispatchedModal from '@/components/dispatch/LinemanDispatchedModal'
 import ResolveTicketBar from '@/components/dispatch/ResolveTicketBar'
+import { reopenAssignment } from '@/lib/dispatch/reopenAssignment'
 
 function labelize(value) {
   return value
@@ -209,22 +210,21 @@ export default function MasterTicketDetailPage() {
   }
 
   async function handleReopen() {
-    setActionLoading(true)
-    const supabase = createClient()
-    const { error: updateError } = await supabase
-      .from('job_assignments')
-      .update({ status: 'in_progress' })
-      .eq('assignment_id', assignment.assignment_id)
+  setActionLoading(true)
+  const { error: reopenError } = await reopenAssignment({
+    masterId: id, 
+    linemanId: assignment.lineman_id,
+  })
 
-    if (updateError) {
-      setError(updateError.message)
-      setActionLoading(false)
-      return
-    }
-
+  if (reopenError) {
+    setError(reopenError)
     setActionLoading(false)
-    loadMaster()
+    return
   }
+
+  setActionLoading(false)
+  loadMaster()  
+}
 
   if (loading) return <p className="text-sm text-gray-500">Loading…</p>
 
@@ -312,7 +312,7 @@ export default function MasterTicketDetailPage() {
           </div>
 
           {assignment && (assignment.status === 'fixed' || assignment.status === 'resolved') && (
-            <QAReviewSection assignment={assignment} onReviewed={loadMaster} />
+            <QAReviewSection assignment={assignment} masterId={id} onReviewed={loadMaster} />
           )}
 
           {assignment ? (

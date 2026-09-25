@@ -58,6 +58,11 @@ export default function DispatchTicketRow({ ticket, assignment, bucket, isCluste
               MASTER · {ticket.report_count}
             </span>
           )}
+          {!isMaster && ticket.reopened_at && (
+            <span className="ml-2 text-xs font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded">
+            REOPENED
+            </span>
+          )}
         </p>
         {isClustered && (
           <p className="text-xs text-green-600 font-medium flex items-center gap-1 mt-0.5">

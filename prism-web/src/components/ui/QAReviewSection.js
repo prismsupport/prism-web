@@ -2,8 +2,9 @@
 
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { reopenAssignment } from '@/lib/dispatch/reopenAssignment'
 
-export default function QAReviewSection({ assignment, onReviewed }) {
+export default function QAReviewSection({ assignment, reportId, masterId, onReviewed }) {
   const [photoUrl, setPhotoUrl] = useState(null)
   const [voiceUrl, setVoiceUrl] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -97,14 +98,17 @@ export default function QAReviewSection({ assignment, onReviewed }) {
       return
     }
 
-    // Sends the job back to the lineman for correction
-    const { error: updateError } = await supabase
-      .from('job_assignments')
-      .update({ status: 'in_progress' })
-      .eq('assignment_id', assignment.assignment_id)
+    // Sends the job back to the lineman as a fresh cycle — same pattern
+    // as a formal reopen request — so this rejected attempt stays intact
+    // as history instead of being overwritten.
+    const { error: reopenError } = await reopenAssignment({
+      reportId,
+      masterId,
+      linemanId: assignment.lineman_id,
+    })
 
-    if (updateError) {
-      setError(updateError.message)
+    if (reopenError) {
+      setError(reopenError)
       setActionLoading(false)
       return
     }
