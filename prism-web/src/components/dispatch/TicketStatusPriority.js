@@ -14,6 +14,13 @@ const statusColor = {
   cancelled: 'text-gray-400',
 }
 
+const priorityColor = {
+  low: 'text-blue-700',
+  medium: 'text-amber-600',
+  high: 'text-red-600',
+  critical: 'text-red-800',
+}
+
 export default function TicketStatusPriority({ status, priority }) {
   return (
     <div className="grid grid-cols-2 gap-3 mb-4">
@@ -29,7 +36,7 @@ export default function TicketStatusPriority({ status, priority }) {
         <p className="text-xs font-bold text-gray-500 uppercase mb-1">
           Priority
         </p>
-        <p className="text-sm font-bold text-red-600">
+        <p className={`text-sm font-bold ${priority ? priorityColor[priority] : 'text-gray-400'}`}>
           {priority ? labelize(priority) : 'None'}
         </p>
       </div>

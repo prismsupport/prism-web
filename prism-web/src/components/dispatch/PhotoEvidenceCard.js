@@ -1,6 +1,4 @@
-export default function PhotoEvidenceCard({ status, photoUrl }) {
-  const isCompletion = ['fixed', 'resolved'].includes(status)
-  const title = isCompletion ? 'Proof of Completion' : 'Photo Evidence'
+export default function PhotoEvidenceCard({ title = 'Photo Evidence', photoUrl }) {
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-6">

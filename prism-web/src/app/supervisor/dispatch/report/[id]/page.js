@@ -160,7 +160,9 @@ export default function ReportReviewPage() {
     const pickedLineman = linemen.find((l) => l.id === linemanId || l.lineman_id === linemanId)
 
     setDispatchedInfo({
-      linemanName: pickedLineman?.full_name || pickedLineman?.name || 'Assigned',
+      linemanName: pickedLineman
+        ? `${pickedLineman.first_name} ${pickedLineman.last_name}`
+        : 'Assigned',
       ticketNumber: report.ticket_number,
       location: report.nearest_landmark || report.barangay,
       barangay: `Zone ${report.zone || '—'}, ${report.barangay}`,
@@ -305,7 +307,7 @@ export default function ReportReviewPage() {
             </div>
           )}
 
-          <PhotoEvidenceCard status={currentStatus} photoUrl={photoSignedUrl} />
+          <PhotoEvidenceCard photoUrl={photoSignedUrl} />
 
           {error && (
             <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">

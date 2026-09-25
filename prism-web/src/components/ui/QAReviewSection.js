@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { reopenAssignment } from '@/lib/dispatch/reopenAssignment'
 
@@ -13,7 +13,7 @@ export default function QAReviewSection({ assignment, reportId, masterId, onRevi
   const [error, setError] = useState('')
   const [actionLoading, setActionLoading] = useState(false)
 
-  useState(() => {
+  useEffect(() => {
   async function loadMedia() {
     const supabase = createClient()
 

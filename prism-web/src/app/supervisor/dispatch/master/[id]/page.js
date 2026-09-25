@@ -199,7 +199,9 @@ export default function MasterTicketDetailPage() {
     const pickedLineman = linemen.find((l) => l.id === linemanId || l.lineman_id === linemanId)
 
     setDispatchedInfo({
-      linemanName: pickedLineman?.full_name || pickedLineman?.name || 'Assigned',
+      linemanName: pickedLineman
+        ? `${pickedLineman.first_name} ${pickedLineman.last_name}`
+        : 'Assigned',
       ticketNumber: master.master_ticket,
       location: master.barangay,
       barangay: master.municipality,
