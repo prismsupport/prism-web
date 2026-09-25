@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import NotificationBell from '@/components/ui/NotificationBell'
 
 export default function SupervisorTopBar({ supervisorName, onLogout }) {
   const router = useRouter();
@@ -39,6 +40,10 @@ export default function SupervisorTopBar({ supervisorName, onLogout }) {
           className="w-full rounded-lg border border-gray-200 bg-gray-50 py-2.5 pl-9 pr-3.5 text-sm placeholder-gray-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-600"
         />
       </form>
+
+      <div className="flex items-center gap-4 ml-4">
+        <NotificationBell />
+      <div className="h-6 w-px bg-gray-200" />
 
       <div className="relative ml-4">
         <button
@@ -78,6 +83,7 @@ export default function SupervisorTopBar({ supervisorName, onLogout }) {
             </div>
           </>
         )}
+      </div>
       </div>
     </header>
   );

@@ -3,6 +3,7 @@
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import TopBar from '@/components/ui/TopBar'
+import NotificationBell from '@/components/ui/NotificationBell'
 
 export default function SuperadminLayout({ children }) {
   const pathname = usePathname()
@@ -23,12 +24,16 @@ export default function SuperadminLayout({ children }) {
       <TopBar
         subtitle="SUPERADMIN DASHBOARD"
         rightContent={
-          <button
-            onClick={handleLogout}
-            className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
-          >
-            Logout
-          </button>
+          <div className="flex items-center gap-4">
+            <NotificationBell />
+            <div className="h-6 w-px bg-gray-200" />
+            <button
+              onClick={handleLogout}
+              className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
+            >
+              Logout
+            </button>
+          </div>
         }
       />
 
