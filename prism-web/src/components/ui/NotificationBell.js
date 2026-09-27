@@ -21,39 +21,51 @@ export default function NotificationBell() {
   const [userId, setUserId] = useState(null)
 
   useEffect(() => {
-    let channel
+  const supabase = createClient()
+  let channel = null
+  let active = true
 
-    async function init() {
-      const supabase = createClient()
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) return
-      setUserId(user.id)
+  async function init() {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user || !active) return
+    setUserId(user.id)
 
-      await loadNotifications(user.id)
+    await loadNotifications(user.id)
+    if (!active) return
 
-      channel = supabase
-        .channel(`notifications-${user.id}`)
-        .on(
-          'postgres_changes',
-          { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` },
-          (payload) => {
-            setNotifications((prev) => [payload.new, ...prev])
-          }
-        )
-        .subscribe()
+    // Guard against React dev-mode double-invoking this effect: if a channel
+    // with this topic already exists (from the first invocation), remove it
+    // before creating a fresh one, so .on() never attaches to an already-
+    // subscribed channel.
+    const topic = `realtime:notifications-${user.id}`
+    const existing = supabase.getChannels().find((c) => c.topic === topic)
+    if (existing) {
+      await supabase.removeChannel(existing)
     }
 
-    init()
+    channel = supabase
+      .channel(`notifications-${user.id}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` },
+        (payload) => {
+          if (active) setNotifications((prev) => [payload.new, ...prev])
+        }
+      )
+      .subscribe()
+  }
 
-    return () => {
-      if (channel) {
-        const supabase = createClient()
-        supabase.removeChannel(channel)
-      }
+  init()
+
+  return () => {
+    active = false
+    if (channel) {
+      supabase.removeChannel(channel)
     }
-  }, [])
+  }
+}, [])
 
   async function loadNotifications(uid) {
     setLoading(true)
