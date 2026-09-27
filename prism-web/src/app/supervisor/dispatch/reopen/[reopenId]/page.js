@@ -280,9 +280,11 @@ export default function ReopenReviewPage() {
         </div>
       </div>
 
-      {allAttempts[0] && (
-        <div className="mt-6">
-          <AttemptReviewCard attempt={allAttempts[0]} />
+      {allAttempts.length > 0 && (
+        <div className="mt-6 space-y-4">
+          {allAttempts.map((a) => (
+            <AttemptReviewCard key={a.assignment_id} attempt={a} />
+          ))}
         </div>
       )}
 

@@ -14,6 +14,7 @@ import PhotoDropdown from '@/components/dispatch/PhotoDropdown'
 import DeclineReportModal from '@/components/dispatch/DeclineReportModal'
 import LinemanDispatchedModal from '@/components/dispatch/LinemanDispatchedModal'
 import ResolveTicketBar from '@/components/dispatch/ResolveTicketBar'
+import AttemptReviewCard from '@/components/dispatch/AttemptReviewCard'
 import { reopenAssignment } from '@/lib/dispatch/reopenAssignment'
 
 export default function ReportReviewPage() {
@@ -25,6 +26,7 @@ export default function ReportReviewPage() {
   const [assignment, setAssignment] = useState(null)
   const [assignedLinemanName, setAssignedLinemanName] = useState('')
   const [statusLogs, setStatusLogs] = useState([])
+  const [pastAttempts, setPastAttempts] = useState([])
   const [photoSignedUrl, setPhotoSignedUrl] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -79,21 +81,21 @@ export default function ReportReviewPage() {
       setReporterName(`${consumer.first_name} ${consumer.last_name}`)
     }
 
-    const { data: assignmentData } = await supabase
+    const { data: allAssignments } = await supabase
       .from('job_assignments')
       .select('*')
       .eq('report_id', id)
-      .order('assigned_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
+      .order('assigned_at', { ascending: true })
 
-    setAssignment(assignmentData)
+    const assignmentList = allAssignments || []
+    const latestAssignment = assignmentList[assignmentList.length - 1] || null
+    setAssignment(latestAssignment)
 
-    if (assignmentData) {
+    if (latestAssignment) {
       const { data: lineman } = await supabase
         .from('users')
         .select('first_name, last_name')
-        .eq('id', assignmentData.lineman_id)
+        .eq('id', latestAssignment.lineman_id)
         .single()
       if (lineman) {
         setAssignedLinemanName(`${lineman.first_name} ${lineman.last_name}`)
@@ -102,9 +104,65 @@ export default function ReportReviewPage() {
       const { data: logs } = await supabase
         .from('job_assignment_status_logs')
         .select('*')
-        .eq('assignment_id', assignmentData.assignment_id)
+        .eq('assignment_id', latestAssignment.assignment_id)
         .order('changed_at', { ascending: true })
       setStatusLogs(logs || [])
+    }
+
+    // Build full history for every prior attempt (before the current/latest
+    // assignment) so a reopened or QA-rejected report keeps its complete
+    // trail visible here, not just on the separate Reopen Review page.
+    if (assignmentList.length > 1) {
+      const priorAssignments = assignmentList.slice(0, -1)
+
+      const linemanIds = Array.from(new Set(priorAssignments.map((a) => a.lineman_id)))
+      let linemenMap = {}
+      if (linemanIds.length > 0) {
+        const { data } = await supabase
+          .from('users')
+          .select('id, first_name, last_name')
+          .in('id', linemanIds)
+        ;(data || []).forEach((u) => {
+          linemenMap[u.id] = `${u.first_name} ${u.last_name}`
+        })
+      }
+
+      const attempts = []
+      for (const [index, a] of priorAssignments.entries()) {
+        const { data: logs } = await supabase
+          .from('job_assignment_status_logs')
+          .select('*')
+          .eq('assignment_id', a.assignment_id)
+          .order('changed_at', { ascending: true })
+
+        const { data: review } = await supabase
+          .from('qa_reviews')
+          .select('*')
+          .eq('assignment_id', a.assignment_id)
+          .order('reviewed_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+
+        let attemptPhotoUrl = null
+        if (a.photo_url) {
+          const { data: signedAttempt } = await supabase.storage
+            .from('assignment-proofs')
+            .createSignedUrl(a.photo_url, 3600)
+          if (signedAttempt) attemptPhotoUrl = signedAttempt.signedUrl
+        }
+
+        attempts.push({
+          ...a,
+          attemptNumber: index + 1,
+          linemanName: linemenMap[a.lineman_id] || 'Unknown',
+          logs: logs || [],
+          review,
+          photoUrl: attemptPhotoUrl,
+        })
+      }
+      setPastAttempts(attempts)
+    } else {
+      setPastAttempts([])
     }
 
     setLoading(false)
@@ -328,6 +386,15 @@ export default function ReportReviewPage() {
               )}
               <JobOrderStatusLog logs={statusLogs} />
             </AssignedLinemanCard>
+          )}
+
+          {pastAttempts.length > 0 && (
+            <div className="space-y-4">
+              <p className="text-xs font-bold text-gray-400 uppercase">Previous Attempts</p>
+              {pastAttempts.map((a) => (
+                <AttemptReviewCard key={a.assignment_id} attempt={a} />
+              ))}
+            </div>
           )}
 
           {isPending && (
