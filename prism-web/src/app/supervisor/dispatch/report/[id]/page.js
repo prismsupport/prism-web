@@ -10,7 +10,7 @@ import TicketDetailHeader from '@/components/dispatch/TicketDetailHeader'
 import TicketStatusPriority from '@/components/dispatch/TicketStatusPriority'
 import AssignedLinemanCard from '@/components/dispatch/AssignedLinemanCard'
 import JobOrderStatusLog from '@/components/dispatch/JobOrderStatusLog'
-import PhotoEvidenceCard from '@/components/dispatch/PhotoEvidenceCard'
+import PhotoDropdown from '@/components/dispatch/PhotoDropdown'
 import DeclineReportModal from '@/components/dispatch/DeclineReportModal'
 import LinemanDispatchedModal from '@/components/dispatch/LinemanDispatchedModal'
 import ResolveTicketBar from '@/components/dispatch/ResolveTicketBar'
@@ -38,7 +38,8 @@ export default function ReportReviewPage() {
   const [showDeclineModal, setShowDeclineModal] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
 
-  const [dispatchedInfo, setDispatchedInfo] = useState(null) // holds data for success modal
+  const [dispatchedInfo, setDispatchedInfo] = useState(null)
+  const [linemanDetailsOpen, setLinemanDetailsOpen] = useState(false)
 
   useEffect(() => {
     loadReport()
@@ -192,21 +193,21 @@ export default function ReportReviewPage() {
   }
 
   async function handleReopen() {
-  setActionLoading(true)
-  const { error: reopenError } = await reopenAssignment({
-    reportId: id, 
-    linemanId: assignment.lineman_id,
-  })
+    setActionLoading(true)
+    const { error: reopenError } = await reopenAssignment({
+      reportId: id,
+      linemanId: assignment.lineman_id,
+    })
 
-  if (reopenError) {
-    setError(reopenError)
+    if (reopenError) {
+      setError(reopenError)
+      setActionLoading(false)
+      return
+    }
+
     setActionLoading(false)
-    return
+    loadReport()
   }
-
-  setActionLoading(false)
-  loadReport() 
-}
 
   if (loading) return <p className="text-sm text-gray-500">Loading…</p>
 
@@ -218,8 +219,8 @@ export default function ReportReviewPage() {
   const currentStatus = assignment ? assignment.status : report.status
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-8rem)]">
-      <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[calc(100vh-8rem)]">
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <ReportMap
           lat={report.lat}
           lng={report.lng}
@@ -289,6 +290,7 @@ export default function ReportReviewPage() {
                   ⚠ Consumer indicated nearby households are also affected
                 </p>
               )}
+              <PhotoDropdown label="Photo Evidence" photoUrl={photoSignedUrl} />
             </div>
           </div>
 
@@ -307,12 +309,25 @@ export default function ReportReviewPage() {
             </div>
           )}
 
-          <PhotoEvidenceCard photoUrl={photoSignedUrl} />
-
           {error && (
             <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
               {error}
             </p>
+          )}
+
+          {assignment && (
+            <AssignedLinemanCard
+              name={assignedLinemanName}
+              assignedAt={assignment.assigned_at}
+              expandable
+              expanded={linemanDetailsOpen}
+              onToggleExpand={() => setLinemanDetailsOpen(!linemanDetailsOpen)}
+            >
+              {(assignment.status === 'fixed' || assignment.status === 'resolved') && (
+                <QAReviewSection assignment={assignment} reportId={id} onReviewed={loadReport} />
+              )}
+              <JobOrderStatusLog logs={statusLogs} />
+            </AssignedLinemanCard>
           )}
 
           {isPending && (
@@ -332,17 +347,7 @@ export default function ReportReviewPage() {
             </div>
           )}
 
-          {assignment && (assignment.status === 'fixed' || assignment.status === 'resolved') && (
-            <QAReviewSection assignment={assignment} reportId={id} onReviewed={loadReport} />
-          )}
-
-          {assignment && (
-            <AssignedLinemanCard name={assignedLinemanName} assignedAt={assignment.assigned_at} />
-          )}
-
           <ResolveTicketBar status={assignment?.status} onReopen={handleReopen} loading={actionLoading} />
-
-          <JobOrderStatusLog logs={statusLogs} />
         </div>
       )}
 

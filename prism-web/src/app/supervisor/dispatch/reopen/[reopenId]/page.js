@@ -3,17 +3,12 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import ReportMap from '@/components/ui/ReportMap'
 import TicketDetailHeader from '@/components/dispatch/TicketDetailHeader'
 import BackToDispatchLink from '@/components/dispatch/BackToDispatchLink'
+import PhotoDropdown from '@/components/dispatch/PhotoDropdown'
+import MapModal from '@/components/dispatch/MapModal'
+import AttemptReviewCard from '@/components/dispatch/AttemptReviewCard'
 import { reopenAssignment } from '@/lib/dispatch/reopenAssignment'
-
-function labelize(value) {
-  return value
-    .split('_')
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(' ')
-}
 
 export default function ReopenReviewPage() {
   const { reopenId } = useParams()
@@ -31,6 +26,7 @@ export default function ReopenReviewPage() {
   const [showRejectBox, setShowRejectBox] = useState(false)
   const [reviewNote, setReviewNote] = useState('')
   const [actionLoading, setActionLoading] = useState(false)
+  const [showMapModal, setShowMapModal] = useState(false)
 
   useEffect(() => {
     loadData()
@@ -229,11 +225,19 @@ export default function ReopenReviewPage() {
       <BackToDispatchLink withMarginBottom />
 
       <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
-        <TicketDetailHeader
-          ticketNumber={report?.ticket_number}
-          reporterName={reporterName}
-          reopened
-        />
+        <div className="flex items-start justify-between gap-4">
+          <TicketDetailHeader
+            ticketNumber={report?.ticket_number}
+            reporterName={reporterName}
+            reopened
+          />
+          <button
+            onClick={() => setShowMapModal(true)}
+            className="text-sm text-blue-700 font-medium border border-blue-200 rounded-lg px-3 py-1.5 hover:bg-blue-50 whitespace-nowrap"
+          >
+            View Map
+          </button>
+        </div>
         <p className="text-xs text-gray-400">
           Reopen requested{' '}
           {new Date(reopen.requested_at).toLocaleString('en-PH', {
@@ -242,126 +246,45 @@ export default function ReopenReviewPage() {
         </p>
       </div>
 
-      {/* Small map / Original / Reopen — three columns */}
-      <div className="grid grid-cols-12 gap-6 items-start">
-        {/* Map — narrow */}
-        <div className="col-span-12 lg:col-span-3 bg-white rounded-xl border border-gray-200 overflow-hidden h-64">
-          <ReportMap
-            lat={report?.lat}
-            lng={report?.lng}
-            label={report?.nearest_landmark || report?.barangay}
-          />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white rounded-xl border border-gray-200 p-5">
+          <p className="text-xs font-bold text-gray-400 uppercase mb-2">
+            Original Report
+          </p>
+          <p className="text-xs text-gray-400">
+            Reported{' '}
+            {new Date(report?.created_at).toLocaleString('en-PH', {
+              month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
+            })}
+          </p>
+          <p className="text-sm text-gray-700 bg-gray-50 rounded-lg p-3 mt-2 mb-3">
+            "{report?.report_details}"
+          </p>
+          <PhotoDropdown label="Original Photo" photoUrl={originalPhotoUrl} />
         </div>
 
-        {/* Original — center, includes full attempt history */}
-        <div className="col-span-12 lg:col-span-5 space-y-4">
-          <div className="bg-white rounded-xl border border-gray-200 p-5">
-            <p className="text-xs font-bold text-gray-400 uppercase mb-2">
-              Original Report
-            </p>
-            <p className="text-xs text-gray-400">
-              Reported{' '}
-              {new Date(report?.created_at).toLocaleString('en-PH', {
-                month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
-              })}
-            </p>
-            <p className="text-sm text-gray-700 bg-gray-50 rounded-lg p-3 mt-2">
-              "{report?.report_details}"
-            </p>
-            {originalPhotoUrl ? (
-              <img
-                src={originalPhotoUrl}
-                alt="Original evidence"
-                className="w-full rounded-lg border border-gray-200 mt-2"
-              />
-            ) : (
-              <p className="text-xs text-gray-400 italic mt-2">No original photo.</p>
-            )}
-          </div>
-
-          {allAttempts.map((a) => (
-            <div key={a.assignment_id} className="bg-white rounded-xl border border-gray-200 p-5">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-xs font-bold text-gray-500 uppercase">
-                  Attempt {a.attemptNumber}
-                </p>
-                <span className="text-xs font-medium text-gray-400">
-                  {a.linemanName}
-                </span>
-              </div>
-              <p className="text-xs text-gray-400 mb-2">
-                Assigned{' '}
-                {new Date(a.assigned_at).toLocaleString('en-PH', {
-                  month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
-                })}
-              </p>
-
-              {a.logs.length > 0 && (
-                <div className="space-y-1 mb-2">
-                  {a.logs.map((log) => (
-                    <div key={log.id} className="flex items-center justify-between text-xs">
-                      <span className="text-gray-700">{labelize(log.new_status)}</span>
-                      <span className="text-gray-400">
-                        {new Date(log.changed_at).toLocaleString('en-PH', {
-                          month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
-                        })}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {a.repair_note && (
-                <p className="text-sm text-gray-700 bg-gray-50 rounded-lg p-2 mb-2">
-                  {a.repair_note}
-                </p>
-              )}
-
-              {a.photoUrl && (
-                <img
-                  src={a.photoUrl}
-                  alt={`Attempt ${a.attemptNumber} completion`}
-                  className="w-full rounded-lg border border-gray-200 mb-2"
-                />
-              )}
-
-              {a.review && (
-                <p className={`text-xs font-bold ${a.review.decision === 'approved' ? 'text-green-600' : 'text-red-600'}`}>
-                  QA: {a.review.decision === 'approved' ? '✓ Approved' : '✗ Rejected'}
-                  {a.review.remarks && ` — ${a.review.remarks}`}
-                </p>
-              )}
-            </div>
-          ))}
-        </div>
-
-        {/* Reopen request — right */}
-        <div className="col-span-12 lg:col-span-4">
-          <div className="bg-white rounded-xl border-2 border-amber-300 p-5">
-            <p className="text-xs font-bold text-amber-700 uppercase mb-2">
-              Reopen Request — New Details
-            </p>
-            <p className="text-xs text-gray-400 mb-2">
-              Requested{' '}
-              {new Date(reopen.requested_at).toLocaleString('en-PH', {
-                month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
-              })}
-            </p>
-            <p className="text-sm text-gray-700 bg-amber-50 rounded-lg p-3 mb-3">
-              "{reopen.description}"
-            </p>
-            {newPhotoUrl ? (
-              <img
-                src={newPhotoUrl}
-                alt="Reopen evidence"
-                className="w-full rounded-lg border border-gray-200"
-              />
-            ) : (
-              <p className="text-xs text-gray-400 italic">No new photo submitted.</p>
-            )}
-          </div>
+        <div className="bg-white rounded-xl border-2 border-amber-300 p-5">
+          <p className="text-xs font-bold text-amber-700 uppercase mb-2">
+            Reopen Request — New Details
+          </p>
+          <p className="text-xs text-gray-400 mb-2">
+            Requested{' '}
+            {new Date(reopen.requested_at).toLocaleString('en-PH', {
+              month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
+            })}
+          </p>
+          <p className="text-sm text-gray-700 bg-amber-50 rounded-lg p-3 mb-3">
+            "{reopen.description}"
+          </p>
+          <PhotoDropdown label="Reopen Photo" photoUrl={newPhotoUrl} />
         </div>
       </div>
+
+      {allAttempts[0] && (
+        <div className="mt-6">
+          <AttemptReviewCard attempt={allAttempts[0]} />
+        </div>
+      )}
 
       {error && (
         <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mt-6">
@@ -415,6 +338,15 @@ export default function ReopenReviewPage() {
             </button>
           </div>
         </div>
+      )}
+
+      {showMapModal && (
+        <MapModal
+          lat={report?.lat}
+          lng={report?.lng}
+          label={report?.nearest_landmark || report?.barangay}
+          onClose={() => setShowMapModal(false)}
+        />
       )}
     </div>
   )
