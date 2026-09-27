@@ -210,7 +210,12 @@ export default function UsersPage() {
               : 'border-transparent text-gray-500 hover:text-gray-700'
           }`}
         >
-          Billing Requests
+          Billing Requests{' '}
+          {billingRequests.filter((r) => r.status === 'pending').length > 0 && (
+            <span className="ml-1 bg-red-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full">
+              {billingRequests.filter((r) => r.status === 'pending').length}
+            </span>
+          )}
         </button>
       </div>
 
