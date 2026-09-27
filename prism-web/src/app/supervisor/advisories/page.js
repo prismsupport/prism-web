@@ -10,15 +10,6 @@ import AdvisoryFormModal from '@/components/advisories/AdvisoryFormModal'
 
 const PAGE_SIZE = 10
 
-const SCOPE_TYPES = ['entire_cooperative', 'feeder', 'municipality', 'barangay']
-
-const scopeLabels = {
-  entire_cooperative: 'Entire Cooperative',
-  feeder: 'Feeder',
-  municipality: 'Municipality',
-  barangay: 'Barangay',
-}
-
 // Compares "now" against the advisory's date/start_time/end_time to
 // determine its real-time status — nothing is trusted from a stored value.
 function computeStatus(advisory) {

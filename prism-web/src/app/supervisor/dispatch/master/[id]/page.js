@@ -14,13 +14,6 @@ import LinemanDispatchedModal from '@/components/dispatch/LinemanDispatchedModal
 import ResolveTicketBar from '@/components/dispatch/ResolveTicketBar'
 import { reopenAssignment } from '@/lib/dispatch/reopenAssignment'
 
-function labelize(value) {
-  return value
-    .split('_')
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(' ')
-}
-
 export default function MasterTicketDetailPage() {
   const { id } = useParams()
   const router = useRouter()
