@@ -1,7 +1,7 @@
 'use client'
 
-import Link from 'next/link'
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import Modal from '@/components/ui/Modal'
 import Pagination from '@/components/ui/Pagination'
@@ -11,8 +11,6 @@ import AdvisoryFormModal from '@/components/advisories/AdvisoryFormModal'
 
 const PAGE_SIZE = 10
 
-// Compares "now" against the advisory's date/start_time/end_time to
-// determine its real-time status — nothing is trusted from a stored value.
 function computeStatus(advisory) {
   const now = new Date()
   const start = new Date(`${advisory.date}T${advisory.start_time}`)
@@ -81,10 +79,24 @@ export default function AdvisoriesPage() {
       targets = data || []
     }
 
+    // Resolve a temporary signed URL for each advisory's photo, if it has one
+    const photoUrlMap = {}
+    await Promise.all(
+      (advisoryData || [])
+        .filter((a) => a.photo_url)
+        .map(async (a) => {
+          const { data } = await supabase.storage
+            .from('advisory-photos')
+            .createSignedUrl(a.photo_url, 3600)
+          if (data) photoUrlMap[a.advisory_id] = data.signedUrl
+        })
+    )
+
     const merged = (advisoryData || []).map((a) => ({
       ...a,
       targets: targets.filter((t) => t.advisory_id === a.advisory_id),
       computedStatus: computeStatus(a),
+      photoSignedUrl: photoUrlMap[a.advisory_id] || null,
     }))
 
     setAdvisories(merged)
@@ -93,6 +105,12 @@ export default function AdvisoriesPage() {
 
   async function handleDeleteConfirmed() {
     const supabase = createClient()
+
+    // Remove the attached photo from storage first, if there is one
+    if (deletingAdvisory.photo_url) {
+      await supabase.storage.from('advisory-photos').remove([deletingAdvisory.photo_url])
+    }
+
     // advisory_target rows are removed automatically via "on delete cascade"
     await supabase
       .from('advisories')

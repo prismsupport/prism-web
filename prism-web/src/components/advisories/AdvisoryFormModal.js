@@ -14,6 +14,8 @@ const scopeLabels = {
   barangay: 'Barangay',
 }
 
+const MAX_PHOTO_SIZE_MB = 5
+
 export default function AdvisoryFormModal({ cooperativeId, advisory, onClose, onSaved }) {
   const isEditing = !!advisory
 
@@ -30,6 +32,15 @@ export default function AdvisoryFormModal({ cooperativeId, advisory, onClose, on
   )
 
   const [serviceAreas, setServiceAreas] = useState([])
+
+  // Photo attachment state
+  const [existingPhotoPath, setExistingPhotoPath] = useState(advisory?.photo_url || null)
+  const [existingPhotoPreviewUrl, setExistingPhotoPreviewUrl] = useState(null)
+  const [newPhotoFile, setNewPhotoFile] = useState(null)
+  const [newPhotoPreviewUrl, setNewPhotoPreviewUrl] = useState(null)
+  const [removePhoto, setRemovePhoto] = useState(false)
+  const [photoError, setPhotoError] = useState('')
+
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -44,6 +55,26 @@ export default function AdvisoryFormModal({ cooperativeId, advisory, onClose, on
     }
     if (cooperativeId) loadServiceAreas()
   }, [cooperativeId])
+
+  // Load a signed URL for the existing photo (if editing an advisory that has one)
+  useEffect(() => {
+    async function loadExistingPhoto() {
+      if (!existingPhotoPath) return
+      const supabase = createClient()
+      const { data } = await supabase.storage
+        .from('advisory-photos')
+        .createSignedUrl(existingPhotoPath, 3600)
+      if (data) setExistingPhotoPreviewUrl(data.signedUrl)
+    }
+    loadExistingPhoto()
+  }, [existingPhotoPath])
+
+  // Release the local preview URL for a newly-picked file when it's replaced/unmounted
+  useEffect(() => {
+    return () => {
+      if (newPhotoPreviewUrl) URL.revokeObjectURL(newPhotoPreviewUrl)
+    }
+  }, [newPhotoPreviewUrl])
 
   const feederOptions = Array.from(
     new Set(serviceAreas.map((a) => a.feeder).filter(Boolean))
@@ -88,6 +119,34 @@ export default function AdvisoryFormModal({ cooperativeId, advisory, onClose, on
     setTargets(targets.filter((_, i) => i !== index))
   }
 
+  function handlePhotoSelect(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setPhotoError('')
+
+    if (!file.type.startsWith('image/')) {
+      setPhotoError('Please select an image file.')
+      return
+    }
+    if (file.size > MAX_PHOTO_SIZE_MB * 1024 * 1024) {
+      setPhotoError(`Image must be smaller than ${MAX_PHOTO_SIZE_MB}MB.`)
+      return
+    }
+
+    if (newPhotoPreviewUrl) URL.revokeObjectURL(newPhotoPreviewUrl)
+    setNewPhotoFile(file)
+    setNewPhotoPreviewUrl(URL.createObjectURL(file))
+    setRemovePhoto(false)
+  }
+
+  function handleRemovePhoto() {
+    if (newPhotoPreviewUrl) URL.revokeObjectURL(newPhotoPreviewUrl)
+    setNewPhotoFile(null)
+    setNewPhotoPreviewUrl(null)
+    setRemovePhoto(true)
+  }
+
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
@@ -109,6 +168,7 @@ export default function AdvisoryFormModal({ cooperativeId, advisory, onClose, on
     const supabase = createClient()
 
     let advisoryId = advisory?.advisory_id
+    let photoPathToSave = removePhoto ? null : existingPhotoPath
 
     if (isEditing) {
       const { error: updateError } = await supabase
@@ -151,6 +211,44 @@ export default function AdvisoryFormModal({ cooperativeId, advisory, onClose, on
       advisoryId = newAdvisory.advisory_id
     }
 
+    // Handle photo upload / removal now that advisoryId is available
+    if (newPhotoFile) {
+      const filePath = `${cooperativeId}/${advisoryId}-${Date.now()}-${newPhotoFile.name}`
+
+      const { error: uploadError } = await supabase.storage
+        .from('advisory-photos')
+        .upload(filePath, newPhotoFile, { upsert: false })
+
+      if (uploadError) {
+        setError(uploadError.message)
+        setLoading(false)
+        return
+      }
+
+      // Clean up the previous photo if this edit replaces it
+      if (isEditing && existingPhotoPath) {
+        await supabase.storage.from('advisory-photos').remove([existingPhotoPath])
+      }
+
+      photoPathToSave = filePath
+    } else if (removePhoto && isEditing && existingPhotoPath) {
+      await supabase.storage.from('advisory-photos').remove([existingPhotoPath])
+      photoPathToSave = null
+    }
+
+    if (photoPathToSave !== existingPhotoPath || newPhotoFile) {
+      const { error: photoUpdateError } = await supabase
+        .from('advisories')
+        .update({ photo_url: photoPathToSave })
+        .eq('advisory_id', advisoryId)
+
+      if (photoUpdateError) {
+        setError(photoUpdateError.message)
+        setLoading(false)
+        return
+      }
+    }
+
     const targetRows = targets.map((t) => ({
       advisory_id: advisoryId,
       scope_type: t.scope_type,
@@ -167,6 +265,8 @@ export default function AdvisoryFormModal({ cooperativeId, advisory, onClose, on
 
     onSaved()
   }
+
+  const photoPreviewToShow = newPhotoPreviewUrl || (!removePhoto ? existingPhotoPreviewUrl : null)
 
   return (
     <Modal
@@ -242,6 +342,46 @@ export default function AdvisoryFormModal({ cooperativeId, advisory, onClose, on
             placeholder="Enter the reason for this power advisory..."
             className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm placeholder-gray-400"
           />
+        </div>
+
+        <div className="mb-5">
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">
+            Photo Attachment <span className="text-gray-400 font-normal">(optional)</span>
+          </label>
+
+          {photoPreviewToShow ? (
+            <div className="relative">
+              <img
+                src={photoPreviewToShow}
+                alt="Advisory attachment preview"
+                className="w-full max-h-56 object-cover rounded-lg border border-gray-200"
+              />
+              <button
+                type="button"
+                onClick={handleRemovePhoto}
+                className="absolute top-2 right-2 bg-white/90 hover:bg-white text-red-600 rounded-full w-8 h-8 flex items-center justify-center shadow"
+                title="Remove photo"
+              >
+                <TrashIcon />
+              </button>
+            </div>
+          ) : (
+            <label className="flex flex-col items-center justify-center gap-1 border-2 border-dashed border-gray-200 rounded-lg py-6 cursor-pointer hover:border-gray-300 text-center">
+              <span className="text-sm text-gray-500">
+                Click to upload a photo (JPG, PNG — max {MAX_PHOTO_SIZE_MB}MB)
+              </span>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handlePhotoSelect}
+                className="hidden"
+              />
+            </label>
+          )}
+
+          {photoError && (
+            <p className="text-xs text-red-600 mt-1.5">{photoError}</p>
+          )}
         </div>
 
         <div className="border-t border-gray-100 pt-4 mb-4">
