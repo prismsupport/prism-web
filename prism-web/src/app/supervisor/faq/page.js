@@ -5,17 +5,19 @@ import { createClient } from '@/lib/supabase/client'
 import Modal from '@/components/ui/Modal'
 import FaqEntryRow from '@/components/faq/FaqEntryRow'
 import FaqInquiryRow from '@/components/faq/FaqInquiryRow'
+import ManageFaqCategoriesModal from '@/components/faq/ManageFaqCategoriesModal'
 import AddEditFaqModal from '@/components/faq/AddEditFaqModal'
 import ProvideAnswerModal from '@/components/faq/ProvideAnswerModal'
 import Pagination from '@/components/ui/Pagination'
 
 const PAGE_SIZE = 10
 
-const CATEGORIES = ['billing', 'technical', 'outages']
-
 export default function FaqManagementPage() {
   const [activeTab, setActiveTab] = useState('all')
   const [cooperativeId, setCooperativeId] = useState(null)
+
+  const [categories, setCategories] = useState([])
+  const [showManageCategories, setShowManageCategories] = useState(false)
 
   const [entries, setEntries] = useState([])
   const [inquiries, setInquiries] = useState([])
@@ -56,6 +58,14 @@ export default function FaqManagementPage() {
     }
 
     setCooperativeId(myRow.cooperative_id)
+
+        const { data: coop } = await supabase
+      .from('cooperatives')
+      .select('faq_categories')
+      .eq('id', myRow.cooperative_id)
+      .single()
+
+    setCategories(coop?.faq_categories || [])
 
     const { data: entryData, error: entryError } = await supabase
       .from('faq_entries')
@@ -151,7 +161,7 @@ export default function FaqManagementPage() {
                 </span>
               )}
             </TabButton>
-            {CATEGORIES.map((cat) => (
+            {categories.map((cat) => (
               <TabButton
                 key={cat}
                 active={activeTab === cat}
@@ -164,6 +174,12 @@ export default function FaqManagementPage() {
               </TabButton>
             ))}
           </div>
+          <button
+            onClick={() => setShowManageCategories(true)}
+            className="text-xs text-blue-700 font-medium whitespace-nowrap"
+          >
+            Manage categories
+          </button>
         </div>
 
         <div className="border-b border-gray-200 mt-3" />
@@ -221,6 +237,7 @@ export default function FaqManagementPage() {
         <AddEditFaqModal
           cooperativeId={cooperativeId}
           entry={editingEntry}
+          categories={categories}
           onClose={() => {
             setShowAddModal(false)
             setEditingEntry(null)
@@ -261,6 +278,7 @@ export default function FaqManagementPage() {
         <ProvideAnswerModal
           inquiry={answeringInquiry}
           cooperativeId={cooperativeId}
+          categories={categories}
           onClose={() => setAnsweringInquiry(null)}
           onAnswered={() => {
             setAnsweringInquiry(null)
@@ -268,6 +286,16 @@ export default function FaqManagementPage() {
           }}
         />
       )}
+
+            {showManageCategories && (
+        <ManageFaqCategoriesModal
+          cooperativeId={cooperativeId}
+          categories={categories}
+          onClose={() => setShowManageCategories(false)}
+          onUpdated={(newList) => setCategories(newList)}
+        />
+      )}
+      
     </div>
   )
 }

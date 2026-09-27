@@ -1,18 +1,13 @@
 import PencilIcon from '@/components/ui/icons/PencilIcon'
 import TrashIcon from '@/components/ui/icons/TrashIcon'
-
-const categoryStyles = {
-  billing: 'bg-amber-50 text-amber-700',
-  technical: 'bg-blue-50 text-blue-700',
-  outages: 'bg-purple-50 text-purple-700',
-}
+import { getCategoryColor } from '@/lib/faqCategoryColor'
 
 export default function FaqEntryRow({ entry, onEdit, onDelete }) {
   return (
     <div className="flex items-start justify-between gap-4 px-5 py-4 border-b border-gray-100 last:border-0">
       <div className="flex-1">
         <span
-          className={`inline-block text-xs font-bold px-2 py-0.5 rounded mr-2 uppercase ${categoryStyles[entry.category]}`}
+          className={`inline-block text-xs font-bold px-2 py-0.5 rounded mr-2 uppercase ${getCategoryColor(entry.category)}`}
         >
           {entry.category}
         </span>

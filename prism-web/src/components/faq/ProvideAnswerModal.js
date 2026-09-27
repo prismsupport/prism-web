@@ -4,10 +4,8 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Modal from '@/components/ui/Modal'
 
-const CATEGORIES = ['billing', 'technical', 'outages']
-
-export default function ProvideAnswerModal({ inquiry, cooperativeId, onClose, onAnswered }) {
-  const [category, setCategory] = useState('billing')
+export default function ProvideAnswerModal({ inquiry, cooperativeId, categories, onClose, onAnswered }) {
+  const [category, setCategory] = useState(categories[0] || '')
   const [answer, setAnswer] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -97,7 +95,7 @@ export default function ProvideAnswerModal({ inquiry, cooperativeId, onClose, on
             onChange={(e) => setCategory(e.target.value)}
             className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm"
           >
-            {CATEGORIES.map((cat) => (
+            {categories.map((cat) => (
               <option key={cat} value={cat}>
                 {cat.charAt(0).toUpperCase() + cat.slice(1)}
               </option>

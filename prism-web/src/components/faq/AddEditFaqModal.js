@@ -4,11 +4,9 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Modal from '@/components/ui/Modal'
 
-const CATEGORIES = ['billing', 'technical', 'outages']
-
-export default function AddEditFaqModal({ cooperativeId, entry, onClose, onSaved }) {
+export default function AddEditFaqModal({ cooperativeId, entry, categories, onClose, onSaved }) {
   const isEditing = !!entry
-  const [category, setCategory] = useState(entry?.category || 'billing')
+  const [category, setCategory] = useState(entry?.category || categories[0] || '')
   const [question, setQuestion] = useState(entry?.question || '')
   const [answer, setAnswer] = useState(entry?.answer || '')
   const [loading, setLoading] = useState(false)
@@ -61,7 +59,7 @@ export default function AddEditFaqModal({ cooperativeId, entry, onClose, onSaved
             onChange={(e) => setCategory(e.target.value)}
             className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm"
           >
-            {CATEGORIES.map((cat) => (
+            {categories.map((cat) => (
               <option key={cat} value={cat}>
                 {cat.charAt(0).toUpperCase() + cat.slice(1)}
               </option>
