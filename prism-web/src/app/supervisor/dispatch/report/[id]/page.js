@@ -30,6 +30,7 @@ export default function ReportReviewPage() {
   const [photoSignedUrl, setPhotoSignedUrl] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [showHistory, setShowHistory] = useState(false)
 
   const [showAssignPanel, setShowAssignPanel] = useState(false)
   const [linemen, setLinemen] = useState([])
@@ -389,11 +390,24 @@ export default function ReportReviewPage() {
           )}
 
           {pastAttempts.length > 0 && (
-            <div className="space-y-4">
-              <p className="text-xs font-bold text-gray-400 uppercase">Previous Attempts</p>
-              {pastAttempts.map((a) => (
-                <AttemptReviewCard key={a.assignment_id} attempt={a} />
-              ))}
+            <div>
+              <button
+                type="button"
+                onClick={() => setShowHistory(!showHistory)}
+                className="flex items-center justify-between w-full bg-white rounded-xl border border-gray-200 px-5 py-4 text-sm font-bold text-gray-900"
+              >
+                <span>Job Order History ({pastAttempts.length})</span>
+                <span className="text-xs font-semibold text-blue-700">
+                  {showHistory ? 'Hide ▲' : 'View ▾'}
+                </span>
+              </button>
+              {showHistory && (
+                <div className="mt-4 space-y-4">
+                  {pastAttempts.map((a) => (
+                    <AttemptReviewCard key={a.assignment_id} attempt={a} />
+                  ))}
+                </div>
+              )}
             </div>
           )}
 

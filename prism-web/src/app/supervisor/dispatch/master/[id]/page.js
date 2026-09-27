@@ -10,6 +10,7 @@ import TicketDetailHeader from '@/components/dispatch/TicketDetailHeader'
 import TicketStatusPriority from '@/components/dispatch/TicketStatusPriority'
 import AssignedLinemanCard from '@/components/dispatch/AssignedLinemanCard'
 import JobOrderStatusLog from '@/components/dispatch/JobOrderStatusLog'
+import AttemptReviewCard from '@/components/dispatch/AttemptReviewCard'
 import LinemanDispatchedModal from '@/components/dispatch/LinemanDispatchedModal'
 import ResolveTicketBar from '@/components/dispatch/ResolveTicketBar'
 import { reopenAssignment } from '@/lib/dispatch/reopenAssignment'
@@ -23,6 +24,7 @@ export default function MasterTicketDetailPage() {
   const [assignment, setAssignment] = useState(null)
   const [assignedLinemanName, setAssignedLinemanName] = useState('')
   const [statusLogs, setStatusLogs] = useState([])
+  const [pastAttempts, setPastAttempts] = useState([])
   const [cooperativeId, setCooperativeId] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -35,6 +37,8 @@ export default function MasterTicketDetailPage() {
   const [actionLoading, setActionLoading] = useState(false)
 
   const [dispatchedInfo, setDispatchedInfo] = useState(null)
+  const [linemanDetailsOpen, setLinemanDetailsOpen] = useState(false)
+  const [showHistory, setShowHistory] = useState(false)
 
   useEffect(() => {
     loadMaster()
@@ -106,21 +110,21 @@ export default function MasterTicketDetailPage() {
       }))
     )
 
-    const { data: assignmentData } = await supabase
+    const { data: allAssignments } = await supabase
       .from('job_assignments')
       .select('*')
       .eq('master_id', id)
-      .order('assigned_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
+      .order('assigned_at', { ascending: true })
 
-    setAssignment(assignmentData)
+    const assignmentList = allAssignments || []
+    const latestAssignment = assignmentList[assignmentList.length - 1] || null
+    setAssignment(latestAssignment)
 
-    if (assignmentData) {
+    if (latestAssignment) {
       const { data: lineman } = await supabase
         .from('users')
         .select('first_name, last_name')
-        .eq('id', assignmentData.lineman_id)
+        .eq('id', latestAssignment.lineman_id)
         .single()
       if (lineman) {
         setAssignedLinemanName(`${lineman.first_name} ${lineman.last_name}`)
@@ -129,9 +133,65 @@ export default function MasterTicketDetailPage() {
       const { data: logs } = await supabase
         .from('job_assignment_status_logs')
         .select('*')
-        .eq('assignment_id', assignmentData.assignment_id)
+        .eq('assignment_id', latestAssignment.assignment_id)
         .order('changed_at', { ascending: true })
       setStatusLogs(logs || [])
+    }
+
+    // Same "prior attempts" history pattern as the Report detail page and the
+    // Reopen Review page, so a reopened/QA-rejected master ticket keeps its
+    // full job order history visible here too.
+    if (assignmentList.length > 1) {
+      const priorAssignments = assignmentList.slice(0, -1)
+
+      const linemanIds = Array.from(new Set(priorAssignments.map((a) => a.lineman_id)))
+      let linemenMap = {}
+      if (linemanIds.length > 0) {
+        const { data } = await supabase
+          .from('users')
+          .select('id, first_name, last_name')
+          .in('id', linemanIds)
+        ;(data || []).forEach((u) => {
+          linemenMap[u.id] = `${u.first_name} ${u.last_name}`
+        })
+      }
+
+      const attempts = []
+      for (const [index, a] of priorAssignments.entries()) {
+        const { data: logs } = await supabase
+          .from('job_assignment_status_logs')
+          .select('*')
+          .eq('assignment_id', a.assignment_id)
+          .order('changed_at', { ascending: true })
+
+        const { data: review } = await supabase
+          .from('qa_reviews')
+          .select('*')
+          .eq('assignment_id', a.assignment_id)
+          .order('reviewed_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+
+        let attemptPhotoUrl = null
+        if (a.photo_url) {
+          const { data: signedAttempt } = await supabase.storage
+            .from('assignment-proofs')
+            .createSignedUrl(a.photo_url, 3600)
+          if (signedAttempt) attemptPhotoUrl = signedAttempt.signedUrl
+        }
+
+        attempts.push({
+          ...a,
+          attemptNumber: index + 1,
+          linemanName: linemenMap[a.lineman_id] || 'Unknown',
+          logs: logs || [],
+          review,
+          photoUrl: attemptPhotoUrl,
+        })
+      }
+      setPastAttempts(attempts)
+    } else {
+      setPastAttempts([])
     }
 
     setLoading(false)
@@ -205,21 +265,21 @@ export default function MasterTicketDetailPage() {
   }
 
   async function handleReopen() {
-  setActionLoading(true)
-  const { error: reopenError } = await reopenAssignment({
-    masterId: id, 
-    linemanId: assignment.lineman_id,
-  })
+    setActionLoading(true)
+    const { error: reopenError } = await reopenAssignment({
+      masterId: id,
+      linemanId: assignment.lineman_id,
+    })
 
-  if (reopenError) {
-    setError(reopenError)
+    if (reopenError) {
+      setError(reopenError)
+      setActionLoading(false)
+      return
+    }
+
     setActionLoading(false)
-    return
+    loadMaster()
   }
-
-  setActionLoading(false)
-  loadMaster()  
-}
 
   if (loading) return <p className="text-sm text-gray-500">Loading…</p>
 
@@ -234,8 +294,8 @@ export default function MasterTicketDetailPage() {
   const currentStatus = assignment ? assignment.status : master.status
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-8rem)]">
-      <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 overflow-hidden relative">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[calc(100vh-8rem)]">
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden relative">
         <div className="absolute top-4 left-4 z-[1000] bg-amber-100 text-amber-800 text-xs font-bold px-3 py-1.5 rounded-lg">
           ● ACTIVE INCIDENT
         </div>
@@ -264,6 +324,7 @@ export default function MasterTicketDetailPage() {
           <div className="bg-white rounded-xl border border-gray-200 p-6">
             <TicketDetailHeader
               ticketNumber={master.master_ticket}
+              reopened={!!master.reopened_at}
               onClose={() => router.push('/supervisor/dispatch')}
             />
 
@@ -306,17 +367,50 @@ export default function MasterTicketDetailPage() {
             </div>
           </div>
 
-          {assignment && (assignment.status === 'fixed' || assignment.status === 'resolved') && (
-            <QAReviewSection assignment={assignment} masterId={id} onReviewed={loadMaster} />
+          {error && (
+            <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+              {error}
+            </p>
           )}
 
-          {assignment ? (
-            <>
-              <AssignedLinemanCard name={assignedLinemanName} assignedAt={assignment.assigned_at} />
-              <ResolveTicketBar status={assignment.status} onReopen={handleReopen} loading={actionLoading} />
+          {assignment && (
+            <AssignedLinemanCard
+              name={assignedLinemanName}
+              assignedAt={assignment.assigned_at}
+              expandable
+              expanded={linemanDetailsOpen}
+              onToggleExpand={() => setLinemanDetailsOpen(!linemanDetailsOpen)}
+            >
+              {(assignment.status === 'fixed' || assignment.status === 'resolved') && (
+                <QAReviewSection assignment={assignment} masterId={id} onReviewed={loadMaster} />
+              )}
               <JobOrderStatusLog logs={statusLogs} />
-            </>
-          ) : (
+            </AssignedLinemanCard>
+          )}
+
+          {pastAttempts.length > 0 && (
+            <div>
+              <button
+                type="button"
+                onClick={() => setShowHistory(!showHistory)}
+                className="flex items-center justify-between w-full bg-white rounded-xl border border-gray-200 px-5 py-4 text-sm font-bold text-gray-900"
+              >
+                <span>Job Order History ({pastAttempts.length})</span>
+                <span className="text-xs font-semibold text-blue-700">
+                  {showHistory ? 'Hide ▲' : 'View ▾'}
+                </span>
+              </button>
+              {showHistory && (
+                <div className="mt-4 space-y-4">
+                  {pastAttempts.map((a) => (
+                    <AttemptReviewCard key={a.assignment_id} attempt={a} />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {!assignment && (
             <button
               onClick={handleOpenAssignPanel}
               className="w-full bg-blue-700 hover:bg-blue-800 text-white font-semibold text-sm py-3 rounded-lg transition-colors"
@@ -324,6 +418,8 @@ export default function MasterTicketDetailPage() {
               Assign Lineman
             </button>
           )}
+
+          <ResolveTicketBar status={assignment?.status} onReopen={handleReopen} loading={actionLoading} />
         </div>
       )}
 

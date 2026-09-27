@@ -26,5 +26,14 @@ export async function reopenAssignment({ reportId, masterId, linemanId }) {
     if (reportError) return { error: reportError.message }
   }
 
+  if (masterId) {
+    const { error: masterError } = await supabase
+      .from('master_tickets')
+      .update({ reopened_at: new Date().toISOString() })
+      .eq('master_id', masterId)
+
+    if (masterError) return { error: masterError.message }
+  }
+
   return { error: null }
 }

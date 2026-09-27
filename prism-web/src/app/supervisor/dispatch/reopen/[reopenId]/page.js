@@ -27,6 +27,7 @@ export default function ReopenReviewPage() {
   const [reviewNote, setReviewNote] = useState('')
   const [actionLoading, setActionLoading] = useState(false)
   const [showMapModal, setShowMapModal] = useState(false)
+  const [showHistory, setShowHistory] = useState(false)
 
   useEffect(() => {
     loadData()
@@ -281,10 +282,24 @@ export default function ReopenReviewPage() {
       </div>
 
       {allAttempts.length > 0 && (
-        <div className="mt-6 space-y-4">
-          {allAttempts.map((a) => (
-            <AttemptReviewCard key={a.assignment_id} attempt={a} />
-          ))}
+        <div className="mt-6">
+          <button
+            type="button"
+            onClick={() => setShowHistory(!showHistory)}
+            className="flex items-center justify-between w-full bg-white rounded-xl border border-gray-200 px-5 py-4 text-sm font-bold text-gray-900"
+          >
+            <span>Job Order History ({allAttempts.length})</span>
+            <span className="text-xs font-semibold text-blue-700">
+              {showHistory ? 'Hide ▲' : 'View ▾'}
+            </span>
+          </button>
+          {showHistory && (
+            <div className="mt-4 space-y-4">
+              {allAttempts.map((a) => (
+                <AttemptReviewCard key={a.assignment_id} attempt={a} />
+              ))}
+            </div>
+          )}
         </div>
       )}
 
