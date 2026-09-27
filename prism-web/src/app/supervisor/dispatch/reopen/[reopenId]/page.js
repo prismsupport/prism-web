@@ -5,12 +5,15 @@ import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import ReportMap from '@/components/ui/ReportMap'
 import TicketDetailHeader from '@/components/dispatch/TicketDetailHeader'
-import TicketStatusPriority from '@/components/dispatch/TicketStatusPriority'
-import PhotoEvidenceCard from '@/components/dispatch/PhotoEvidenceCard'
-import AssignedLinemanCard from '@/components/dispatch/AssignedLinemanCard'
-import JobOrderStatusLog from '@/components/dispatch/JobOrderStatusLog'
 import BackToDispatchLink from '@/components/dispatch/BackToDispatchLink'
 import { reopenAssignment } from '@/lib/dispatch/reopenAssignment'
+
+function labelize(value) {
+  return value
+    .split('_')
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ')
+}
 
 export default function ReopenReviewPage() {
   const { reopenId } = useParams()
@@ -20,11 +23,8 @@ export default function ReopenReviewPage() {
   const [report, setReport] = useState(null)
   const [reporterName, setReporterName] = useState('')
   const [originalAssignment, setOriginalAssignment] = useState(null)
-  const [assignedLinemanName, setAssignedLinemanName] = useState('')
-  const [statusLogs, setStatusLogs] = useState([])
-  const [qaReview, setQaReview] = useState(null)
+  const [allAttempts, setAllAttempts] = useState([])
   const [originalPhotoUrl, setOriginalPhotoUrl] = useState(null)
-  const [completionPhotoUrl, setCompletionPhotoUrl] = useState(null)
   const [newPhotoUrl, setNewPhotoUrl] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -66,46 +66,62 @@ export default function ReopenReviewPage() {
       .single()
     if (consumer) setReporterName(`${consumer.first_name} ${consumer.last_name}`)
 
-    const { data: assignmentData } = await supabase
+    const { data: allAssignments } = await supabase
       .from('job_assignments')
       .select('*')
       .eq('report_id', reopenData.report_id)
-      .order('assigned_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-    setOriginalAssignment(assignmentData)
+      .order('assigned_at', { ascending: true })
 
-    if (assignmentData) {
-      const { data: lineman } = await supabase
+    const assignmentList = allAssignments || []
+    const latestAssignment = assignmentList[assignmentList.length - 1] || null
+    setOriginalAssignment(latestAssignment)
+
+    const linemanIds = Array.from(new Set(assignmentList.map((a) => a.lineman_id)))
+    let linemenMap = {}
+    if (linemanIds.length > 0) {
+      const { data } = await supabase
         .from('users')
-        .select('first_name, last_name')
-        .eq('id', assignmentData.lineman_id)
-        .single()
-      if (lineman) setAssignedLinemanName(`${lineman.first_name} ${lineman.last_name}`)
+        .select('id, first_name, last_name')
+        .in('id', linemanIds)
+      ;(data || []).forEach((u) => {
+        linemenMap[u.id] = `${u.first_name} ${u.last_name}`
+      })
+    }
 
+    const attempts = []
+    for (const [index, a] of assignmentList.entries()) {
       const { data: logs } = await supabase
         .from('job_assignment_status_logs')
         .select('*')
-        .eq('assignment_id', assignmentData.assignment_id)
+        .eq('assignment_id', a.assignment_id)
         .order('changed_at', { ascending: true })
-      setStatusLogs(logs || [])
 
       const { data: review } = await supabase
         .from('qa_reviews')
         .select('*')
-        .eq('assignment_id', assignmentData.assignment_id)
+        .eq('assignment_id', a.assignment_id)
         .order('reviewed_at', { ascending: false })
         .limit(1)
         .maybeSingle()
-      setQaReview(review)
 
-      if (assignmentData.photo_url) {
-        const { data } = await supabase.storage
+      let photoUrl = null
+      if (a.photo_url) {
+        const { data: signed } = await supabase.storage
           .from('assignment-proofs')
-          .createSignedUrl(assignmentData.photo_url, 3600)
-        if (data) setCompletionPhotoUrl(data.signedUrl)
+          .createSignedUrl(a.photo_url, 3600)
+        if (signed) photoUrl = signed.signedUrl
       }
+
+      attempts.push({
+        ...a,
+        attemptNumber: index + 1,
+        linemanName: linemenMap[a.lineman_id] || 'Unknown',
+        logs: logs || [],
+        review,
+        photoUrl,
+      })
     }
+    setAllAttempts(attempts)
 
     if (reportData?.photo_url) {
       const { data } = await supabase.storage
@@ -209,174 +225,197 @@ export default function ReopenReviewPage() {
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-8rem)]">
-      <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <ReportMap
-          lat={report?.lat}
-          lng={report?.lng}
-          label={report?.nearest_landmark || report?.barangay}
+    <div>
+      <BackToDispatchLink withMarginBottom />
+
+      <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
+        <TicketDetailHeader
+          ticketNumber={report?.ticket_number}
+          reporterName={reporterName}
+          reopened
         />
+        <p className="text-xs text-gray-400">
+          Reopen requested{' '}
+          {new Date(reopen.requested_at).toLocaleString('en-PH', {
+            month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit',
+          })}
+        </p>
       </div>
 
-      <div className="overflow-y-auto space-y-6">
-        <BackToDispatchLink />
-
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <TicketDetailHeader
-            ticketNumber={report?.ticket_number}
-            reporterName={reporterName}
-            reopened
+      {/* Small map / Original / Reopen — three columns */}
+      <div className="grid grid-cols-12 gap-6 items-start">
+        {/* Map — narrow */}
+        <div className="col-span-12 lg:col-span-3 bg-white rounded-xl border border-gray-200 overflow-hidden h-64">
+          <ReportMap
+            lat={report?.lat}
+            lng={report?.lng}
+            label={report?.nearest_landmark || report?.barangay}
           />
-          <TicketStatusPriority status="pending" priority={report?.priority} />
-          <p className="text-xs text-gray-400">
-            Reopen requested{' '}
-            {new Date(reopen.requested_at).toLocaleString('en-PH', {
-              month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit',
-            })}
-          </p>
         </div>
 
-        {/* Original report */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <p className="text-xs font-bold text-gray-400 uppercase mb-2">
-            Original Report
-          </p>
-          <div className="space-y-2 text-sm">
-            <div>
-              <p className="text-xs text-gray-400">Time Reported</p>
-              <p className="text-gray-900">
-                {new Date(report?.created_at).toLocaleString('en-PH', {
-                  month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit',
+        {/* Original — center, includes full attempt history */}
+        <div className="col-span-12 lg:col-span-5 space-y-4">
+          <div className="bg-white rounded-xl border border-gray-200 p-5">
+            <p className="text-xs font-bold text-gray-400 uppercase mb-2">
+              Original Report
+            </p>
+            <p className="text-xs text-gray-400">
+              Reported{' '}
+              {new Date(report?.created_at).toLocaleString('en-PH', {
+                month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
+              })}
+            </p>
+            <p className="text-sm text-gray-700 bg-gray-50 rounded-lg p-3 mt-2">
+              "{report?.report_details}"
+            </p>
+            {originalPhotoUrl ? (
+              <img
+                src={originalPhotoUrl}
+                alt="Original evidence"
+                className="w-full rounded-lg border border-gray-200 mt-2"
+              />
+            ) : (
+              <p className="text-xs text-gray-400 italic mt-2">No original photo.</p>
+            )}
+          </div>
+
+          {allAttempts.map((a) => (
+            <div key={a.assignment_id} className="bg-white rounded-xl border border-gray-200 p-5">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-bold text-gray-500 uppercase">
+                  Attempt {a.attemptNumber}
+                </p>
+                <span className="text-xs font-medium text-gray-400">
+                  {a.linemanName}
+                </span>
+              </div>
+              <p className="text-xs text-gray-400 mb-2">
+                Assigned{' '}
+                {new Date(a.assigned_at).toLocaleString('en-PH', {
+                  month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
                 })}
               </p>
-            </div>
-            {originalAssignment?.completed_at && (
-              <div>
-                <p className="text-xs text-gray-400">Time Restored</p>
-                <p className="text-gray-900">
-                  {new Date(originalAssignment.completed_at).toLocaleString('en-PH', {
-                    month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit',
-                  })}
+
+              {a.logs.length > 0 && (
+                <div className="space-y-1 mb-2">
+                  {a.logs.map((log) => (
+                    <div key={log.id} className="flex items-center justify-between text-xs">
+                      <span className="text-gray-700">{labelize(log.new_status)}</span>
+                      <span className="text-gray-400">
+                        {new Date(log.changed_at).toLocaleString('en-PH', {
+                          month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
+                        })}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {a.repair_note && (
+                <p className="text-sm text-gray-700 bg-gray-50 rounded-lg p-2 mb-2">
+                  {a.repair_note}
                 </p>
-              </div>
-            )}
-            <div>
-              <p className="text-xs text-gray-400">Description</p>
-              <p className="text-gray-700 bg-gray-50 rounded-lg p-3 mt-1">
-                "{report?.report_details}"
-              </p>
+              )}
+
+              {a.photoUrl && (
+                <img
+                  src={a.photoUrl}
+                  alt={`Attempt ${a.attemptNumber} completion`}
+                  className="w-full rounded-lg border border-gray-200 mb-2"
+                />
+              )}
+
+              {a.review && (
+                <p className={`text-xs font-bold ${a.review.decision === 'approved' ? 'text-green-600' : 'text-red-600'}`}>
+                  QA: {a.review.decision === 'approved' ? '✓ Approved' : '✗ Rejected'}
+                  {a.review.remarks && ` — ${a.review.remarks}`}
+                </p>
+              )}
             </div>
-          </div>
+          ))}
         </div>
 
-        <PhotoEvidenceCard status="pending" photoUrl={originalPhotoUrl} />
-
-        {qaReview && (
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <p className="text-xs font-bold text-gray-400 uppercase mb-2">
-              Original QA Review
+        {/* Reopen request — right */}
+        <div className="col-span-12 lg:col-span-4">
+          <div className="bg-white rounded-xl border-2 border-amber-300 p-5">
+            <p className="text-xs font-bold text-amber-700 uppercase mb-2">
+              Reopen Request — New Details
             </p>
-            <p className={`text-sm font-bold ${qaReview.decision === 'approved' ? 'text-green-600' : 'text-red-600'}`}>
-              {qaReview.decision === 'approved' ? '✓ Approved' : '✗ Rejected'}
+            <p className="text-xs text-gray-400 mb-2">
+              Requested{' '}
+              {new Date(reopen.requested_at).toLocaleString('en-PH', {
+                month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
+              })}
             </p>
-            {qaReview.remarks && (
-              <p className="text-sm text-gray-700 bg-gray-50 rounded-lg p-3 mt-2">
-                {qaReview.remarks}
-              </p>
+            <p className="text-sm text-gray-700 bg-amber-50 rounded-lg p-3 mb-3">
+              "{reopen.description}"
+            </p>
+            {newPhotoUrl ? (
+              <img
+                src={newPhotoUrl}
+                alt="Reopen evidence"
+                className="w-full rounded-lg border border-gray-200"
+              />
+            ) : (
+              <p className="text-xs text-gray-400 italic">No new photo submitted.</p>
             )}
           </div>
-        )}
-
-        <PhotoEvidenceCard status="fixed" photoUrl={completionPhotoUrl} />
-
-        {/* New reopen request details */}
-        <div className="bg-white rounded-xl border-2 border-amber-300 p-6">
-          <p className="text-xs font-bold text-amber-700 uppercase mb-2">
-            Reopen Request — New Details
-          </p>
-          <p className="text-xs text-gray-400 mb-2">
-            Requested{' '}
-            {new Date(reopen.requested_at).toLocaleString('en-PH', {
-              month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit',
-            })}
-          </p>
-          <p className="text-sm text-gray-700 bg-amber-50 rounded-lg p-3 mb-3">
-            "{reopen.description}"
-          </p>
-          {newPhotoUrl ? (
-            <img
-              src={newPhotoUrl}
-              alt="Reopen evidence"
-              className="w-full rounded-lg border border-gray-200"
-            />
-          ) : (
-            <p className="text-xs text-gray-400 italic">No new photo submitted.</p>
-          )}
         </div>
+      </div>
 
-        {originalAssignment && (
-          <AssignedLinemanCard
-            name={assignedLinemanName}
-            assignedAt={originalAssignment.assigned_at}
+      {error && (
+        <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mt-6">
+          {error}
+        </p>
+      )}
+
+      {!showRejectBox ? (
+        <div className="flex gap-3 mt-6 max-w-2xl">
+          <button
+            onClick={() => setShowRejectBox(true)}
+            disabled={actionLoading}
+            className="flex-1 bg-red-50 hover:bg-red-100 text-red-700 font-semibold text-sm py-3 rounded-lg border border-red-200"
+          >
+            Reject Request
+          </button>
+          <button
+            onClick={handleApprove}
+            disabled={actionLoading}
+            className="flex-1 bg-blue-700 hover:bg-blue-800 disabled:opacity-60 text-white font-semibold text-sm py-3 rounded-lg"
+          >
+            {actionLoading ? 'Approving…' : 'Approve Reopen'}
+          </button>
+        </div>
+      ) : (
+        <div className="bg-white rounded-xl border border-gray-200 p-6 mt-6 max-w-2xl">
+          <label className="block text-xs font-bold tracking-wide text-gray-600 mb-1.5">
+            REASON FOR REJECTION
+          </label>
+          <textarea
+            value={reviewNote}
+            onChange={(e) => setReviewNote(e.target.value)}
+            rows={3}
+            placeholder="Explain why this reopen request is being denied…"
+            className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm placeholder-gray-400 mb-3"
           />
-        )}
-
-        <JobOrderStatusLog logs={statusLogs} />
-
-        {error && (
-          <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
-            {error}
-          </p>
-        )}
-
-        {!showRejectBox ? (
           <div className="flex gap-3">
             <button
-              onClick={() => setShowRejectBox(true)}
+              onClick={handleReject}
               disabled={actionLoading}
-              className="flex-1 bg-red-50 hover:bg-red-100 text-red-700 font-semibold text-sm py-3 rounded-lg border border-red-200"
+              className="flex-1 bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white font-semibold text-sm py-2.5 rounded-lg"
             >
-              Reject Request
+              {actionLoading ? 'Submitting…' : 'Confirm Rejection'}
             </button>
             <button
-              onClick={handleApprove}
+              onClick={() => setShowRejectBox(false)}
               disabled={actionLoading}
-              className="flex-1 bg-blue-700 hover:bg-blue-800 disabled:opacity-60 text-white font-semibold text-sm py-3 rounded-lg"
+              className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-sm py-2.5 rounded-lg"
             >
-              {actionLoading ? 'Approving…' : 'Approve Reopen'}
+              Cancel
             </button>
           </div>
-        ) : (
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <label className="block text-xs font-bold tracking-wide text-gray-600 mb-1.5">
-              REASON FOR REJECTION
-            </label>
-            <textarea
-              value={reviewNote}
-              onChange={(e) => setReviewNote(e.target.value)}
-              rows={3}
-              placeholder="Explain why this reopen request is being denied…"
-              className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm placeholder-gray-400 mb-3"
-            />
-            <div className="flex gap-3">
-              <button
-                onClick={handleReject}
-                disabled={actionLoading}
-                className="flex-1 bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white font-semibold text-sm py-2.5 rounded-lg"
-              >
-                {actionLoading ? 'Submitting…' : 'Confirm Rejection'}
-              </button>
-              <button
-                onClick={() => setShowRejectBox(false)}
-                disabled={actionLoading}
-                className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-sm py-2.5 rounded-lg"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   )
 }
