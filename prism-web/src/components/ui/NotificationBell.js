@@ -1,5 +1,6 @@
 'use client'
 
+import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
@@ -19,6 +20,7 @@ export default function NotificationBell() {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(true)
   const [userId, setUserId] = useState(null)
+  const router = useRouter()
 
   useEffect(() => {
   const supabase = createClient()
@@ -96,6 +98,33 @@ export default function NotificationBell() {
     )
   }
 
+  async function handleNotificationClick(notification) {
+  await handleMarkAsRead(notification)
+  setOpen(false)
+
+  if (notification.reference_type === 'reports') {
+    router.push(`/supervisor/dispatch/report/${notification.reference_id}`)
+  } else if (notification.reference_type === 'cooperatives' && notification.type === 'cooperative') {
+    router.push(`/superadmin/cooperatives/${notification.reference_id}`)
+  } else if (notification.reference_type === 'faq_inquiries') {
+    router.push('/supervisor/faq')
+  } else if (notification.reference_type === 'consumer_bill_links') {
+    router.push('/supervisor/users')
+  } else if (notification.reference_type === 'job_assignments') {
+    const supabase = createClient()
+    const { data } = await supabase
+      .from('job_assignments')
+      .select('report_id, master_id')
+      .eq('assignment_id', notification.reference_id)
+      .single()
+    if (data?.report_id) {
+      router.push(`/supervisor/dispatch/report/${data.report_id}`)
+    } else if (data?.master_id) {
+      router.push(`/supervisor/dispatch/master/${data.master_id}`)
+    }
+  }
+  }
+
   async function handleMarkAllRead() {
     if (unreadCount === 0 || !userId) return
     const supabase = createClient()
@@ -168,7 +197,7 @@ export default function NotificationBell() {
                 <button
                   key={n.notification_id}
                   type="button"
-                  onClick={() => handleMarkAsRead(n)}
+                  onClick={() => handleNotificationClick(n)}
                   className={`block w-full text-left px-4 py-3 border-b border-gray-50 last:border-0 hover:bg-gray-50 ${
                     !n.is_read ? 'bg-blue-50/40' : ''
                   }`}
