@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Modal from '@/components/ui/Modal'
@@ -200,12 +201,20 @@ export default function AdvisoriesPage() {
             ))}
           </select>
         </div>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="bg-blue-700 hover:bg-blue-800 text-white text-sm font-semibold px-4 py-2.5 rounded-lg transition-colors"
-        >
-          + Create New Advisory
-        </button>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/supervisor/service-areas"
+            className="bg-white hover:bg-gray-50 text-gray-700 text-sm font-semibold px-4 py-2.5 rounded-lg border border-gray-200 transition-colors whitespace-nowrap"
+          >
+            Manage Service Areas
+          </Link>
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="bg-blue-700 hover:bg-blue-800 text-white text-sm font-semibold px-4 py-2.5 rounded-lg transition-colors whitespace-nowrap"
+          >
+            + Create New Advisory
+          </button>
+        </div>
       </div>
 
       {error && (
