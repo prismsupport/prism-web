@@ -1,4 +1,4 @@
-export default function StatCard({ label, value, color = 'text-gray-900', isActive, onClick }) {
+export default function StatCard({ label, value, color = 'text-gray-900', active, onClick }) {
   const clickable = typeof onClick === 'function'
 
   return (
@@ -6,7 +6,7 @@ export default function StatCard({ label, value, color = 'text-gray-900', isActi
       onClick={onClick}
       disabled={!clickable}
       className={`text-left bg-white rounded-xl border p-5 transition-all ${
-        isActive
+        active
           ? 'border-blue-600 ring-1 ring-blue-600'
           : 'border-gray-200 hover:border-gray-300'
       } ${!clickable ? 'cursor-default' : ''}`}

@@ -1,4 +1,4 @@
-import StatCard from './StatCard'
+import StatCard from '@/components/ui/StatCard'
 
 export default function DispatchStatCards({ counts, statusFilter, onFilterChange }) {
   const cards = [

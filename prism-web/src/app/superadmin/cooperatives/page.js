@@ -120,7 +120,7 @@ export default function AllCooperativesPage() {
             label={card.label}
             value={counts ? counts[card.key] : '–'}
             color={card.color}
-            isActive={statusFilter === card.key}
+            active={statusFilter === card.key}
             onClick={() => handleCardClick(card.key)}
           />
         ))}

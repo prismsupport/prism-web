@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Modal from '@/components/ui/Modal'
 import Pagination from '@/components/ui/Pagination'
-import StatCard from '@/components/dispatch/StatCard'
+import StatCard from '@/components/ui/StatCard'
 import AdvisoryRow from '@/components/advisories/AdvisoryRow'
 import AdvisoryFormModal from '@/components/advisories/AdvisoryFormModal'
 
