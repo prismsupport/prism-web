@@ -5,6 +5,24 @@ import { useEffect, useState } from "react";
 import SupervisorSidebar from "@/components/navigation/SupervisorSidebar";
 import SupervisorTopBar from "@/components/navigation/SupervisorTopBar";
 import { createClient } from "@/lib/supabase/client";
+import { PermissionsProvider, usePermissions } from "@/lib/supervisor/PermissionsContext";
+
+function RouteGuard({ children }) {
+  const pathname = usePathname();
+  const router = useRouter();
+  const { loading, canAccessPath } = usePermissions();
+
+  useEffect(() => {
+    if (!loading && !canAccessPath(pathname)) {
+      router.replace("/supervisor/dashboard");
+    }
+  }, [loading, pathname]);
+
+  if (loading) return <p className="text-sm text-gray-500">Loading…</p>;
+  if (!canAccessPath(pathname)) return null;
+
+  return children;
+}
 
 export default function SupervisorLayout({ children }) {
   const pathname = usePathname();
@@ -48,17 +66,21 @@ export default function SupervisorLayout({ children }) {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-50">
-      <SupervisorSidebar />
+    <PermissionsProvider>
+      <div className="flex h-screen overflow-hidden bg-gray-50">
+        <SupervisorSidebar />
 
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <SupervisorTopBar
-          supervisorName={supervisorName}
-          avatarUrl={avatarUrl}
-          onLogout={handleLogout}
-        />
-        <main className="min-h-0 flex-1 overflow-y-auto p-8">{children}</main>
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <SupervisorTopBar
+            supervisorName={supervisorName}
+            avatarUrl={avatarUrl}
+            onLogout={handleLogout}
+          />
+          <main className="min-h-0 flex-1 overflow-y-auto p-8">
+            <RouteGuard>{children}</RouteGuard>
+          </main>
+        </div>
       </div>
-    </div>
+    </PermissionsProvider>
   );
 }

@@ -7,35 +7,38 @@ import CreateLinemanModal from '@/components/users/CreateLinemanModal'
 import LinemanDetailsModal from '@/components/users/LinemanDetailsModal'
 import ConsumerDetailsModal from '@/components/users/ConsumerDetailsModal'
 import ManageAreaOfficesModal from '@/components/users/ManageAreaOfficesModal'
-import BillingRequestsTab from '@/components/users/BillingRequestsTab'
-import BillingRequestDetailsModal from '@/components/users/BillingRequestDetailsModal'
+import CreateSupervisorModal from '@/components/users/CreateSupervisorModal'
+import SupervisorDetailsModal from '@/components/users/SupervisorDetailsModal'
 import LinemanRow from '@/components/users/LinemanRow'
 import ConsumerRow from '@/components/users/ConsumerRow'
+import SupervisorRow from '@/components/users/SupervisorRow'
 
 const PAGE_SIZE = 10
 
 export default function UsersPage() {
   const [activeTab, setActiveTab] = useState('lineman')
   const [cooperativeId, setCooperativeId] = useState(null)
+  const [currentUserId, setCurrentUserId] = useState(null)
   const [areaOffices, setAreaOffices] = useState([])
 
   const [linemen, setLinemen] = useState([])
   const [consumers, setConsumers] = useState([])
-  const [billingRequests, setBillingRequests] = useState([])
+  const [supervisors, setSupervisors] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
   const [areaFilter, setAreaFilter] = useState('All Area')
   const [sortOrder, setSortOrder] = useState('Name (A-Z)')
-  const [billingStatusFilter, setBillingStatusFilter] = useState('all')
 
   const [linemanPage, setLinemanPage] = useState(1)
   const [consumerPage, setConsumerPage] = useState(1)
-  
+  const [supervisorPage, setSupervisorPage] = useState(1)
+
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [showCreateSupervisorModal, setShowCreateSupervisorModal] = useState(false)
   const [selectedLineman, setSelectedLineman] = useState(null)
   const [selectedConsumer, setSelectedConsumer] = useState(null)
-  const [selectedBillingRequest, setSelectedBillingRequest] = useState(null)
+  const [selectedSupervisor, setSelectedSupervisor] = useState(null)
   const [showManageAreas, setShowManageAreas] = useState(false)
 
   useEffect(() => {
@@ -50,6 +53,8 @@ export default function UsersPage() {
     const {
       data: { user },
     } = await supabase.auth.getUser()
+
+    setCurrentUserId(user.id)
 
     const { data: myRow, error: myRowError } = await supabase
       .from('users')
@@ -126,29 +131,17 @@ export default function UsersPage() {
     }))
     setConsumers(mergedConsumers)
 
-    // ---- Billing linkage requests ----
-    const { data: billingData, error: billingError } = await supabase
-      .from('consumer_bill_links')
+    // ---- Supervisor accounts ----
+    const { data: supervisorUsers, error: supervisorError } = await supabase
+      .from('users')
       .select('*')
-      .order('request_at', { ascending: false })
+      .eq('cooperative_id', coopId)
+      .eq('user_type', 'supervisor')
+      .order('is_owner', { ascending: false })
+      .order('first_name', { ascending: true })
 
-    if (billingError) setError(billingError.message)
-
-    const billingConsumerIds = (billingData || []).map((r) => r.consumer_id)
-    let billingConsumerNames = []
-    if (billingConsumerIds.length > 0) {
-      const { data } = await supabase
-        .from('users')
-        .select('id, first_name, last_name')
-        .in('id', billingConsumerIds)
-      billingConsumerNames = data || []
-    }
-
-    const mergedBilling = (billingData || []).map((r) => ({
-      ...r,
-      consumerName: billingConsumerNames.find((u) => u.id === r.consumer_id),
-    }))
-    setBillingRequests(mergedBilling)
+    if (supervisorError) setError(supervisorError.message)
+    setSupervisors(supervisorUsers || [])
 
     setLoading(false)
   }
@@ -162,9 +155,10 @@ export default function UsersPage() {
     await loadEverything()
     setSelectedLineman(null)
     setSelectedConsumer(null)
+    setSelectedSupervisor(null)
   }
 
-    const filteredLinemen = linemen
+  const filteredLinemen = linemen
     .filter((l) => areaFilter === 'All Area' || l.assigned_area_office === areaFilter)
     .sort((a, b) =>
       sortOrder === 'Name (A-Z)'
@@ -203,19 +197,14 @@ export default function UsersPage() {
           Consumer Accounts
         </button>
         <button
-          onClick={() => setActiveTab('billing')}
+          onClick={() => setActiveTab('supervisor')}
           className={`pb-3 text-sm font-semibold border-b-2 -mb-px transition-colors ${
-            activeTab === 'billing'
+            activeTab === 'supervisor'
               ? 'border-blue-700 text-blue-700'
               : 'border-transparent text-gray-500 hover:text-gray-700'
           }`}
         >
-          Billing Requests{' '}
-          {billingRequests.filter((r) => r.status === 'pending').length > 0 && (
-            <span className="ml-1 bg-red-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full">
-              {billingRequests.filter((r) => r.status === 'pending').length}
-            </span>
-          )}
+          Supervisors
         </button>
       </div>
 
@@ -373,12 +362,72 @@ export default function UsersPage() {
           </div>
         </>
       ) : (
-        <BillingRequestsTab
-          billingRequests={billingRequests}
-          statusFilter={billingStatusFilter}
-          onFilterChange={setBillingStatusFilter}
-          onSelectRequest={setSelectedBillingRequest}
-        />
+        <>
+          <div className="flex items-start justify-between mb-6">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Supervisor Accounts</h1>
+              <p className="text-sm text-gray-500 mt-1">
+                Manage other supervisor accounts and their feature access under
+                your cooperative.
+              </p>
+            </div>
+            <button
+              onClick={() => setShowCreateSupervisorModal(true)}
+              className="bg-blue-700 hover:bg-blue-800 text-white text-sm font-semibold px-4 py-2.5 rounded-lg transition-colors whitespace-nowrap"
+            >
+              + Create Supervisor Account
+            </button>
+          </div>
+
+          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-200 text-left text-xs text-gray-500 uppercase tracking-wide">
+                  <th className="px-5 py-3 font-semibold">Name</th>
+                  <th className="px-5 py-3 font-semibold">Access</th>
+                  <th className="px-5 py-3 font-semibold">Contact Number</th>
+                  <th className="px-5 py-3 font-semibold">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loading && (
+                  <tr>
+                    <td colSpan={4} className="px-5 py-8 text-center text-gray-500">
+                      Loading…
+                    </td>
+                  </tr>
+                )}
+                {!loading && supervisors.length === 0 && (
+                  <tr>
+                    <td colSpan={4} className="px-5 py-8 text-center text-gray-500">
+                      No supervisor accounts yet.
+                    </td>
+                  </tr>
+                )}
+                {!loading &&
+                  supervisors
+                    .slice((supervisorPage - 1) * PAGE_SIZE, supervisorPage * PAGE_SIZE)
+                    .map((s) => (
+                      <SupervisorRow
+                        key={s.id}
+                        supervisor={s}
+                        currentUserId={currentUserId}
+                        onSelect={setSelectedSupervisor}
+                      />
+                    ))}
+              </tbody>
+            </table>
+            {!loading && (
+              <Pagination
+                page={supervisorPage}
+                totalPages={Math.max(1, Math.ceil(supervisors.length / PAGE_SIZE))}
+                totalCount={supervisors.length}
+                pageSize={PAGE_SIZE}
+                onPageChange={setSupervisorPage}
+              />
+            )}
+          </div>
+        </>
       )}
 
       {showCreateModal && (
@@ -389,6 +438,17 @@ export default function UsersPage() {
           onClose={() => setShowCreateModal(false)}
           onCreated={() => {
             setShowCreateModal(false)
+            loadEverything()
+          }}
+        />
+      )}
+
+      {showCreateSupervisorModal && (
+        <CreateSupervisorModal
+          cooperativeId={cooperativeId}
+          onClose={() => setShowCreateSupervisorModal(false)}
+          onCreated={() => {
+            setShowCreateSupervisorModal(false)
             loadEverything()
           }}
         />
@@ -415,12 +475,14 @@ export default function UsersPage() {
         />
       )}
 
-      {selectedBillingRequest && (
-        <BillingRequestDetailsModal
-          request={selectedBillingRequest}
-          onClose={() => setSelectedBillingRequest(null)}
-          onDecided={() => {
-            setSelectedBillingRequest(null)
+      {selectedSupervisor && (
+        <SupervisorDetailsModal
+          supervisor={selectedSupervisor}
+          currentUserId={currentUserId}
+          onClose={() => setSelectedSupervisor(null)}
+          onToggleActive={handleToggleActive}
+          onSaved={() => {
+            setSelectedSupervisor(null)
             loadEverything()
           }}
         />

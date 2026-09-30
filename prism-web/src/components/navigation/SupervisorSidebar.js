@@ -4,9 +4,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Logo from "@/components/ui/Logo";
 import supervisorNavItems from "./supervisorNavItems";
+import { usePermissions } from "@/lib/supervisor/PermissionsContext";
 
 export default function SupervisorSidebar() {
   const pathname = usePathname();
+  const { loading, canAccessPath } = usePermissions();
 
   return (
     <aside className="h-screen w-64 shrink-0 overflow-y-auto border-r border-gray-200 bg-white">
@@ -17,6 +19,20 @@ export default function SupervisorSidebar() {
       <nav className="space-y-1 px-3 py-4">
         {supervisorNavItems.map((item) => {
           const isActive = pathname.startsWith(item.href);
+          const allowed = loading || canAccessPath(item.href);
+
+          if (!allowed) {
+            return (
+              <span
+                key={item.href}
+                title="You don't have access to this page"
+                className="block rounded-lg px-3 py-2.5 text-sm font-medium text-gray-400 opacity-50 cursor-not-allowed select-none"
+              >
+                {item.label}
+              </span>
+            );
+          }
+
           return (
             <Link
               key={item.href}

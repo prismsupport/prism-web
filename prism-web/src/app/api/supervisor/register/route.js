@@ -46,7 +46,7 @@ export async function POST(request) {
   }
 
   // Step 2: create the supervisor's personal user row, inactive until approved
-  const { error: userError } = await supabaseAdmin.from('users').insert({
+    const { error: userError } = await supabaseAdmin.from('users').insert({
     id: userId,
     cooperative_id: coop.id,
     first_name: firstName,
@@ -55,6 +55,7 @@ export async function POST(request) {
     email,
     user_type: 'supervisor',
     is_active: false,
+    is_owner: true,
   })
 
   if (userError) {
