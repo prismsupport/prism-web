@@ -109,7 +109,7 @@ export default function NotificationBell() {
   } else if (notification.reference_type === 'faq_inquiries') {
     router.push('/supervisor/faq')
   } else if (notification.reference_type === 'consumer_bill_links') {
-    router.push('/supervisor/users')
+    router.push('/supervisor/billing')
   } else if (notification.reference_type === 'job_assignments') {
     const supabase = createClient()
     const { data } = await supabase
