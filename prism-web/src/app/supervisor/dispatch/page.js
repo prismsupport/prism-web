@@ -11,8 +11,6 @@ import DispatchTicketRow from '@/components/dispatch/DispatchTicketRow'
 
 const PAGE_SIZE = 10
 
-// Maps the more detailed job_assignments.status onto the coarser
-// reports.status "bucket" it belongs to, so counts/filters/table all agree.
 const ASSIGNMENT_TO_BUCKET = {
   assigned: 'dispatched',
   on_the_way: 'dispatched',
@@ -37,6 +35,13 @@ export default function DispatchPage() {
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+
+  // Response Time Monitoring
+  const [cooperativeId, setCooperativeId] = useState(null)
+  const [threshold, setThreshold] = useState(30)
+  const [thresholdInput, setThresholdInput] = useState('30')
+  const [savingThreshold, setSavingThreshold] = useState(false)
+  const [overdueTickets, setOverdueTickets] = useState([])
 
   useEffect(() => {
     loadEverything()
@@ -64,6 +69,18 @@ export default function DispatchPage() {
     }
 
     const coopId = myRow.cooperative_id
+    setCooperativeId(coopId)
+
+    const { data: coop } = await supabase
+      .from('cooperatives')
+      .select('response_time_threshold_minutes')
+      .eq('id', coopId)
+      .single()
+
+    if (coop?.response_time_threshold_minutes != null) {
+      setThreshold(coop.response_time_threshold_minutes)
+      setThresholdInput(String(coop.response_time_threshold_minutes))
+    }
 
     const { data: reportData, error: reportError } = await supabase
       .from('reports')
@@ -144,7 +161,42 @@ export default function DispatchPage() {
     if (reopenError) setError((prev) => prev || reopenError.message)
     setReopenRequests(reopenData || [])
 
+    // Response Time Monitoring — checks + fires overdue notifications as a side effect
+    const { data: overdueData, error: overdueError } = await supabase.rpc(
+      'check_response_time_overdue',
+      { p_cooperative_id: coopId }
+    )
+    if (overdueError) setError((prev) => prev || overdueError.message)
+    setOverdueTickets(overdueData || [])
+
     setLoading(false)
+  }
+
+  async function handleSaveThreshold() {
+    const parsed = parseInt(thresholdInput, 10)
+    if (isNaN(parsed) || parsed <= 0) {
+      setError('Response time threshold must be a positive number of minutes.')
+      return
+    }
+
+    setSavingThreshold(true)
+    setError('')
+    const supabase = createClient()
+
+    const { error: updateError } = await supabase
+      .from('cooperatives')
+      .update({ response_time_threshold_minutes: parsed })
+      .eq('id', cooperativeId)
+
+    if (updateError) {
+      setError(updateError.message)
+      setSavingThreshold(false)
+      return
+    }
+
+    setThreshold(parsed)
+    setSavingThreshold(false)
+    loadEverything()
   }
 
   function assignmentFor(reportId, masterId) {
@@ -187,6 +239,7 @@ export default function DispatchPage() {
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   const clusteredReportIds = new Set(clusters.flatMap((c) => c.report_ids || []))
+  const overdueIds = new Set(overdueTickets.map((o) => o.ticket_id))
 
   function handleFilterChange(setter, value) {
     setter(value)
@@ -206,7 +259,7 @@ export default function DispatchPage() {
         onFilterChange={(value) => handleFilterChange(setStatusFilter, value)}
       />
 
-      <DispatchFilters
+  <DispatchFilters
         priorityFilter={priorityFilter}
         onPriorityChange={(value) => handleFilterChange(setPriorityFilter, value)}
         statusFilter={statusFilter}
@@ -214,11 +267,67 @@ export default function DispatchPage() {
         statusOptions={Object.keys(counts)}
       />
 
+      <div className="flex items-center gap-3 bg-white rounded-xl border border-gray-200 p-4 mb-6">
+        <span className="text-xs font-bold text-gray-500 tracking-wide">
+          RESPONSE TIME THRESHOLD
+        </span>
+        <input
+          type="number"
+          min={1}
+          value={thresholdInput}
+          onChange={(e) => setThresholdInput(e.target.value)}
+          className="w-20 text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white"
+        />
+        <span className="text-sm text-gray-500">minutes</span>
+        <button
+          onClick={handleSaveThreshold}
+          disabled={savingThreshold || parseInt(thresholdInput, 10) === threshold}
+          className="bg-blue-700 hover:bg-blue-800 disabled:opacity-50 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
+        >
+          {savingThreshold ? 'Saving…' : 'Save'}
+        </button>
+        <span className="text-xs text-gray-400 ml-2">
+          Pending tickets unassigned past this limit are flagged below and notify supervisors once.
+        </span>
+      </div>
+
       {error && (
         <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-4">
           {error}
         </p>
       )}
+
+      {overdueTickets.map((o) => (
+        <div
+          key={o.ticket_id}
+          className="flex items-center justify-between bg-white rounded-xl border border-red-200 p-4 mb-4"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-red-50 flex items-center justify-center text-red-700">
+              ⏱
+            </div>
+            <div>
+              <p className="text-sm font-bold text-gray-900">RESPONSE TIME EXCEEDED</p>
+              <p className="text-sm text-gray-600">
+                <span className="font-medium">{o.ticket_number}</span> has been unassigned for{' '}
+                <span className="font-semibold text-red-600">{o.minutes_elapsed} minutes</span>{' '}
+                (threshold: {threshold} min)
+              </p>
+            </div>
+          </div>
+          <Link
+            href={
+              o.ticket_kind === 'master'
+                ? `/supervisor/dispatch/master/${o.ticket_id}`
+                : `/supervisor/dispatch/report/${o.ticket_id}`
+            }
+            className="bg-red-600 hover:bg-red-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors whitespace-nowrap"
+          >
+            Review Now
+          </Link>
+        </div>
+      ))}
+
       {reopenRequests.map((r) => (
         <div
           key={r.reopen_id}
@@ -321,6 +430,7 @@ export default function DispatchPage() {
                     assignment={assignment}
                     bucket={bucketForTicket(t)}
                     isClustered={!isMaster && clusteredReportIds.has(t.report_id)}
+                    isOverdue={overdueIds.has(t.ticketKey)}
                     assigneeName={assignment ? linemenNames[assignment.lineman_id] : null}
                   />
                 )

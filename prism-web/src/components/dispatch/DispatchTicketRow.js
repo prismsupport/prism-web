@@ -40,7 +40,7 @@ function formatDateTime(dateString) {
   })
 }
 
-export default function DispatchTicketRow({ ticket, assignment, bucket, isClustered, assigneeName }) {
+export default function DispatchTicketRow({ ticket, assignment, bucket, isClustered, isOverdue, assigneeName }) {
   const isMaster = ticket.kind === 'master'
   const status = assignment ? assignment.status : ticket.status
   const isReviewable = !isMaster && !assignment && ticket.status === 'pending'
@@ -68,6 +68,12 @@ export default function DispatchTicketRow({ ticket, assignment, bucket, isCluste
           <p className="text-xs text-green-600 font-medium flex items-center gap-1 mt-0.5">
             <span className="w-1.5 h-1.5 rounded-full bg-green-600" />
             Highly Likely Duplicate
+          </p>
+        )}
+        {isOverdue && (
+          <p className="text-xs text-red-600 font-medium flex items-center gap-1 mt-0.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-red-600" />
+            Response Time Exceeded
           </p>
         )}
       </td>
