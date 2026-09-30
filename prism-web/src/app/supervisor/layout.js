@@ -10,6 +10,7 @@ export default function SupervisorLayout({ children }) {
   const pathname = usePathname();
   const router = useRouter();
   const [supervisorName, setSupervisorName] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState(null);
 
   useEffect(() => {
     if (pathname === "/supervisor/login" || pathname === "/supervisor/register")
@@ -26,12 +27,13 @@ export default function SupervisorLayout({ children }) {
 
     const { data } = await supabase
       .from("users")
-      .select("first_name, last_name")
+      .select("first_name, last_name, photo_url")
       .eq("id", user.id)
       .single();
 
     if (data) {
       setSupervisorName(`${data.first_name} ${data.last_name}`);
+      setAvatarUrl(data.photo_url || null);
     }
   }
 
@@ -52,6 +54,7 @@ export default function SupervisorLayout({ children }) {
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <SupervisorTopBar
           supervisorName={supervisorName}
+          avatarUrl={avatarUrl}
           onLogout={handleLogout}
         />
         <main className="min-h-0 flex-1 overflow-y-auto p-8">{children}</main>

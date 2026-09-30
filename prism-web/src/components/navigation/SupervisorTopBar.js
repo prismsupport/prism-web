@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import NotificationBell from '@/components/ui/NotificationBell'
 
-export default function SupervisorTopBar({ supervisorName, onLogout }) {
+export default function SupervisorTopBar({ supervisorName, avatarUrl, onLogout }) {
   const router = useRouter();
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [searchText, setSearchText] = useState("");
@@ -54,7 +54,11 @@ export default function SupervisorTopBar({ supervisorName, onLogout }) {
           <span className="text-sm font-medium text-gray-700">
             {supervisorName || "Loading..."}
           </span>
-          <div className="h-9 w-9 rounded-full bg-gray-200" />
+          {avatarUrl ? (
+            <img src={avatarUrl} alt="" className="h-9 w-9 rounded-full object-cover border border-gray-200" />
+          ) : (
+            <div className="h-9 w-9 rounded-full bg-gray-200" />
+          )}
         </button>
 
         {profileMenuOpen && (
