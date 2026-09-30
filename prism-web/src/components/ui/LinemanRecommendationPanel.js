@@ -12,7 +12,8 @@ function computeScore(l) {
   const proximityScore =
     l.distance_meters != null ? Math.max(0, 100 * (1 - l.distance_meters / 5000)) : 50
   const workloadScore = Math.max(0, 100 * (1 - l.active_jobs / 5))
-  return Math.round(0.6 * proximityScore + 0.4 * workloadScore)
+  const base = Math.round(0.6 * proximityScore + 0.4 * workloadScore)
+  return l.area_match ? Math.min(100, base + 15) : base
 }
 
 function estimateEtaMinutes(distanceMeters) {
@@ -68,8 +69,8 @@ export default function LinemanRecommendationPanel({
       <div className="bg-blue-50 text-blue-800 text-xs rounded-lg p-3 mb-5 flex gap-2">
         <span>ℹ</span>
         <span>
-          Recommendations are based on estimated distance, current workload, and
-          availability, and serve only as a decision-support tool.
+          Recommendations are based on service area coverage, estimated distance, current
+          workload, and availability, and serve only as a decision-support tool.
         </span>
       </div>
 
@@ -110,6 +111,11 @@ export default function LinemanRecommendationPanel({
                       {l.first_name} {l.last_name}
                     </p>
                     <div className="flex gap-1.5 mt-1 flex-wrap">
+                      {l.area_match && (
+                        <span className="text-[10px] font-bold bg-green-100 text-green-700 px-1.5 py-0.5 rounded">
+                          COVERS THIS AREA
+                        </span>
+                      )}
                       {isBestMatch && (
                         <span className="text-[10px] font-bold bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">
                           BEST MATCH

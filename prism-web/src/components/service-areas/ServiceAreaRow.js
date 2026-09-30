@@ -14,6 +14,17 @@ export default function ServiceAreaRow({ area, onEdit, onDelete }) {
       </td>
       <td className="px-5 py-4 text-gray-600">{area.substation}</td>
       <td className="px-5 py-4">
+        {area.area_office ? (
+          <span className="inline-block text-xs font-bold px-2 py-0.5 rounded bg-blue-50 text-blue-700">
+            {area.area_office}
+          </span>
+        ) : (
+          <span className="inline-block text-xs font-bold px-2 py-0.5 rounded bg-amber-50 text-amber-700">
+            Unassigned
+          </span>
+        )}
+      </td>
+      <td className="px-5 py-4">
         <div className="flex items-center gap-3">
           <button
             onClick={() => onEdit(area)}

@@ -4,7 +4,14 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Modal from '@/components/ui/Modal'
 
-export default function ServiceAreaFormModal({ cooperativeId, area, onClose, onSaved }) {
+export default function ServiceAreaFormModal({
+  cooperativeId,
+  area,
+  areaOffices,
+  onManageAreaOffices,
+  onClose,
+  onSaved,
+}) {
   const isEditing = !!area
 
   const [substation, setSubstation] = useState(area?.substation || '')
@@ -12,6 +19,7 @@ export default function ServiceAreaFormModal({ cooperativeId, area, onClose, onS
   const [barangay, setBarangay] = useState(area?.barangay || '')
   const [municipality, setMunicipality] = useState(area?.municipality || '')
   const [province, setProvince] = useState(area?.province || 'Camarines Sur')
+  const [areaOffice, setAreaOffice] = useState(area?.area_office || '')
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -34,6 +42,7 @@ export default function ServiceAreaFormModal({ cooperativeId, area, onClose, onS
       barangay: barangay.trim(),
       municipality: municipality.trim(),
       province: province.trim() || null,
+      area_office: areaOffice || null,
     }
 
     if (isEditing) {
@@ -66,7 +75,8 @@ export default function ServiceAreaFormModal({ cooperativeId, area, onClose, onS
   return (
     <Modal title={isEditing ? 'Edit Service Area' : 'Add Service Area'} onClose={onClose}>
       <p className="text-sm text-gray-500 mb-4 -mt-2">
-        Define the substation, feeder, and barangay covered under this service area.
+        Define the substation, feeder, barangay, and responsible area office covered
+        under this service area.
       </p>
 
       <form onSubmit={handleSubmit}>
@@ -123,7 +133,7 @@ export default function ServiceAreaFormModal({ cooperativeId, area, onClose, onS
           </div>
         </div>
 
-        <div className="mb-5">
+        <div className="mb-4">
           <label className="block text-sm font-medium text-gray-700 mb-1.5">
             Province
           </label>
@@ -133,6 +143,29 @@ export default function ServiceAreaFormModal({ cooperativeId, area, onClose, onS
             placeholder="e.g. Camarines Sur"
             className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm placeholder-gray-400"
           />
+        </div>
+
+        <div className="mb-5">
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">
+            Area Office
+          </label>
+          <select
+            value={areaOffice}
+            onChange={(e) => setAreaOffice(e.target.value)}
+            className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm"
+          >
+            <option value="">No area office assigned</option>
+            {areaOffices.map((a) => (
+              <option key={a}>{a}</option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={onManageAreaOffices}
+            className="text-xs text-blue-700 font-medium mt-1.5"
+          >
+            Manage area offices
+          </button>
         </div>
 
         {error && (

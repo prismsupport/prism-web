@@ -203,9 +203,15 @@ export default function MasterTicketDetailPage() {
     setLinemenError('')
     const supabase = createClient()
     const { data, error: rpcError } = await supabase.rpc(
-      'get_lineman_recommendations_by_location',
-      { p_lat: master._lat, p_lng: master._lng, p_cooperative_id: cooperativeId }
-    )
+  'get_lineman_recommendations_by_location',
+  {
+    p_lat: master._lat,
+    p_lng: master._lng,
+    p_cooperative_id: cooperativeId,
+    p_barangay: master.barangay,
+    p_municipality: master.municipality,
+  }
+)
     if (rpcError) setLinemenError(rpcError.message)
     setLinemen(data || [])
     setLinemenLoading(false)

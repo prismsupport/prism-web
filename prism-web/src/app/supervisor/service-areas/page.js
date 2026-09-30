@@ -7,17 +7,20 @@ import Modal from '@/components/ui/Modal'
 import ServiceAreaFormModal from '@/components/service-areas/ServiceAreaFormModal'
 import ServiceAreaRow from '@/components/service-areas/ServiceAreaRow'
 import BackToAdvisoriesLink from '@/components/service-areas/BackToAdvisoriesLink'
+import ManageAreaOfficesModal from '@/components/users/ManageAreaOfficesModal'
 
 const PAGE_SIZE = 10
 
 export default function ServiceAreasPage() {
   const [cooperativeId, setCooperativeId] = useState(null)
+  const [areaOffices, setAreaOffices] = useState([])
   const [serviceAreas, setServiceAreas] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
   const [substationFilter, setSubstationFilter] = useState('All Substations')
   const [feederFilter, setFeederFilter] = useState('All Feeders')
+  const [areaOfficeFilter, setAreaOfficeFilter] = useState('All Area Offices')
   const [searchText, setSearchText] = useState('')
   const [page, setPage] = useState(1)
 
@@ -25,6 +28,7 @@ export default function ServiceAreasPage() {
   const [editingArea, setEditingArea] = useState(null)
   const [deletingArea, setDeletingArea] = useState(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
+  const [showManageAreaOffices, setShowManageAreaOffices] = useState(false)
 
   useEffect(() => {
     loadServiceAreas()
@@ -52,6 +56,14 @@ export default function ServiceAreasPage() {
     }
 
     setCooperativeId(myRow.cooperative_id)
+
+    const { data: coop } = await supabase
+      .from('cooperatives')
+      .select('area_offices')
+      .eq('id', myRow.cooperative_id)
+      .single()
+
+    setAreaOffices(coop?.area_offices || [])
 
     const { data, error: fetchError } = await supabase
       .from('service_areas')
@@ -96,18 +108,23 @@ export default function ServiceAreasPage() {
     const substationMatch =
       substationFilter === 'All Substations' || a.substation === substationFilter
     const feederMatch = feederFilter === 'All Feeders' || a.feeder === feederFilter
+    const areaOfficeMatch =
+      areaOfficeFilter === 'All Area Offices' || a.area_office === areaOfficeFilter
     const term = searchText.trim().toLowerCase()
     const searchMatch =
       !term ||
       a.barangay?.toLowerCase().includes(term) ||
       a.municipality?.toLowerCase().includes(term) ||
       a.substation?.toLowerCase().includes(term) ||
-      a.feeder?.toLowerCase().includes(term)
-    return substationMatch && feederMatch && searchMatch
+      a.feeder?.toLowerCase().includes(term) ||
+      a.area_office?.toLowerCase().includes(term)
+    return substationMatch && feederMatch && areaOfficeMatch && searchMatch
   })
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+
+  const unassignedCount = serviceAreas.filter((a) => !a.area_office).length
 
   return (
     <div>
@@ -117,18 +134,20 @@ export default function ServiceAreasPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Service Areas</h1>
           <p className="text-sm text-gray-500 mt-1">
-            Manage the substations, feeders, and barangays covered by your cooperative.
+            Manage the substations, feeders, barangays, and area offices covered by your cooperative.
           </p>
         </div>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="bg-blue-700 hover:bg-blue-800 text-white text-sm font-semibold px-4 py-2.5 rounded-lg transition-colors whitespace-nowrap"
-        >
-          + Add Service Area
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="bg-blue-700 hover:bg-blue-800 text-white text-sm font-semibold px-4 py-2.5 rounded-lg transition-colors whitespace-nowrap"
+          >
+            + Add Service Area
+          </button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
         <div className="bg-white rounded-xl border border-gray-200 p-4">
           <p className="text-xs font-bold tracking-wide text-gray-400 uppercase mb-1">
             Total Areas
@@ -149,10 +168,16 @@ export default function ServiceAreasPage() {
         </div>
         <div className="bg-white rounded-xl border border-gray-200 p-4">
           <p className="text-xs font-bold tracking-wide text-gray-400 uppercase mb-1">
-            Municipalities
+            Area Offices
           </p>
-          <p className="text-2xl font-bold text-gray-900">
-            {Array.from(new Set(serviceAreas.map((a) => a.municipality).filter(Boolean))).length}
+          <p className="text-2xl font-bold text-gray-900">{areaOffices.length}</p>
+        </div>
+        <div className="bg-white rounded-xl border border-gray-200 p-4">
+          <p className="text-xs font-bold tracking-wide text-gray-400 uppercase mb-1">
+            Unassigned Office
+          </p>
+          <p className={`text-2xl font-bold ${unassignedCount > 0 ? 'text-amber-600' : 'text-gray-900'}`}>
+            {unassignedCount}
           </p>
         </div>
       </div>
@@ -177,9 +202,26 @@ export default function ServiceAreasPage() {
               setSearchText(e.target.value)
               setPage(1)
             }}
-            placeholder="Search barangay, municipality, substation, feeder…"
+            placeholder="Search barangay, municipality, substation, feeder, area office…"
             className="w-full pl-10 pr-3.5 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
           />
+        </div>
+
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-bold text-gray-500 tracking-wide">AREA OFFICE</span>
+          <select
+            value={areaOfficeFilter}
+            onChange={(e) => {
+              setAreaOfficeFilter(e.target.value)
+              setPage(1)
+            }}
+            className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white"
+          >
+            <option>All Area Offices</option>
+            {areaOffices.map((a) => (
+              <option key={a}>{a}</option>
+            ))}
+          </select>
         </div>
 
         <div className="flex items-center gap-2">
@@ -218,11 +260,13 @@ export default function ServiceAreasPage() {
 
         {(substationFilter !== 'All Substations' ||
           feederFilter !== 'All Feeders' ||
+          areaOfficeFilter !== 'All Area Offices' ||
           searchText) && (
           <button
             onClick={() => {
               setSubstationFilter('All Substations')
               setFeederFilter('All Feeders')
+              setAreaOfficeFilter('All Area Offices')
               setSearchText('')
               setPage(1)
             }}
@@ -248,13 +292,14 @@ export default function ServiceAreasPage() {
               <th className="px-5 py-3 font-semibold">Province</th>
               <th className="px-5 py-3 font-semibold">Feeder</th>
               <th className="px-5 py-3 font-semibold">Substation</th>
+              <th className="px-5 py-3 font-semibold">Area Office</th>
               <th className="px-5 py-3 font-semibold">Actions</th>
             </tr>
           </thead>
           <tbody>
             {loading && (
               <tr>
-                <td colSpan={6} className="px-5 py-8 text-center text-gray-500">
+                <td colSpan={7} className="px-5 py-8 text-center text-gray-500">
                   Loading…
                 </td>
               </tr>
@@ -262,7 +307,7 @@ export default function ServiceAreasPage() {
 
             {!loading && paginated.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-5 py-8 text-center text-gray-500">
+                <td colSpan={7} className="px-5 py-8 text-center text-gray-500">
                   No service areas match this view.
                 </td>
               </tr>
@@ -294,6 +339,8 @@ export default function ServiceAreasPage() {
       {(showCreateModal || editingArea) && (
         <ServiceAreaFormModal
           cooperativeId={cooperativeId}
+          areaOffices={areaOffices}
+          onManageAreaOffices={() => setShowManageAreaOffices(true)}
           area={editingArea}
           onClose={() => {
             setShowCreateModal(false)
@@ -313,7 +360,8 @@ export default function ServiceAreasPage() {
             Are you sure you want to delete{' '}
             <span className="font-semibold">{deletingArea.barangay}</span>,{' '}
             {deletingArea.municipality}? This action cannot be undone, and it may
-            affect existing Power Advisories or reports referencing this area.
+            affect existing Power Advisories referencing this area, and will block
+            future consumer registrations/edits for this barangay until it's re-added.
           </p>
           <div className="flex justify-end gap-3">
             <button
@@ -332,6 +380,15 @@ export default function ServiceAreasPage() {
             </button>
           </div>
         </Modal>
+      )}
+
+      {showManageAreaOffices && (
+        <ManageAreaOfficesModal
+          cooperativeId={cooperativeId}
+          areaOffices={areaOffices}
+          onClose={() => setShowManageAreaOffices(false)}
+          onUpdated={(newList) => setAreaOffices(newList)}
+        />
       )}
     </div>
   )
