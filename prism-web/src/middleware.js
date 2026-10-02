@@ -4,11 +4,14 @@ import { createMiddlewareClient } from '@/lib/supabase/middleware'
 export async function middleware(request) {
   const { pathname } = request.nextUrl
 
-  // guards /superadmin routes, except the login page
   const isSuperadminRoute = pathname.startsWith('/superadmin')
-  const isLoginPage = pathname === '/superadmin/login'
+  const isSuperadminLogin = pathname === '/superadmin/login'
 
-  if (!isSuperadminRoute || isLoginPage) {
+  const isSupervisorRoute = pathname.startsWith('/supervisor')
+  const isSupervisorPublicPage =
+    pathname === '/supervisor/login' || pathname === '/supervisor/register'
+
+  if ((!isSuperadminRoute || isSuperadminLogin) && (!isSupervisorRoute || isSupervisorPublicPage)) {
     return NextResponse.next()
   }
 
@@ -18,24 +21,50 @@ export async function middleware(request) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  if (!user) {
-    return NextResponse.redirect(new URL('/superadmin/login', request.url))
+  if (isSuperadminRoute && !isSuperadminLogin) {
+    if (!user) {
+      return NextResponse.redirect(new URL('/superadmin/login', request.url))
+    }
+
+    // Confirm user is active superadmin, not just any logged-in Supabase user.
+    const { data: superadmin } = await supabase
+      .from('super_admins')
+      .select('id, is_active')
+      .eq('id', user.id)
+      .single()
+
+    if (!superadmin || superadmin.is_active !== true) {
+      return NextResponse.redirect(new URL('/superadmin/login', request.url))
+    }
+
+    return response
   }
 
-  // Confirm user is active superadmin, not just any logged-in Supabase user.
-  const { data: superadmin } = await supabase
-    .from('super_admins')
-    .select('id, is_active')
-    .eq('id', user.id)
-    .single()
+  if (isSupervisorRoute && !isSupervisorPublicPage) {
+    if (!user) {
+      return NextResponse.redirect(new URL('/supervisor/login', request.url))
+    }
 
-  if (!superadmin || superadmin.is_active !== true) {
-    return NextResponse.redirect(new URL('/superadmin/login', request.url))
+    // Confirm this is an active Supervisor account, not just any logged-in
+    // Supabase user (e.g. a consumer, lineman, or superadmin session).
+    // Fine-grained feature/owner permissions stay client-side in
+    // PermissionsContext — this only answers "is this role allowed here at all."
+    const { data: userRow } = await supabase
+      .from('users')
+      .select('user_type, is_active')
+      .eq('id', user.id)
+      .single()
+
+    if (!userRow || userRow.user_type !== 'supervisor' || userRow.is_active !== true) {
+      return NextResponse.redirect(new URL('/supervisor/login', request.url))
+    }
+
+    return response
   }
 
   return response
 }
 
 export const config = {
-  matcher: ['/superadmin/:path*'],
+  matcher: ['/superadmin/:path*', '/supervisor/:path*'],
 }
