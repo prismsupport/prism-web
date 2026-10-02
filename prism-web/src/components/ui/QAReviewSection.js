@@ -148,9 +148,13 @@ export default function QAReviewSection({ assignment, reportId, masterId, onRevi
         {assignment.voice_record && (
           <div>
             <p className="text-xs text-gray-400 mb-1">Voice Record</p>
-            <audio controls className="w-full">
-              <source src={voiceUrl} />
-            </audio>
+            {voiceUrl ? (
+              <audio key={voiceUrl} controls className="w-full">
+                <source src={voiceUrl} type="audio/mp4" />
+              </audio>
+            ) : (
+              <p className="text-xs text-gray-400">Loading audio…</p>
+            )}
           </div>
         )}
       </div>
