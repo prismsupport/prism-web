@@ -7,6 +7,7 @@ import Modal from '@/components/ui/Modal'
 export default function ProvideAnswerModal({ inquiry, cooperativeId, categories, onClose, onAnswered }) {
   const [category, setCategory] = useState(categories[0] || '')
   const [answer, setAnswer] = useState('')
+  const [keywords, setKeywords] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -40,11 +41,18 @@ export default function ProvideAnswerModal({ inquiry, cooperativeId, categories,
       return
     }
 
+    const normalizedKeywords = keywords
+      .split(',')
+      .map((k) => k.trim())
+      .filter(Boolean)
+      .join(', ')
+
     const { error: entryError } = await supabase.from('faq_entries').insert({
       cooperative_id: cooperativeId,
       category,
       question: inquiry.question,
       answer: answer.trim(),
+      keywords: normalizedKeywords || null,
     })
 
     if (entryError) {
@@ -114,6 +122,21 @@ export default function ProvideAnswerModal({ inquiry, cooperativeId, categories,
             placeholder="Type the official response here..."
             className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm placeholder-gray-400"
           />
+        </div>
+
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">
+            Keywords <span className="text-gray-400 font-normal">(optional)</span>
+          </label>
+          <input
+            value={keywords}
+            onChange={(e) => setKeywords(e.target.value)}
+            placeholder="e.g. walang kuryente, no power, blackout, brownout"
+            className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm placeholder-gray-400"
+          />
+          <p className="text-xs text-gray-400 mt-1">
+            Helps the chatbot recognize similarly-phrased questions in the future.
+          </p>
         </div>
 
         {error && (

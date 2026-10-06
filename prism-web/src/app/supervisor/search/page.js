@@ -99,9 +99,9 @@ function SupervisorSearchContent() {
         .limit(25),
       supabase
         .from('faq_entries')
-        .select('faq_id, category, question, answer')
+        .select('faq_id, category, question, answer, keywords')
         .eq('cooperative_id', profile.cooperative_id)
-        .or(`question.ilike.${pattern},answer.ilike.${pattern}${faqCategory}`)
+        .or(`question.ilike.${pattern},answer.ilike.${pattern},keywords.ilike.${pattern}${faqCategory}`)
         .limit(25),
     ])
 
