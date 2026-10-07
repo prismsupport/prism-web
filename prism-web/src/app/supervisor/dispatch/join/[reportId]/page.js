@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import ReportMap from '@/components/ui/ReportMap'
 import SuggestionConfidenceBanner from '@/components/dispatch/SuggestionConfidenceBanner'
-import TicketSummaryCard from '@/components/dispatch/TicketSummaryCard'
+import MatchReviewCard from '@/components/dispatch/MatchReviewCard'
 
 function generateMasterTicketNumber() {
   const date = new Date().toISOString().slice(0, 10).replace(/-/g, '')
@@ -18,11 +18,15 @@ export default function JoinReviewPage() {
   const router = useRouter()
 
   const [report, setReport] = useState(null)
+  const [reportPhotoUrl, setReportPhotoUrl] = useState(null)
   const [suggestion, setSuggestion] = useState(null)
   const [cooperativeId, setCooperativeId] = useState(null)
   const [targetLat, setTargetLat] = useState(null)
   const [targetLng, setTargetLng] = useState(null)
   const [targetStatus, setTargetStatus] = useState(null)
+  const [targetDetails, setTargetDetails] = useState(null)
+  const [targetPhotoUrl, setTargetPhotoUrl] = useState(null)
+  const [breakdown, setBreakdown] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [actionLoading, setActionLoading] = useState(false)
@@ -59,6 +63,13 @@ export default function JoinReviewPage() {
     }
     setReport(reportData)
 
+    if (reportData.photo_url) {
+      const { data: signed } = await supabase.storage
+        .from('report-photos')
+        .createSignedUrl(reportData.photo_url, 3600)
+      if (signed) setReportPhotoUrl(signed.signedUrl)
+    }
+
     const { data: suggestionData, error: suggestionError } = await supabase
       .rpc('get_join_suggestion_for_report', { p_report_id: reportId })
       .maybeSingle()
@@ -70,6 +81,20 @@ export default function JoinReviewPage() {
     }
     setSuggestion(suggestionData)
 
+    const breakdownRpc =
+      suggestionData.target_type === 'master'
+        ? supabase.rpc('get_match_breakdown_against_master', {
+            p_report_id: reportId,
+            p_master_id: suggestionData.target_id,
+          })
+        : supabase.rpc('get_match_breakdown', {
+            p_report_id_a: reportId,
+            p_report_id_b: suggestionData.target_id,
+          })
+
+    const { data: breakdownData } = await breakdownRpc.single()
+    setBreakdown(breakdownData)
+
     if (suggestionData.target_type === 'master') {
       const { data: geo } = await supabase
         .rpc('get_master_ticket_with_location', { p_master_id: suggestionData.target_id })
@@ -79,10 +104,11 @@ export default function JoinReviewPage() {
 
       const { data: masterRow } = await supabase
         .from('master_tickets')
-        .select('status')
+        .select('*')
         .eq('master_id', suggestionData.target_id)
         .single()
       setTargetStatus(masterRow?.status)
+      setTargetDetails(masterRow)
     } else {
       const { data: geo } = await supabase
         .rpc('get_report_with_location', { p_report_id: suggestionData.target_id })
@@ -90,6 +116,14 @@ export default function JoinReviewPage() {
       setTargetLat(geo?.lat)
       setTargetLng(geo?.lng)
       setTargetStatus(geo?.status)
+      setTargetDetails(geo)
+
+      if (geo?.photo_url) {
+        const { data: signed } = await supabase.storage
+          .from('report-photos')
+          .createSignedUrl(geo.photo_url, 3600)
+        if (signed) setTargetPhotoUrl(signed.signedUrl)
+      }
     }
 
     setLoading(false)
@@ -186,6 +220,8 @@ export default function JoinReviewPage() {
     )
   }
 
+  const isTargetMaster = suggestion.target_type === 'master'
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-8rem)]">
       <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 overflow-hidden">
@@ -202,26 +238,41 @@ export default function JoinReviewPage() {
           title="Possible Match"
           confidence={suggestion.score}
           theme="purple"
+          breakdown={breakdown}
           description={
             <>
               The system suggests {report.ticket_number} may be the same outage as{' '}
               {suggestion.target_label}, which is already{' '}
-              {suggestion.target_type === 'master' ? 'a Master Ticket' : 'being worked on'}.
+              {isTargetMaster ? 'a Master Ticket' : 'being worked on'}.
             </>
           }
         />
 
-        <TicketSummaryCard
+        <MatchReviewCard
           title="New Report"
           ticketLabel={report.ticket_number}
-          location={report.nearest_landmark || `${report.barangay}, ${report.municipality}`}
+          barangay={report.barangay}
+          municipality={report.municipality}
+          zone={report.zone}
+          nearestLandmark={report.nearest_landmark}
           description={report.report_details}
+          photoUrl={reportPhotoUrl}
+          otherHomesAffected={report.other_homes_affected}
         />
 
-        <TicketSummaryCard
-          title={`Existing ${suggestion.target_type === 'master' ? 'Master Ticket' : 'Report'}`}
+        <MatchReviewCard
+          title={isTargetMaster ? 'Existing Master Ticket' : 'Existing Report'}
           ticketLabel={suggestion.target_label}
+          barangay={targetDetails?.barangay}
+          municipality={targetDetails?.municipality}
+          zone={targetDetails?.zone}
+          nearestLandmark={targetDetails?.nearest_landmark}
+          description={!isTargetMaster ? targetDetails?.report_details : null}
+          photoUrl={targetPhotoUrl}
+          otherHomesAffected={!isTargetMaster && targetDetails?.other_homes_affected}
           meta={`Current status: ${targetStatus}`}
+          isMaster={isTargetMaster}
+          reportCount={targetDetails?.report_count}
         />
 
         {error && (

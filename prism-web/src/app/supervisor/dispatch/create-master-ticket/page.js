@@ -1,23 +1,11 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Fragment } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import BackToDispatchLink from '@/components/dispatch/BackToDispatchLink'
-
-const MAX_DISTANCE_METERS = 500
-
-function distanceMeters(lat1, lng1, lat2, lng2) {
-  const R = 6371000
-  const dLat = ((lat2 - lat1) * Math.PI) / 180
-  const dLng = ((lng2 - lng1) * Math.PI) / 180
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLng / 2) ** 2
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-}
+import MatchReviewCard from '@/components/dispatch/MatchReviewCard'
+import { getMatchTier, buildBreakdownFactors } from '@/lib/scoring/masterTicketScoringConfig'
 
 function generateMasterTicketNumber() {
   const date = new Date().toISOString().slice(0, 10).replace(/-/g, '')
@@ -31,6 +19,9 @@ export default function CreateMasterTicketPage() {
   const [cooperativeId, setCooperativeId] = useState(null)
   const [reports, setReports] = useState([])
   const [selectedIds, setSelectedIds] = useState([])
+  const [breakdowns, setBreakdowns] = useState({})
+  const [breakdownLoading, setBreakdownLoading] = useState(false)
+  const [expandedId, setExpandedId] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [creating, setCreating] = useState(false)
@@ -85,29 +76,75 @@ export default function CreateMasterTicketPage() {
       withLocation = data || []
     }
 
-    setReports(withLocation)
+    const withSignedPhotos = await Promise.all(
+      withLocation.map(async (r) => {
+        if (!r.photo_url) return r
+        const { data: signed } = await supabase.storage
+          .from('report-photos')
+          .createSignedUrl(r.photo_url, 3600)
+        return { ...r, photo_url: signed?.signedUrl || null }
+      })
+    )
+
+    setReports(withSignedPhotos)
     setLoading(false)
   }
 
-  const anchor = selectedIds.length > 0
-    ? reports.find((r) => r.report_id === selectedIds[0])
-    : null
+  const anchorId = selectedIds[0] || null
+  const anchorReport = reports.find((r) => r.report_id === anchorId) || null
 
-  function isWithinRange(report) {
-    if (!anchor) return true
-    return distanceMeters(anchor.lat, anchor.lng, report.lat, report.lng) <= MAX_DISTANCE_METERS
-  }
+  // Whenever the anchor changes, fetch each other report's match breakdown
+  // against it, so the supervisor sees real data instead of guessing by eye.
+  useEffect(() => {
+    if (!anchorId) {
+      setBreakdowns({})
+      return
+    }
+
+    let cancelled = false
+    async function loadBreakdowns() {
+      setBreakdownLoading(true)
+      const supabase = createClient()
+
+      const results = await Promise.all(
+        reports
+          .filter((r) => r.report_id !== anchorId)
+          .map(async (r) => {
+            const { data } = await supabase
+              .rpc('get_match_breakdown', { p_report_id_a: anchorId, p_report_id_b: r.report_id })
+              .single()
+            return [r.report_id, data]
+          })
+      )
+
+      if (!cancelled) {
+        setBreakdowns(Object.fromEntries(results))
+        setBreakdownLoading(false)
+      }
+    }
+    loadBreakdowns()
+
+    return () => {
+      cancelled = true
+    }
+  }, [anchorId, reports])
 
   function toggleReport(report) {
     setSelectedIds((prev) => {
       if (prev.includes(report.report_id)) {
-        const updated = prev.filter((id) => id !== report.report_id)
-        return updated
+        return prev.filter((id) => id !== report.report_id)
       }
-      if (!isWithinRange(report)) return prev
       return [...prev, report.report_id]
     })
   }
+
+  const sortedReports = [...reports].sort((a, b) => {
+    if (a.report_id === anchorId) return -1
+    if (b.report_id === anchorId) return 1
+    const scoreA = breakdowns[a.report_id]?.total_score ?? -1
+    const scoreB = breakdowns[b.report_id]?.total_score ?? -1
+    return scoreB - scoreA
+  })
 
   async function handleCreate() {
     if (selectedIds.length < 2) return
@@ -116,8 +153,7 @@ export default function CreateMasterTicketPage() {
     setError('')
     const supabase = createClient()
 
-    const selectedReports = reports.filter((r) => selectedIds.includes(r.report_id))
-    const base = selectedReports[0]
+    const base = anchorReport
 
     const { data: newMaster, error: masterError } = await supabase
       .from('master_tickets')
@@ -159,10 +195,17 @@ export default function CreateMasterTicketPage() {
       <BackToDispatchLink withMarginBottom />
 
       <h1 className="text-2xl font-bold text-gray-900">Create Master Ticket</h1>
-      <p className="text-sm text-gray-500 mt-1 mb-6">
-        Select two or more reports to merge. Only reports within {MAX_DISTANCE_METERS}m
-        of your first selection can be combined together.
+      <p className="text-sm text-gray-500 mt-1 mb-1">
+        Select the first report to use as your anchor — every other report will then show its
+        match score and breakdown against it, so you can handpick which ones actually belong
+        together instead of guessing by distance alone.
       </p>
+      {!anchorId && (
+        <p className="text-xs text-amber-600 font-medium mb-6">
+          No anchor selected yet — pick any report below to see match scores.
+        </p>
+      )}
+      {anchorId && <div className="mb-6" />}
 
       {error && (
         <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-4">
@@ -178,65 +221,140 @@ export default function CreateMasterTicketPage() {
               <th className="px-5 py-3 font-semibold">Ticket ID</th>
               <th className="px-5 py-3 font-semibold">Location</th>
               <th className="px-5 py-3 font-semibold">Reported</th>
+              <th className="px-5 py-3 font-semibold">Match vs Anchor</th>
+              <th className="px-5 py-3 font-semibold"></th>
             </tr>
           </thead>
           <tbody>
             {loading && (
               <tr>
-                <td colSpan={4} className="px-5 py-8 text-center text-gray-500">
+                <td colSpan={6} className="px-5 py-8 text-center text-gray-500">
                   Loading…
                 </td>
               </tr>
             )}
             {!loading && reports.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-5 py-8 text-center text-gray-500">
+                <td colSpan={6} className="px-5 py-8 text-center text-gray-500">
                   No standalone reports available to merge.
                 </td>
               </tr>
             )}
             {!loading &&
-              reports.map((r) => {
+              sortedReports.map((r) => {
                 const isSelected = selectedIds.includes(r.report_id)
-                const withinRange = isWithinRange(r)
-                const isDisabled = !isSelected && !withinRange
+                const isAnchor = r.report_id === anchorId
+                const breakdown = breakdowns[r.report_id]
+                const tier = breakdown ? getMatchTier(breakdown.total_score) : null
+                const isExpanded = expandedId === r.report_id
 
                 return (
-                  <tr
-                    key={r.report_id}
-                    className={`border-b border-gray-100 last:border-0 ${
-                      isDisabled ? 'opacity-40' : ''
-                    }`}
-                  >
-                    <td className="px-5 py-4">
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        disabled={isDisabled}
-                        onChange={() => toggleReport(r)}
-                        className="w-4 h-4"
-                      />
-                    </td>
-                    <td className="px-5 py-4 font-semibold text-gray-900">
-                      {r.ticket_number}
-                    </td>
-                    <td className="px-5 py-4">
-                      <p className="text-gray-900">
-                        {r.nearest_landmark || `${r.barangay}, ${r.municipality}`}
-                      </p>
-                      <p className="text-xs text-gray-400">
-                        {r.barangay}, {r.municipality}
-                      </p>
-                    </td>
-                    <td className="px-5 py-4 text-gray-600">
-                      {new Date(r.created_at).toLocaleString('en-PH', {
-                        month: 'short',
-                        day: 'numeric',
-                        hour: 'numeric',
-                        minute: '2-digit',
-                      })}
-                    </td>
-                  </tr>
+                  <Fragment key={r.report_id}>
+                    <tr
+                      className={`border-b border-gray-100 last:border-0 ${
+                        isAnchor ? 'bg-blue-50/40' : ''
+                      }`}
+                    >
+                      <td className="px-5 py-4">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleReport(r)}
+                          className="w-4 h-4"
+                        />
+                      </td>
+                      <td className="px-5 py-4 font-semibold text-gray-900">
+                        {r.ticket_number}
+                        {isAnchor && (
+                          <span className="ml-2 text-xs font-bold text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded">
+                            ANCHOR
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-5 py-4">
+                        <p className="text-gray-900">
+                          {r.nearest_landmark || `${r.barangay}, ${r.municipality}`}
+                        </p>
+                        <p className="text-xs text-gray-400">
+                          {r.barangay}, {r.municipality}
+                        </p>
+                      </td>
+                      <td className="px-5 py-4 text-gray-600">
+                        {new Date(r.created_at).toLocaleString('en-PH', {
+                          month: 'short',
+                          day: 'numeric',
+                          hour: 'numeric',
+                          minute: '2-digit',
+                        })}
+                      </td>
+                      <td className="px-5 py-4">
+                        {isAnchor ? (
+                          <span className="text-xs text-gray-400">—</span>
+                        ) : !anchorId ? (
+                          <span className="text-xs text-gray-400">Select an anchor first</span>
+                        ) : breakdownLoading && !breakdown ? (
+                          <span className="text-xs text-gray-400">Scoring…</span>
+                        ) : breakdown ? (
+                          <div>
+                            <span
+                              className={`inline-block text-xs font-bold px-2 py-0.5 rounded uppercase ${tier.badgeClass}`}
+                            >
+                              {breakdown.total_score}% · {tier.label}
+                            </span>
+                            {breakdown.feeder_match === false && (
+                              <p className="text-xs text-red-500 font-medium mt-1">
+                                Different feeder
+                              </p>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-gray-400">—</span>
+                        )}
+                      </td>
+                      <td className="px-5 py-4">
+                        <button
+                          onClick={() => setExpandedId(isExpanded ? null : r.report_id)}
+                          className="text-xs font-semibold text-blue-700"
+                        >
+                          {isExpanded ? 'Hide' : 'Details'}
+                        </button>
+                      </td>
+                    </tr>
+                    {isExpanded && (
+                      <tr className="border-b border-gray-100 last:border-0">
+                        <td colSpan={6} className="px-5 py-4 bg-gray-50 space-y-3">
+                          <MatchReviewCard
+                            title="Report Details"
+                            ticketLabel={r.ticket_number}
+                            barangay={r.barangay}
+                            municipality={r.municipality}
+                            zone={r.zone}
+                            nearestLandmark={r.nearest_landmark}
+                            description={r.report_details}
+                            photoUrl={r.photo_url}
+                            otherHomesAffected={r.other_homes_affected}
+                          />
+                          {!isAnchor && breakdown && (
+                            <div className="bg-white border border-gray-200 rounded-lg p-3 space-y-1">
+                              <p className="text-xs font-bold text-gray-400 uppercase">
+                                Match Breakdown vs Anchor
+                              </p>
+                              {buildBreakdownFactors(breakdown).map((f, i) => (
+                                <div key={i} className="flex items-center gap-2 text-xs">
+                                  <span className={f.passed ? 'text-green-600' : 'text-gray-300'}>
+                                    {f.passed ? '✓' : '✗'}
+                                  </span>
+                                  <span className={f.passed ? 'text-gray-700' : 'text-gray-400'}>
+                                    {f.label}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
                 )
               })}
           </tbody>

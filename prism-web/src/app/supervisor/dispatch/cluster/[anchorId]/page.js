@@ -8,23 +8,12 @@ import SuggestionConfidenceBanner from '@/components/dispatch/SuggestionConfiden
 import ClusterMemberList from '@/components/dispatch/ClusterMemberList'
 import MasterTicketSuccessCard from '@/components/dispatch/MasterTicketSuccessCard'
 import BackToDispatchLink from '@/components/dispatch/BackToDispatchLink'
+import { aggregateBreakdowns } from '@/lib/scoring/masterTicketScoringConfig'
 
 function generateMasterTicketNumber() {
   const date = new Date().toISOString().slice(0, 10).replace(/-/g, '')
   const random = Math.random().toString(16).slice(2, 8).toUpperCase()
   return `MT-${date}-${random}`
-}
-
-function distanceMeters(lat1, lng1, lat2, lng2) {
-  const R = 6371000
-  const dLat = ((lat2 - lat1) * Math.PI) / 180
-  const dLng = ((lng2 - lng1) * Math.PI) / 180
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLng / 2) ** 2
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
 }
 
 export default function ClusterReviewPage() {
@@ -34,6 +23,7 @@ export default function ClusterReviewPage() {
   const [cluster, setCluster] = useState(null)
   const [anchorReport, setAnchorReport] = useState(null)
   const [members, setMembers] = useState([])
+  const [clusterBreakdown, setClusterBreakdown] = useState(null)
   const [expandedId, setExpandedId] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -111,30 +101,54 @@ export default function ClusterReviewPage() {
     }
 
     const merged = (allReports || [])
-      .map((r) => {
-        const isAnchor = r.report_id === anchorId
-        const distance =
-          !isAnchor && anchor
-            ? distanceMeters(anchor.lat, anchor.lng, r.lat, r.lng)
-            : 0
-        const minutesApart = !isAnchor && anchor
-          ? Math.abs(new Date(r.created_at) - new Date(anchor.created_at)) / 60000
-          : 0
-        return {
-          ...r,
-          reporterName: consumerNames.find((c) => c.id === r.consumer_id),
-          isAnchor,
-          distance,
-          minutesApart,
-        }
-      })
-      .sort((a, b) => (b.isAnchor ? 1 : 0) - (a.isAnchor ? 1 : 0) || a.distance - b.distance)
+      .map((r) => ({
+        ...r,
+        reporterName: consumerNames.find((c) => c.id === r.consumer_id),
+        isAnchor: r.report_id === anchorId,
+        checked: true,
+      }))
+      .sort((a, b) => (b.isAnchor ? 1 : 0) - (a.isAnchor ? 1 : 0))
 
-    setMembers(merged)
+    const mergedWithPhotos = await Promise.all(
+      merged.map(async (m) => {
+        if (!m.photo_url) return m
+        const { data: signed } = await supabase.storage
+          .from('report-photos')
+          .createSignedUrl(m.photo_url, 3600)
+        return { ...m, photo_url: signed?.signedUrl || null }
+      })
+    )
+
+    const withBreakdown = await Promise.all(
+      mergedWithPhotos.map(async (m) => {
+        if (m.isAnchor) return m
+        const { data: breakdownData } = await supabase
+          .rpc('get_match_breakdown', { p_report_id_a: anchorId, p_report_id_b: m.report_id })
+          .single()
+        return { ...m, breakdown: breakdownData }
+      })
+    )
+
+    setMembers(withBreakdown)
+    setClusterBreakdown(
+      aggregateBreakdowns(withBreakdown.filter((m) => !m.isAnchor).map((m) => m.breakdown))
+    )
     setLoading(false)
   }
 
+  function handleToggleChecked(reportId) {
+    setMembers((prev) =>
+      prev.map((m) => (m.report_id === reportId ? { ...m, checked: !m.checked } : m))
+    )
+  }
+
   async function handleConfirmMerge() {
+    const checkedMembers = members.filter((m) => m.isAnchor || m.checked)
+    if (checkedMembers.length < 2) {
+      setError('Select at least one report besides the anchor to merge.')
+      return
+    }
+
     setActionLoading(true)
     setError('')
     const supabase = createClient()
@@ -150,6 +164,7 @@ export default function ClusterReviewPage() {
       .single()
 
     const masterTicketNumber = generateMasterTicketNumber()
+    const checkedIds = checkedMembers.map((m) => m.report_id)
 
     const { data: newMaster, error: masterError } = await supabase
       .from('master_tickets')
@@ -160,7 +175,7 @@ export default function ClusterReviewPage() {
         municipality: anchorReport.municipality,
         location: `POINT(${anchorReport.lng} ${anchorReport.lat})`,
         priority: anchorReport.priority,
-        report_count: members.length,
+        report_count: checkedIds.length,
         status: 'pending',
       })
       .select()
@@ -175,10 +190,7 @@ export default function ClusterReviewPage() {
     const { error: linkError } = await supabase
       .from('reports')
       .update({ master_id: newMaster.master_id })
-      .in(
-        'report_id',
-        members.map((m) => m.report_id)
-      )
+      .in('report_id', checkedIds)
 
     if (linkError) {
       setError(linkError.message)
@@ -191,7 +203,7 @@ export default function ClusterReviewPage() {
       masterId: newMaster.master_id,
       masterTicketNumber,
       areaLabel: cluster.area_label,
-      reportCount: members.length,
+      reportCount: checkedIds.length,
     })
   }
 
@@ -223,12 +235,11 @@ export default function ClusterReviewPage() {
     )
   }
 
+  const checkedCount = members.filter((m) => !m.isAnchor && m.checked).length
+
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-8rem)]">
-      <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 overflow-hidden relative">
-        <div className="absolute top-4 left-4 z-[1000] bg-amber-100 text-amber-800 text-xs font-bold px-3 py-1.5 rounded-lg">
-          ● ACTIVE INCIDENT
-        </div>
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[calc(100vh-8rem)]">
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <ReportMap
           markers={members.map((m) => ({
             lat: m.lat,
@@ -244,13 +255,15 @@ export default function ClusterReviewPage() {
           confidence={cluster.confidence}
           subtitlePrefix={`${cluster.area_label} • Overall `}
           theme="blue"
-          description="The system recommends grouping these reports into one Master Ticket."
+          description="The system recommends grouping these reports into one Master Ticket. Uncheck any report below that doesn't actually belong before confirming."
+          breakdown={clusterBreakdown}
         />
 
         <ClusterMemberList
           members={members}
           expandedId={expandedId}
           onToggleExpand={setExpandedId}
+          onToggleChecked={handleToggleChecked}
         />
 
         {error && (
@@ -269,10 +282,10 @@ export default function ClusterReviewPage() {
           </button>
           <button
             onClick={handleConfirmMerge}
-            disabled={actionLoading}
+            disabled={actionLoading || checkedCount === 0}
             className="flex-1 bg-blue-700 hover:bg-blue-800 disabled:opacity-60 text-white font-semibold text-sm py-3 rounded-lg transition-colors"
           >
-            {actionLoading ? 'Merging…' : 'Confirm Merge'}
+            {actionLoading ? 'Merging…' : `Merge ${checkedCount + 1} Selected`}
           </button>
         </div>
       </div>

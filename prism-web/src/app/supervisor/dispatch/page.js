@@ -241,6 +241,24 @@ export default function DispatchPage() {
   const clusteredReportIds = new Set(clusters.flatMap((c) => c.report_ids || []))
   const overdueIds = new Set(overdueTickets.map((o) => o.ticket_id))
 
+  const joinGroups = Object.values(
+  joinSuggestions.reduce((acc, s) => {
+    const key = `${s.target_type}-${s.target_id}`
+    if (!acc[key]) {
+      acc[key] = {
+        target_type: s.target_type,
+        target_id: s.target_id,
+        target_label: s.target_label,
+        reportIds: [],
+        maxScore: 0,
+      }
+    }
+    acc[key].reportIds.push(s.report_id)
+    acc[key].maxScore = Math.max(acc[key].maxScore, s.score)
+    return acc
+    }, {})
+  )
+
   function handleFilterChange(setter, value) {
     setter(value)
     setPage(1)
@@ -354,20 +372,24 @@ export default function DispatchPage() {
         </div>
       ))}
 
-      {joinSuggestions.map((s) => (
+      {joinGroups.map((g) => (
         <DuplicateSuggestionCard
-          key={s.report_id}
+          key={`${g.target_type}-${g.target_id}`}
           type="join"
-          title="POSSIBLE MATCH TO EXISTING TICKET"
+          title={
+            g.reportIds.length > 1
+              ? `${g.reportIds.length} POSSIBLE MATCHES TO EXISTING TICKET`
+              : 'POSSIBLE MATCH TO EXISTING TICKET'
+          }
           description={
             <>
-              <span className="font-medium">{s.ticket_number}</span> may belong to{' '}
-              <span className="text-purple-700 font-medium">{s.target_label}</span>
-              {'   '}Confidence: <span className="font-semibold text-green-600">{s.score}%</span>
+              {g.reportIds.length} report{g.reportIds.length === 1 ? '' : 's'} may belong to{' '}
+              <span className="text-purple-700 font-medium">{g.target_label}</span>
+              {'   '}Best match: <span className="font-semibold text-green-600">{g.maxScore}%</span>
             </>
           }
-          href={`/supervisor/dispatch/join/${s.report_id}`}
-          buttonLabel="Review Match"
+          href={`/supervisor/dispatch/join-group/${g.target_type}/${g.target_id}?reports=${g.reportIds.join(',')}`}
+          buttonLabel="Review Matches"
         />
       ))}
 
