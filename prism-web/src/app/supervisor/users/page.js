@@ -137,11 +137,28 @@ export default function UsersPage() {
       .select('*')
       .eq('cooperative_id', coopId)
       .eq('user_type', 'supervisor')
-      .order('is_owner', { ascending: false })
       .order('first_name', { ascending: true })
 
     if (supervisorError) setError(supervisorError.message)
-    setSupervisors(supervisorUsers || [])
+
+    const supervisorIds = (supervisorUsers || []).map((u) => u.id)
+    let supervisorDetails = []
+    if (supervisorIds.length > 0) {
+      const { data } = await supabase
+        .from('supervisor')
+        .select('*')
+        .in('profile_id', supervisorIds)
+      supervisorDetails = data || []
+    }
+
+    const mergedSupervisors = (supervisorUsers || [])
+      .map((u) => ({
+        ...u,
+        ...supervisorDetails.find((s) => s.profile_id === u.id),
+      }))
+      .sort((a, b) => (a.is_owner === b.is_owner ? 0 : a.is_owner ? -1 : 1))
+
+    setSupervisors(mergedSupervisors)
 
     setLoading(false)
   }

@@ -39,9 +39,9 @@ export default function SupervisorDetailsModal({
     const supabase = createClient()
 
     const { error: updateError } = await supabase
-      .from('users')
+      .from('supervisor')
       .update({ feature_access: featureAccess })
-      .eq('id', supervisor.id)
+      .eq('profile_id', supervisor.id)
 
     if (updateError) {
       setError(updateError.message)
@@ -62,9 +62,9 @@ export default function SupervisorDetailsModal({
     // acceptable here since a partial failure just leaves the old owner
     // still marked as owner, which is a safe state to retry from.
     const { error: demoteError } = await supabase
-      .from('users')
+      .from('supervisor')
       .update({ is_owner: false })
-      .eq('id', currentUserId)
+      .eq('profile_id', currentUserId)
 
     if (demoteError) {
       setError(demoteError.message)
@@ -73,9 +73,9 @@ export default function SupervisorDetailsModal({
     }
 
     const { error: promoteError } = await supabase
-      .from('users')
+      .from('supervisor')
       .update({ is_owner: true, feature_access: [] })
-      .eq('id', supervisor.id)
+      .eq('profile_id', supervisor.id)
 
     if (promoteError) {
       setError(promoteError.message)

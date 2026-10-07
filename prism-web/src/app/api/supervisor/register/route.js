@@ -55,7 +55,6 @@ export async function POST(request) {
     email,
     user_type: 'supervisor',
     is_active: false,
-    is_owner: true,
   })
 
   if (userError) {
@@ -65,7 +64,7 @@ export async function POST(request) {
   // Step 3: mark this user as holding the supervisor role
   const { error: roleError } = await supabaseAdmin
     .from('supervisor')
-    .insert({ profile_id: userId })
+    .insert({ profile_id: userId, is_owner: true })
 
   if (roleError) {
     return NextResponse.json({ error: roleError.message }, { status: 500 })

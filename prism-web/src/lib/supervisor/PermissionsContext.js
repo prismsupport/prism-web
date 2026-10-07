@@ -35,9 +35,9 @@ export function PermissionsProvider({ children }) {
     }
 
     const { data } = await supabase
-      .from('users')
+      .from('supervisor')
       .select('is_owner, feature_access')
-      .eq('id', user.id)
+      .eq('profile_id', user.id)
       .single()
 
     if (data) {

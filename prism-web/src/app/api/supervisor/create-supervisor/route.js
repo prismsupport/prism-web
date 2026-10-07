@@ -54,8 +54,6 @@ export async function POST(request) {
       email,
       user_type: 'supervisor',
       is_active: true,
-      is_owner: false,
-      feature_access: featureAccess || [],
     })
 
     if (userError) {
@@ -66,6 +64,7 @@ export async function POST(request) {
 
     const { error: roleError } = await supabaseAdmin.from('supervisor').insert({
       profile_id: newUserId,
+      feature_access: featureAccess || [],
     })
 
     if (roleError) {
