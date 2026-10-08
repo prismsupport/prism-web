@@ -6,13 +6,32 @@ import Modal from '@/components/ui/Modal'
 import FormSection from '@/components/ui/FormSection'
 import FormField from '@/components/ui/FormField'
 import BillingStatusPill from '@/components/users/BillingStatusPill'
+import BillingVerificationPanel from '@/components/billing/BillingVerificationPanel'
 
 export default function BillingRequestDetailsModal({ request, onClose, onDecided }) {
   const [showDecline, setShowDecline] = useState(false)
   const [declineReason, setDeclineReason] = useState('')
   const [showSuccess, setShowSuccess] = useState(false)
+  const [verdict, setVerdict] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+
+  const isRedVerdict = verdict === 'not_found' || verdict === 'mismatch'
+
+  function openDecline() {
+    if (!declineReason) {
+      if (verdict === 'not_found') {
+        setDeclineReason(
+          'The account number you provided was not found in the cooperative billing records. Please check the account number and try again.'
+        )
+      } else if (verdict === 'mismatch') {
+        setDeclineReason(
+          'The account name you provided does not match the name on the cooperative billing record for this account number. Please check the details and try again.'
+        )
+      }
+    }
+    setShowDecline(true)
+  }
 
   async function handleApprove() {
     setLoading(true)
@@ -166,7 +185,7 @@ export default function BillingRequestDetailsModal({ request, onClose, onDecided
   }
 
   return (
-    <Modal title="Billing Request Details" onClose={onClose}>
+    <Modal title="Billing Request Details" onClose={onClose} size="xl">
       <div className="flex items-start justify-between mb-4">
         <div>
           <p className="text-xs text-gray-400 uppercase font-bold">Consumer Name</p>
@@ -192,6 +211,10 @@ export default function BillingRequestDetailsModal({ request, onClose, onDecided
         <FormField label="Account Number" value={request.account_number} disabled />
       </FormSection>
 
+      {request.status === 'pending' && (
+        <BillingVerificationPanel linkId={request.link_id} onVerdict={setVerdict} />
+      )}
+
       {request.status === 'rejected' && request.rejection_reason && (
         <p className="text-sm text-gray-500 mb-4">
           <span className="font-semibold text-gray-700">Rejection Reason:</span>{' '}
@@ -208,7 +231,7 @@ export default function BillingRequestDetailsModal({ request, onClose, onDecided
       {request.status === 'pending' && (
         <div className="flex justify-end gap-3">
           <button
-            onClick={() => setShowDecline(true)}
+            onClick={openDecline}
             disabled={loading}
             className="px-4 py-2.5 rounded-lg text-sm font-semibold text-red-600 border border-red-200 hover:bg-red-50"
           >
@@ -217,9 +240,11 @@ export default function BillingRequestDetailsModal({ request, onClose, onDecided
           <button
             onClick={handleApprove}
             disabled={loading}
-            className="px-4 py-2.5 rounded-lg text-sm font-semibold text-white bg-blue-700 hover:bg-blue-800 disabled:opacity-60"
+            className={`px-4 py-2.5 rounded-lg text-sm font-semibold text-white disabled:opacity-60 ${
+              isRedVerdict ? 'bg-amber-600 hover:bg-amber-700' : 'bg-blue-700 hover:bg-blue-800'
+            }`}
           >
-            {loading ? 'Approving…' : 'Approve Linkage'}
+            {loading ? 'Approving…' : isRedVerdict ? 'Approve Anyway' : 'Approve Linkage'}
           </button>
         </div>
       )}
