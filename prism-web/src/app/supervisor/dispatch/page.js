@@ -72,9 +72,9 @@ export default function DispatchPage() {
     setCooperativeId(coopId)
 
     const { data: coop } = await supabase
-      .from('cooperatives')
+      .from('cooperative_settings')
       .select('response_time_threshold_minutes')
-      .eq('id', coopId)
+      .eq('cooperative_id', coopId)
       .single()
 
     if (coop?.response_time_threshold_minutes != null) {
@@ -184,9 +184,9 @@ export default function DispatchPage() {
     const supabase = createClient()
 
     const { error: updateError } = await supabase
-      .from('cooperatives')
+      .from('cooperative_settings')
       .update({ response_time_threshold_minutes: parsed })
-      .eq('id', cooperativeId)
+      .eq('cooperative_id', cooperativeId)
 
     if (updateError) {
       setError(updateError.message)

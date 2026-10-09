@@ -15,9 +15,9 @@ export default function ManageAreaOfficesModal({ cooperativeId, areaOffices, onC
     setError('')
     const supabase = createClient()
     const { error: updateError } = await supabase
-      .from('cooperatives')
+      .from('cooperative_settings')
       .update({ area_offices: updatedList })
-      .eq('id', cooperativeId)
+      .eq('cooperative_id', cooperativeId)
 
     if (updateError) {
       setError(updateError.message)

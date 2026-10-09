@@ -58,9 +58,9 @@ export default function ServiceAreasPage() {
     setCooperativeId(myRow.cooperative_id)
 
     const { data: coop } = await supabase
-      .from('cooperatives')
+      .from('cooperative_settings')
       .select('area_offices')
-      .eq('id', myRow.cooperative_id)
+      .eq('cooperative_id', myRow.cooperative_id)
       .single()
 
     setAreaOffices(coop?.area_offices || [])

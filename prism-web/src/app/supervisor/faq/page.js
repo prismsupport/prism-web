@@ -59,10 +59,10 @@ export default function FaqManagementPage() {
 
     setCooperativeId(myRow.cooperative_id)
 
-        const { data: coop } = await supabase
-      .from('cooperatives')
+    const { data: coop } = await supabase
+      .from('cooperative_settings')
       .select('faq_categories')
-      .eq('id', myRow.cooperative_id)
+      .eq('cooperative_id', myRow.cooperative_id)
       .single()
 
     setCategories(coop?.faq_categories || [])

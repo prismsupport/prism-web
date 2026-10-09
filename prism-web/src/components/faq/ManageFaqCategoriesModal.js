@@ -15,9 +15,9 @@ export default function ManageFaqCategoriesModal({ cooperativeId, categories, on
     setError('')
     const supabase = createClient()
     const { error: updateError } = await supabase
-      .from('cooperatives')
+      .from('cooperative_settings')
       .update({ faq_categories: updatedList })
-      .eq('id', cooperativeId)
+      .eq('cooperative_id', cooperativeId)
 
     if (updateError) {
       setError(updateError.message)
