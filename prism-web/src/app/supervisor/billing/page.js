@@ -4,11 +4,13 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import BillingRequestsTab from '@/components/users/BillingRequestsTab'
 import BillingRequestDetailsModal from '@/components/users/BillingRequestDetailsModal'
+import BillingIntegrationModal from '@/components/billing/BillingIntegrationModal'
 
 export default function BillingRequestsPage() {
   const [billingRequests, setBillingRequests] = useState([])
   const [statusFilter, setStatusFilter] = useState('all')
   const [selectedRequest, setSelectedRequest] = useState(null)
+  const [showIntegration, setShowIntegration] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -55,6 +57,7 @@ export default function BillingRequestsPage() {
 
   return (
     <div>
+
       {error && (
         <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-4">
           {error}
@@ -65,6 +68,14 @@ export default function BillingRequestsPage() {
         statusFilter={statusFilter}
         onFilterChange={setStatusFilter}
         onSelectRequest={setSelectedRequest}
+        headerAction={
+          <button
+            onClick={() => setShowIntegration(true)}
+            className="bg-white hover:bg-gray-50 text-gray-700 text-sm font-semibold px-4 py-2.5 rounded-lg border border-gray-200 transition-colors whitespace-nowrap"
+          >
+            Billing Integration
+          </button>
+        }
       />
       {selectedRequest && (
         <BillingRequestDetailsModal
@@ -75,6 +86,9 @@ export default function BillingRequestsPage() {
             loadBilling()
           }}
         />
+      )}
+      {showIntegration && (
+        <BillingIntegrationModal onClose={() => setShowIntegration(false)} />
       )}
     </div>
   )

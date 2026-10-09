@@ -1,7 +1,10 @@
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import { createServerClient } from '@supabase/ssr'
-import { lookupBillingAccount } from '@/lib/billing/billingProvider'
+import {
+  requireBillingSupervisor,
+  loadBillingConfig,
+  describeLookupFailure,
+} from '@/lib/billing/billingAccess'
+import { lookupViaBillingApi } from '@/lib/billing/billingApiClient'
 import { compareNames } from '@/lib/billing/matching'
 
 export async function POST(request) {
@@ -10,29 +13,11 @@ export async function POST(request) {
     return NextResponse.json({ error: 'Missing linkId.' }, { status: 400 })
   }
 
-  // Act as the logged-in user, so database rules apply to this check too
-  const cookieStore = await cookies()
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-    { cookies: { getAll: () => cookieStore.getAll(), setAll() {} } }
-  )
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) {
-    return NextResponse.json({ error: 'Not signed in.' }, { status: 401 })
+  const auth = await requireBillingSupervisor()
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status })
   }
-
-  const { data: me } = await supabase
-    .from('users')
-    .select('user_type, cooperative_id')
-    .eq('id', user.id)
-    .single()
-  if (!me || me.user_type !== 'supervisor') {
-    return NextResponse.json({ error: 'Supervisors only.' }, { status: 403 })
-  }
+  const { supabase, admin, cooperativeId } = auth
 
   // The route looks up the request itself from linkId. The client cannot
   // type in an arbitrary account number, so this can't be used as a
@@ -51,19 +36,35 @@ export async function POST(request) {
     .select('first_name, last_name, cooperative_id')
     .eq('id', link.consumer_id)
     .single()
-  if (!consumer || consumer.cooperative_id !== me.cooperative_id) {
+  if (!consumer || consumer.cooperative_id !== cooperativeId) {
     return NextResponse.json({ error: 'Not allowed.' }, { status: 403 })
   }
 
-  const lookup = await lookupBillingAccount(link.account_number)
-
-  if (!lookup.available) {
+  // Use THIS cooperative's own saved billing connection
+  const loaded = await loadBillingConfig(admin, cooperativeId)
+  if (!loaded.configured) {
+    return NextResponse.json({ available: false, message: describeLookupFailure('not_configured') })
+  }
+  if (loaded.unreadable) {
     return NextResponse.json({
       available: false,
-      message:
-        lookup.reason === 'not_configured'
-          ? 'The billing system connection is not configured.'
-          : 'The cooperative billing system could not be reached.',
+      message: 'The saved API key could not be read. Please enter it again in Billing Integration.',
+    })
+  }
+  if (!loaded.enabled) {
+    return NextResponse.json({
+      available: false,
+      message: 'Billing integration is turned off. Turn it on in Billing Integration.',
+    })
+  }
+
+  const lookup = await lookupViaBillingApi(loaded.config, link.account_number)
+
+  if (!lookup.available) {
+    console.error('[billing] verify failed:', lookup.reason)
+    return NextResponse.json({
+      available: false,
+      message: describeLookupFailure(lookup.reason, lookup.message),
     })
   }
 

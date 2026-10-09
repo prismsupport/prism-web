@@ -6,7 +6,7 @@ import BillingStatusPill from '@/components/users/BillingStatusPill'
 
 const PAGE_SIZE = 10
 
-export default function BillingRequestsTab({ billingRequests, statusFilter, onFilterChange, onSelectRequest }) {
+export default function BillingRequestsTab({ billingRequests, statusFilter, onFilterChange, onSelectRequest, headerAction }) {
   const [billingPage, setBillingPage] = useState(1)
   const counts = {
     all: billingRequests.length,
@@ -35,10 +35,15 @@ export default function BillingRequestsTab({ billingRequests, statusFilter, onFi
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-gray-900">Billing Linkage Requests</h1>
-      <p className="text-sm text-gray-500 mt-1 mb-6">
-        Every billing linkage request submitted on the platform. Click a status below to filter.
-      </p>
+      <div className="flex items-start justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Billing Linkage Requests</h1>
+          <p className="text-sm text-gray-500 mt-1">
+            Every billing linkage request submitted on the platform. Click a status below to filter.
+          </p>
+        </div>
+        {headerAction}
+      </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         {cards.map((c) => {
