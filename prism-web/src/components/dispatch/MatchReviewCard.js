@@ -1,6 +1,7 @@
 'use client'
 
 import PhotoDropdown from '@/components/dispatch/PhotoDropdown'
+import ReporterInfo from '@/components/dispatch/ReporterInfo'
 
 export default function MatchReviewCard({
   title,
@@ -15,6 +16,8 @@ export default function MatchReviewCard({
   meta,
   isMaster,
   reportCount,
+  reportId,
+  consumerId,
 }) {
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-5">
@@ -27,6 +30,10 @@ export default function MatchReviewCard({
         <p className="text-xs bg-blue-50 text-blue-700 font-semibold px-2 py-1 rounded inline-block mb-2">
           MASTER TICKET · {reportCount} linked report{reportCount === 1 ? '' : 's'}
         </p>
+      )}
+
+      {!isMaster && reportId && consumerId && (
+        <ReporterInfo reportId={reportId} consumerId={consumerId} />
       )}
 
       <div className="space-y-2 text-sm">

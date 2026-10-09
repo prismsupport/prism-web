@@ -326,6 +326,8 @@ export default function CreateMasterTicketPage() {
                           <MatchReviewCard
                             title="Report Details"
                             ticketLabel={r.ticket_number}
+                            reportId={r.report_id}
+                            consumerId={r.consumer_id}
                             barangay={r.barangay}
                             municipality={r.municipality}
                             zone={r.zone}

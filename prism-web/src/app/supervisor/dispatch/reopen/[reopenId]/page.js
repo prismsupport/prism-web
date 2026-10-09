@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import TicketDetailHeader from '@/components/dispatch/TicketDetailHeader'
 import BackToDispatchLink from '@/components/dispatch/BackToDispatchLink'
+import ReporterInfo from '@/components/dispatch/ReporterInfo'
 import PhotoDropdown from '@/components/dispatch/PhotoDropdown'
 import MapModal from '@/components/dispatch/MapModal'
 import AttemptReviewCard from '@/components/dispatch/AttemptReviewCard'
@@ -252,6 +253,7 @@ export default function ReopenReviewPage() {
           <p className="text-xs font-bold text-gray-400 uppercase mb-2">
             Original Report
           </p>
+          <ReporterInfo reportId={reopen.report_id} consumerId={reopen.consumer_id} />
           <p className="text-xs text-gray-400">
             Reported{' '}
             {new Date(report?.created_at).toLocaleString('en-PH', {

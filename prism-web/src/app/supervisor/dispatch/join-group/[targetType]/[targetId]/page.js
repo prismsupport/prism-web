@@ -274,6 +274,8 @@ function JoinGroupReviewContent() {
         <MatchReviewCard
           title={isTargetMaster ? 'Existing Master Ticket' : 'Existing Report'}
           ticketLabel={isTargetMaster ? targetDetails?.master_ticket : targetDetails?.ticket_number}
+          reportId={isTargetMaster ? null : targetId}
+          consumerId={isTargetMaster ? null : targetDetails?.consumer_id}
           barangay={targetDetails?.barangay}
           municipality={targetDetails?.municipality}
           zone={targetDetails?.zone}
@@ -316,6 +318,8 @@ function JoinGroupReviewContent() {
                   <MatchReviewCard
                     title="Report Details"
                     ticketLabel={c.report.ticket_number}
+                    reportId={c.report.report_id}
+                    consumerId={c.report.consumer_id}
                     barangay={c.report.barangay}
                     municipality={c.report.municipality}
                     zone={c.report.zone}

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import ReportMap from '@/components/ui/ReportMap'
+import ReporterInfo from '@/components/dispatch/ReporterInfo'
 import LinemanRecommendationPanel from '@/components/ui/LinemanRecommendationPanel'
 import QAReviewSection from '@/components/ui/QAReviewSection'
 import TicketDetailHeader from '@/components/dispatch/TicketDetailHeader'
@@ -364,6 +365,7 @@ export default function MasterTicketDetailPage() {
                     <p className="text-xs text-gray-400">
                       Zone {m.zone || '—'}, {m.barangay}, {m.municipality}
                     </p>
+                    <ReporterInfo compact reportId={m.report_id} consumerId={m.consumer_id} />
                   </div>
                   <span className="text-xs font-medium text-blue-700">
                     {m.ticket_number}

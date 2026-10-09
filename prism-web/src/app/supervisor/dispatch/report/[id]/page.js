@@ -11,6 +11,7 @@ import TicketStatusPriority from '@/components/dispatch/TicketStatusPriority'
 import AssignedLinemanCard from '@/components/dispatch/AssignedLinemanCard'
 import JobOrderStatusLog from '@/components/dispatch/JobOrderStatusLog'
 import PhotoDropdown from '@/components/dispatch/PhotoDropdown'
+import ReporterInfo from '@/components/dispatch/ReporterInfo'
 import DeclineReportModal from '@/components/dispatch/DeclineReportModal'
 import LinemanDispatchedModal from '@/components/dispatch/LinemanDispatchedModal'
 import ResolveTicketBar from '@/components/dispatch/ResolveTicketBar'
@@ -309,6 +310,8 @@ export default function ReportReviewPage() {
             />
 
             <TicketStatusPriority status={currentStatus} priority={report.priority} />
+
+            <ReporterInfo reportId={report.report_id} consumerId={report.consumer_id} />
 
             <div className="space-y-3 text-sm">
               <div>

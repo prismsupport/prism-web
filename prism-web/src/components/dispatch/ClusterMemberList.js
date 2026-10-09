@@ -70,6 +70,8 @@ export default function ClusterMemberList({ members, expandedId, onToggleExpand,
                   <MatchReviewCard
                     title="Report Details"
                     ticketLabel={m.ticket_number}
+                    reportId={m.report_id}
+                    consumerId={m.consumer_id}
                     barangay={m.barangay}
                     municipality={m.municipality}
                     zone={m.zone}
