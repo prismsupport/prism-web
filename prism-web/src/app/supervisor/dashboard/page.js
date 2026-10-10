@@ -1,7 +1,9 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { summarizeRatings } from '@/lib/performance'
 
 const DAYS_RANGE = 30
 
@@ -178,7 +180,24 @@ export default function SupervisorDashboardPage() {
       .sort((a, b) => b.jobsCompleted - a.jobsCompleted)
       .slice(0, 5)
 
-    setLinemenPerformance(performance)
+    // Consumer satisfaction ratings for these linemen, same period as the jobs count
+    const topIds = performance.map((l) => l.id)
+    let ratingRows = []
+    if (topIds.length > 0) {
+      const { data: ratingData } = await supabase
+        .from('job_ratings')
+        .select('lineman_id, rating')
+        .in('lineman_id', topIds)
+        .gte('created_at', sinceIso)
+      ratingRows = ratingData || []
+    }
+
+    const performanceWithRatings = performance.map((l) => ({
+      ...l,
+      ...summarizeRatings(ratingRows.filter((r) => r.lineman_id === l.id)),
+    }))
+
+    setLinemenPerformance(performanceWithRatings)
 
     // ---- Advisories summary ----
     const { data: advisories } = await supabase
@@ -343,9 +362,15 @@ export default function SupervisorDashboardPage() {
 
         {/* Top lineman performance */}
         <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h2 className="text-sm font-bold text-gray-900 mb-4">
-            Top Lineman Performance
-          </h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-bold text-gray-900">Top Lineman Performance</h2>
+            <Link
+              href="/supervisor/lineman-performance"
+              className="text-xs font-semibold text-blue-700"
+            >
+              View all
+            </Link>
+          </div>
           {linemenPerformance.length === 0 && (
             <p className="text-sm text-gray-500">No completed jobs in this period.</p>
           )}
@@ -363,6 +388,14 @@ export default function SupervisorDashboardPage() {
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="text-gray-600">{l.jobsCompleted} jobs</span>
+                  {l.ratingCount > 0 ? (
+                    <span className="text-gray-600">
+                      <span className="text-amber-500">★</span> {l.ratingAverage.toFixed(1)}{' '}
+                      <span className="text-gray-400">({l.ratingCount})</span>
+                    </span>
+                  ) : (
+                    <span className="text-xs text-gray-400">No ratings</span>
+                  )}
                   <span
                     className={`text-xs font-semibold ${
                       l.is_active ? 'text-green-600' : 'text-gray-400'
