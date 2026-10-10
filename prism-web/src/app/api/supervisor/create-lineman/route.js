@@ -17,6 +17,7 @@ export async function POST(request) {
     contactNumber,
     companyIdNumber,
     assignedAreaOffice,
+    schedule,
   } = body
 
   if (!cooperativeId || !email || !password) {
@@ -56,6 +57,7 @@ export async function POST(request) {
     profile_id: newUserId,
     company_id_number: companyIdNumber,
     assigned_area_office: assignedAreaOffice,
+    schedule: schedule || [],
   })
 
   if (roleError) {

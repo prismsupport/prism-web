@@ -289,6 +289,7 @@ export default function UsersPage() {
                 <tr className="bg-gray-50 border-b border-gray-200 text-left text-xs text-gray-500 uppercase tracking-wide">
                   <th className="px-5 py-3 font-semibold">Name</th>
                   <th className="px-5 py-3 font-semibold">Assigned Area Office</th>
+                  <th className="px-5 py-3 font-semibold">Shift</th>
                   <th className="px-5 py-3 font-semibold">Contact Number</th>
                   <th className="px-5 py-3 font-semibold">Actions</th>
                 </tr>

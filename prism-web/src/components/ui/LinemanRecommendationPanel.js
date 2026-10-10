@@ -4,22 +4,38 @@ import { useState } from 'react'
 
 const PRIORITIES = ['low', 'medium', 'high', 'critical']
 
-function labelize(value) {
-  return value.charAt(0).toUpperCase() + value.slice(1)
+const REASON_LABEL = {
+  on_duty: 'On duty',
+  no_signal: 'No signal',
+  off_schedule: 'Off schedule',
 }
 
-function computeScore(l) {
-  const proximityScore =
-    l.distance_meters != null ? Math.max(0, 100 * (1 - l.distance_meters / 5000)) : 50
-  const workloadScore = Math.max(0, 100 * (1 - l.active_jobs / 5))
-  const base = Math.round(0.6 * proximityScore + 0.4 * workloadScore)
-  return l.area_match ? Math.min(100, base + 15) : base
+function availabilityNote(l) {
+  if (l.availability_reason === 'no_signal') {
+    return l.has_schedule
+      ? 'This lineman is scheduled but has not reported a location recently. They may be on a break or out of signal.'
+      : 'This lineman has no schedule set and has not reported a location recently. They may not be logged in to the app.'
+  }
+  if (l.availability_reason === 'off_schedule') {
+    return 'This lineman is outside their scheduled shift. Assign only for emergencies or if they are on call.'
+  }
+  return ''
+}
+
+function labelize(value) {
+  return value.charAt(0).toUpperCase() + value.slice(1)
 }
 
 function estimateEtaMinutes(distanceMeters) {
   if (distanceMeters == null) return null
   const km = distanceMeters / 1000
   return Math.round((km / 30) * 60)
+}
+
+// Available first, then on duty but not reporting, then off schedule
+function tier(l) {
+  if (l.is_available) return 2
+  return l.availability_reason === 'no_signal' ? 1 : 0
 }
 
 export default function LinemanRecommendationPanel({
@@ -34,14 +50,18 @@ export default function LinemanRecommendationPanel({
 }) {
   const [selectedId, setSelectedId] = useState(null)
 
-  const scored = linemen
-    .map((l) => ({ ...l, score: computeScore(l), eta: estimateEtaMinutes(l.distance_meters) }))
-    .sort((a, b) => b.score - a.score)
+  // Scores are computed in the database (score_lineman_candidates).
+  // This panel only displays them.
+  const ranked = linemen
+    .map((l) => ({ ...l, eta: estimateEtaMinutes(l.distance_meters) }))
+    .sort((a, b) => tier(b) - tier(a) || b.total_score - a.total_score)
 
-  const bestMatchId = scored[0]?.lineman_id
-  const closestId = scored
-    .filter((l) => l.distance_meters != null)
+  const bestMatchId = ranked.find((l) => l.is_available)?.lineman_id
+  const closestId = ranked
+    .filter((l) => l.is_available && l.distance_meters != null)
     .sort((a, b) => a.distance_meters - b.distance_meters)[0]?.lineman_id
+
+  const selected = ranked.find((l) => l.lineman_id === selectedId)
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-6 h-full overflow-y-auto">
@@ -69,8 +89,10 @@ export default function LinemanRecommendationPanel({
       <div className="bg-blue-50 text-blue-800 text-xs rounded-lg p-3 mb-5 flex gap-2">
         <span>ℹ</span>
         <span>
-          Recommendations are based on service area coverage, estimated distance, current
-          workload, and availability, and serve only as a decision-support tool.
+          Match % = 40% availability (on duty and reporting) + 30% assigned office + 20%
+          proximity + 10% workload. Linemen who are off schedule or not reporting are
+          listed after available ones. This is a decision-support tool; the final choice
+          is yours.
         </span>
       </div>
 
@@ -84,16 +106,16 @@ export default function LinemanRecommendationPanel({
           {error}
         </p>
       )}
-      {!loading && scored.length === 0 && (
-        <p className="text-sm text-gray-500">No available linemen found.</p>
+      {!loading && ranked.length === 0 && (
+        <p className="text-sm text-gray-500">No lineman accounts found.</p>
       )}
 
       <div className="space-y-3 mb-5">
-        {scored.map((l) => {
+        {ranked.map((l) => {
           const isSelected = selectedId === l.lineman_id
           const isBestMatch = l.lineman_id === bestMatchId
           const isClosest = l.lineman_id === closestId
-          const isAvailableNow = l.active_jobs === 0
+          const isFreeNow = l.is_available && l.active_jobs === 0
 
           return (
             <button
@@ -101,7 +123,7 @@ export default function LinemanRecommendationPanel({
               onClick={() => setSelectedId(l.lineman_id)}
               className={`w-full text-left border-2 rounded-lg p-4 transition-colors ${
                 isSelected ? 'border-blue-600' : 'border-gray-200 hover:border-gray-300'
-              }`}
+              } ${!l.is_available ? 'bg-gray-50' : ''}`}
             >
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-3">
@@ -111,11 +133,6 @@ export default function LinemanRecommendationPanel({
                       {l.first_name} {l.last_name}
                     </p>
                     <div className="flex gap-1.5 mt-1 flex-wrap">
-                      {l.area_match && (
-                        <span className="text-[10px] font-bold bg-green-100 text-green-700 px-1.5 py-0.5 rounded">
-                          COVERS THIS AREA
-                        </span>
-                      )}
                       {isBestMatch && (
                         <span className="text-[10px] font-bold bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">
                           BEST MATCH
@@ -126,15 +143,41 @@ export default function LinemanRecommendationPanel({
                           CLOSEST
                         </span>
                       )}
-                      {isAvailableNow && (
+                      {l.office_match === 'match' && (
+                        <span className="text-[10px] font-bold bg-green-100 text-green-700 px-1.5 py-0.5 rounded">
+                          COVERS THIS AREA
+                        </span>
+                      )}
+                      {isFreeNow && (
                         <span className="text-[10px] font-bold bg-green-100 text-green-700 px-1.5 py-0.5 rounded">
                           AVAILABLE NOW
+                        </span>
+                      )}
+                      {l.on_call && (
+                        <span className="text-[10px] font-bold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">
+                          ON-CALL
+                        </span>
+                      )}
+                      {l.availability_reason === 'no_signal' && (
+                        <span className="text-[10px] font-bold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">
+                          NO SIGNAL
+                        </span>
+                      )}
+                      {l.availability_reason === 'off_schedule' && (
+                        <span className="text-[10px] font-bold bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded">
+                          OFF SCHEDULE
                         </span>
                       )}
                     </div>
                   </div>
                 </div>
-                <span className="text-lg font-bold text-blue-700">{l.score}%</span>
+                <span
+                  className={`text-lg font-bold ${
+                    l.is_available ? 'text-blue-700' : 'text-gray-400'
+                  }`}
+                >
+                  {l.total_score}%
+                </span>
               </div>
 
               <div className="flex items-center justify-between mt-3 text-xs text-gray-500">
@@ -151,15 +194,42 @@ export default function LinemanRecommendationPanel({
                   <p>
                     ✓ {l.active_jobs} active {l.active_jobs === 1 ? 'task' : 'tasks'}
                   </p>
-                  <p className={isAvailableNow ? 'text-green-600' : 'text-blue-600'}>
-                    ● {isAvailableNow ? 'Available' : 'Active'}
+                  <p
+                    className={
+                      !l.is_available
+                        ? l.availability_reason === 'no_signal'
+                          ? 'text-amber-600'
+                          : 'text-gray-400'
+                        : isFreeNow
+                        ? 'text-green-600'
+                        : 'text-blue-600'
+                    }
+                  >
+                    ●{' '}
+                    {l.is_available
+                      ? isFreeNow
+                        ? 'Available'
+                        : 'On duty'
+                      : REASON_LABEL[l.availability_reason]}
                   </p>
                 </div>
               </div>
+
+              <p className="text-[10px] text-gray-400 mt-2">
+                Availability {l.availability_score} · Office {l.office_score} · Proximity{' '}
+                {l.proximity_score} · Workload {l.workload_score}
+                {!l.has_schedule && ' · No schedule set'}
+              </p>
             </button>
           )
         })}
       </div>
+
+      {selected && !selected.is_available && (
+        <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 mb-3">
+          {availabilityNote(selected)}
+        </p>
+      )}
 
       <div className="space-y-2">
         <button
