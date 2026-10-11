@@ -7,6 +7,7 @@ import StatusBadge from '@/components/StatusBadge'
 import Card from '@/components/ui/Card'
 import CooperativeStatusActions from '@/components/superadmin/CooperativeStatusActions'
 import CooperativeStatusHistory from '@/components/superadmin/CooperativeStatusHistory'
+import BackButton from '@/components/ui/BackButton'
 
 export default function CooperativeDetailPage() {
   const { id } = useParams()
@@ -210,12 +211,7 @@ export default function CooperativeDetailPage() {
 
   return (
     <div className="max-w-8xl">
-      <button
-        onClick={() => router.push('/superadmin/cooperatives')}
-        className="text-sm text-blue-700 font-medium mb-4"
-      >
-        ← Back to All Cooperatives
-      </button>
+      <BackButton href="/superadmin/cooperatives" label="Back to All Cooperatives" withMarginBottom />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         <Card>

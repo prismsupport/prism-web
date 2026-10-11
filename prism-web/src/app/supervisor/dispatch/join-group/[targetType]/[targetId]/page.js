@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import ReportMap from '@/components/ui/ReportMap'
 import SuggestionConfidenceBanner from '@/components/dispatch/SuggestionConfidenceBanner'
 import MatchReviewCard from '@/components/dispatch/MatchReviewCard'
+import BackToDispatchLink from '@/components/dispatch/BackToDispatchLink'
 
 function generateMasterTicketNumber() {
   const date = new Date().toISOString().slice(0, 10).replace(/-/g, '')
@@ -224,12 +225,7 @@ function JoinGroupReviewContent() {
         <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-4">
           {error}
         </p>
-        <button
-          onClick={() => router.push('/supervisor/dispatch')}
-          className="text-sm text-blue-700 font-medium"
-        >
-          ← Back to Dispatch
-        </button>
+        <BackToDispatchLink />
       </div>
     )
   }
