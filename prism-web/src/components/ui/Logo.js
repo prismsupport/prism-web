@@ -1,26 +1,25 @@
-export default function Logo({ subtitle }) {
+export default function Logo({ subtitle, onDark = false }) {
   return (
     <div className="flex items-center gap-3">
-      <div className="w-9 h-9 rounded-lg bg-blue-700 flex items-center justify-center">
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 24 24"
-          fill="white"
-          className="w-5 h-5"
-        >
-          <path d="M13 2 3 14h7l-1 8 11-14h-7l1-6Z" />
-        </svg>
-      </div>
+      <img src="/brand/mascot-sm.png" alt="" className="h-10 w-auto" />
       <div>
-        <div className="font-extrabold tracking-tight text-gray-900 leading-none">
+        <div
+          className={`font-display text-lg font-extrabold leading-none tracking-tight ${
+            onDark ? "text-white" : "text-blue-900"
+          }`}
+        >
           PRISM
         </div>
         {subtitle && (
-          <div className="text-[10px] font-bold tracking-wide text-gray-400 mt-0.5">
+          <div
+            className={`mt-1 text-[10px] font-bold tracking-wide ${
+              onDark ? "text-blue-200" : "text-gray-400"
+            }`}
+          >
             {subtitle}
           </div>
         )}
       </div>
     </div>
-  )
+  );
 }
