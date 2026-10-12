@@ -28,6 +28,9 @@ export default function ServiceAreasPage() {
   const [editingArea, setEditingArea] = useState(null)
   const [deletingArea, setDeletingArea] = useState(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
+  const [impact, setImpact] = useState(null)
+  const [impactLoading, setImpactLoading] = useState(false)
+  const [impactError, setImpactError] = useState('')
   const [showManageAreaOffices, setShowManageAreaOffices] = useState(false)
 
   useEffect(() => {
@@ -75,6 +78,22 @@ export default function ServiceAreasPage() {
     if (fetchError) setError(fetchError.message)
     setServiceAreas(data || [])
     setLoading(false)
+  }
+
+  async function openDelete(area) {
+    setDeletingArea(area)
+    setImpact(null)
+    setImpactError('')
+    setImpactLoading(true)
+
+    const supabase = createClient()
+    const { data, error: rpcError } = await supabase
+      .rpc('get_service_area_impact', { p_service_area_id: area.id })
+      .single()
+
+    if (rpcError) setImpactError(rpcError.message)
+    else setImpact(data)
+    setImpactLoading(false)
   }
 
   async function handleDeleteConfirmed() {
@@ -319,7 +338,7 @@ export default function ServiceAreasPage() {
                   key={area.id}
                   area={area}
                   onEdit={setEditingArea}
-                  onDelete={setDeletingArea}
+                  onDelete={openDelete}
                 />
               ))}
           </tbody>
@@ -356,28 +375,73 @@ export default function ServiceAreasPage() {
 
       {deletingArea && (
         <Modal title="Delete Service Area" onClose={() => setDeletingArea(null)}>
-          <p className="text-sm text-gray-700 mb-6">
-            Are you sure you want to delete{' '}
+          <p className="text-sm text-gray-700 mb-4">
             <span className="font-semibold">{deletingArea.barangay}</span>,{' '}
-            {deletingArea.municipality}? This action cannot be undone, and it may
-            affect existing Power Advisories referencing this area, and will block
-            future consumer registrations/edits for this barangay until it's re-added.
+            {deletingArea.municipality}
           </p>
+
+          {impactLoading && (
+            <p className="text-sm text-gray-500 mb-6">Checking what depends on this area…</p>
+          )}
+
+          {impactError && (
+            <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-6">
+              Could not check what depends on this area, so it can't be deleted right now. (
+              {impactError})
+            </p>
+          )}
+
+          {impact && (
+            <>
+              <div className="border border-gray-200 rounded-lg divide-y divide-gray-100 mb-4 text-sm">
+                <div className="flex justify-between px-3 py-2">
+                  <span className="text-gray-600">Consumers registered here</span>
+                  <span className="font-semibold text-gray-900">{impact.consumer_count}</span>
+                </div>
+                <div className="flex justify-between px-3 py-2">
+                  <span className="text-gray-600">Current or upcoming advisories aimed here</span>
+                  <span className="font-semibold text-gray-900">{impact.advisory_count}</span>
+                </div>
+                <div className="flex justify-between px-3 py-2">
+                  <span className="text-gray-600">Open reports (not yet resolved)</span>
+                  <span className="font-semibold text-gray-900">{impact.open_report_count}</span>
+                </div>
+              </div>
+
+              {!impact.can_delete ? (
+                <p className="text-sm text-red-700 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-6">
+                  This area can't be deleted while consumers or current/upcoming advisories depend
+                  on it. Deleting it would stop those consumers from saving an address change and
+                  leave the advisories pointing at an area that no longer exists.
+                </p>
+              ) : (
+                <p className="text-sm text-gray-700 mb-6">
+                  {impact.open_report_count > 0
+                    ? `Deleting it removes the Area Office and feeder match for ${impact.open_report_count} open report(s), which changes how linemen and duplicates are ranked for them. `
+                    : 'Nothing depends on this area. '}
+                  This action cannot be undone.
+                </p>
+              )}
+            </>
+          )}
+
           <div className="flex justify-end gap-3">
             <button
               onClick={() => setDeletingArea(null)}
               disabled={deleteLoading}
               className="px-4 py-2.5 rounded-lg text-sm font-semibold text-gray-600 border border-gray-200 hover:bg-gray-50"
             >
-              Cancel
+              {impact && !impact.can_delete ? 'Close' : 'Cancel'}
             </button>
-            <button
-              onClick={handleDeleteConfirmed}
-              disabled={deleteLoading}
-              className="px-4 py-2.5 rounded-lg text-sm font-semibold text-white bg-red-600 hover:bg-red-700 disabled:opacity-60"
-            >
-              {deleteLoading ? 'Deleting…' : 'Delete'}
-            </button>
+            {impact?.can_delete && (
+              <button
+                onClick={handleDeleteConfirmed}
+                disabled={deleteLoading}
+                className="px-4 py-2.5 rounded-lg text-sm font-semibold text-white bg-red-600 hover:bg-red-700 disabled:opacity-60"
+              >
+                {deleteLoading ? 'Deleting…' : 'Delete'}
+              </button>
+            )}
           </div>
         </Modal>
       )}
