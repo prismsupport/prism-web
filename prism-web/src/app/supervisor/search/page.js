@@ -75,9 +75,9 @@ function SupervisorSearchContent() {
     ] = await Promise.all([
       supabase
         .from('reports')
-        .select('report_id, ticket_number, status, priority, nearest_landmark, barangay, municipality')
+        .select('report_id, ticket_number, status, priority, nearest_landmark, barangay, municipality, account_number')
         .eq('cooperative_id', profile.cooperative_id)
-        .or(`ticket_number.ilike.${pattern},nearest_landmark.ilike.${pattern},barangay.ilike.${pattern},municipality.ilike.${pattern}`)
+        .or(`ticket_number.ilike.${pattern},account_number.ilike.${pattern},nearest_landmark.ilike.${pattern},barangay.ilike.${pattern},municipality.ilike.${pattern}`)
         .limit(25),
       supabase
         .from('master_tickets')
@@ -87,9 +87,9 @@ function SupervisorSearchContent() {
         .limit(25),
       supabase
         .from('users')
-        .select('id, first_name, last_name, user_type, is_active')
+        .select('id, first_name, last_name, user_type, is_active, phone_number')
         .eq('cooperative_id', profile.cooperative_id)
-        .or(`first_name.ilike.${pattern},last_name.ilike.${pattern}${userTypeFilter}`)
+        .or(`first_name.ilike.${pattern},last_name.ilike.${pattern},phone_number.ilike.${pattern}${userTypeFilter}`)
         .limit(25),
       supabase
         .from('advisories')
@@ -118,7 +118,7 @@ function SupervisorSearchContent() {
         id: report.report_id,
         title: report.ticket_number || report.report_id,
         subtitle: report.nearest_landmark || `${report.barangay}, ${report.municipality}`,
-        meta: `${formatLabel(report.status)}${report.priority ? ` · ${formatLabel(report.priority)} priority` : ''}`,
+        meta: `${formatLabel(report.status)}${report.priority ? ` · ${formatLabel(report.priority)} priority` : ''}${report.account_number ? ` · Acct ${report.account_number}` : ''}`,
         type: 'Report',
         href: `/supervisor/dispatch/report/${report.report_id}`,
       })),
@@ -133,7 +133,7 @@ function SupervisorSearchContent() {
       ...(usersResponse.data || []).map((person) => ({
         id: person.id,
         title: `${person.first_name || ''} ${person.last_name || ''}`.trim(),
-        subtitle: person.is_active ? 'Active account' : 'Inactive account',
+        subtitle: `${person.phone_number ? `${person.phone_number} · ` : ''}${person.is_active ? 'Active account' : 'Inactive account'}`,
         meta: formatLabel(person.user_type),
         type: 'User',
         href: '/supervisor/users',

@@ -33,8 +33,8 @@ export default function SupervisorTopBar({ supervisorName, avatarUrl, onLogout }
         </svg>
         <input
           type="text"
-          aria-label="Search reports, tickets, or users"
-          placeholder="Search reports, tickets, or users..."
+          aria-label="Search reports, tickets, account or phone numbers, users..."
+          placeholder="Search reports, tickets, account or phone numbers, users..."
           value={searchText}
           onChange={(event) => setSearchText(event.target.value)}
           className="w-full rounded-lg border border-gray-200 bg-gray-50 py-2.5 pl-9 pr-3.5 text-sm placeholder-gray-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-600"
