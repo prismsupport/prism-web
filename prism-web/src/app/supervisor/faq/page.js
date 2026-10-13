@@ -1,97 +1,105 @@
-'use client'
+"use client";
 
-import { useEffect, useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
-import Modal from '@/components/ui/Modal'
-import FaqEntryRow from '@/components/faq/FaqEntryRow'
-import FaqInquiryRow from '@/components/faq/FaqInquiryRow'
-import ManageFaqCategoriesModal from '@/components/faq/ManageFaqCategoriesModal'
-import AddEditFaqModal from '@/components/faq/AddEditFaqModal'
-import ProvideAnswerModal from '@/components/faq/ProvideAnswerModal'
-import Pagination from '@/components/ui/Pagination'
+import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+import Modal from "@/components/ui/Modal";
+import FaqEntryRow from "@/components/faq/FaqEntryRow";
+import FaqInquiryRow from "@/components/faq/FaqInquiryRow";
+import ManageFaqCategoriesModal from "@/components/faq/ManageFaqCategoriesModal";
+import AddEditFaqModal from "@/components/faq/AddEditFaqModal";
+import ProvideAnswerModal from "@/components/faq/ProvideAnswerModal";
+import Pagination from "@/components/ui/Pagination";
+import {
+  useSupervisorNotificationRefresh,
+  useUnreadSupervisorNotifications,
+} from "@/lib/supervisor/useSupervisorLiveUpdates";
 
-const PAGE_SIZE = 10
+const PAGE_SIZE = 10;
 
 export default function FaqManagementPage() {
-  const [activeTab, setActiveTab] = useState('all')
-  const [cooperativeId, setCooperativeId] = useState(null)
+  const [activeTab, setActiveTab] = useState("all");
+  const [cooperativeId, setCooperativeId] = useState(null);
 
-  const [categories, setCategories] = useState([])
-  const [showManageCategories, setShowManageCategories] = useState(false)
+  const [categories, setCategories] = useState([]);
+  const [showManageCategories, setShowManageCategories] = useState(false);
 
-  const [entries, setEntries] = useState([])
-  const [inquiries, setInquiries] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
+  const [entries, setEntries] = useState([]);
+  const [inquiries, setInquiries] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  const [entriesPage, setEntriesPage] = useState(1)
-  const [inquiriesPage, setInquiriesPage] = useState(1)
+  const [entriesPage, setEntriesPage] = useState(1);
+  const [inquiriesPage, setInquiriesPage] = useState(1);
 
-  const [showAddModal, setShowAddModal] = useState(false)
-  const [editingEntry, setEditingEntry] = useState(null)
-  const [deletingEntry, setDeletingEntry] = useState(null)
-  const [answeringInquiry, setAnsweringInquiry] = useState(null)
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [editingEntry, setEditingEntry] = useState(null);
+  const [deletingEntry, setDeletingEntry] = useState(null);
+  const [answeringInquiry, setAnsweringInquiry] = useState(null);
+  const { isUnread, markNotificationRead } = useUnreadSupervisorNotifications([
+    "faq_inquiries",
+  ]);
 
   useEffect(() => {
-    loadEverything()
-  }, [])
+    loadEverything();
+  }, []);
+  useSupervisorNotificationRefresh(loadEverything);
 
   async function loadEverything() {
-    setLoading(true)
-    setError('')
-    const supabase = createClient()
+    setLoading(true);
+    setError("");
+    const supabase = createClient();
 
     const {
       data: { user },
-    } = await supabase.auth.getUser()
+    } = await supabase.auth.getUser();
 
     const { data: myRow, error: myRowError } = await supabase
-      .from('users')
-      .select('cooperative_id')
-      .eq('id', user.id)
-      .single()
+      .from("users")
+      .select("cooperative_id")
+      .eq("id", user.id)
+      .single();
 
     if (myRowError || !myRow) {
-      setError('Unable to load your cooperative.')
-      setLoading(false)
-      return
+      setError("Unable to load your cooperative.");
+      setLoading(false);
+      return;
     }
 
-    setCooperativeId(myRow.cooperative_id)
+    setCooperativeId(myRow.cooperative_id);
 
     const { data: coop } = await supabase
-      .from('cooperative_settings')
-      .select('faq_categories')
-      .eq('cooperative_id', myRow.cooperative_id)
-      .single()
+      .from("cooperative_settings")
+      .select("faq_categories")
+      .eq("cooperative_id", myRow.cooperative_id)
+      .single();
 
-    setCategories(coop?.faq_categories || [])
+    setCategories(coop?.faq_categories || []);
 
     const { data: entryData, error: entryError } = await supabase
-      .from('faq_entries')
-      .select('*')
-      .eq('cooperative_id', myRow.cooperative_id)
-      .order('updated_at', { ascending: false })
+      .from("faq_entries")
+      .select("*")
+      .eq("cooperative_id", myRow.cooperative_id)
+      .order("updated_at", { ascending: false });
 
-    if (entryError) setError(entryError.message)
-    setEntries(entryData || [])
+    if (entryError) setError(entryError.message);
+    setEntries(entryData || []);
 
     const { data: inquiryData, error: inquiryError } = await supabase
-      .from('faq_inquiries')
-      .select('*')
-      .eq('status', 'pending')
-      .order('submitted_at', { ascending: false })
+      .from("faq_inquiries")
+      .select("*")
+      .eq("status", "pending")
+      .order("submitted_at", { ascending: false });
 
-    if (inquiryError) setError(inquiryError.message)
+    if (inquiryError) setError(inquiryError.message);
 
-    const consumerIds = (inquiryData || []).map((i) => i.consumer_id)
-    let consumerNames = []
+    const consumerIds = (inquiryData || []).map((i) => i.consumer_id);
+    let consumerNames = [];
     if (consumerIds.length > 0) {
       const { data } = await supabase
-        .from('users')
-        .select('id, first_name, last_name, cooperative_id')
-        .in('id', consumerIds)
-      consumerNames = data || []
+        .from("users")
+        .select("id, first_name, last_name, cooperative_id")
+        .in("id", consumerIds);
+      consumerNames = data || [];
     }
 
     // Only keep inquiries from consumers in this supervisor's cooperative
@@ -100,23 +108,26 @@ export default function FaqManagementPage() {
         ...i,
         consumer: consumerNames.find((c) => c.id === i.consumer_id),
       }))
-      .filter((i) => i.consumer?.cooperative_id === myRow.cooperative_id)
+      .filter((i) => i.consumer?.cooperative_id === myRow.cooperative_id);
 
-    setInquiries(relevantInquiries)
-    setLoading(false)
+    setInquiries(relevantInquiries);
+    setLoading(false);
   }
 
   async function handleDeleteConfirmed() {
-    const supabase = createClient()
-    await supabase.from('faq_entries').delete().eq('faq_id', deletingEntry.faq_id)
-    setDeletingEntry(null)
-    loadEverything()
+    const supabase = createClient();
+    await supabase
+      .from("faq_entries")
+      .delete()
+      .eq("faq_id", deletingEntry.faq_id);
+    setDeletingEntry(null);
+    loadEverything();
   }
 
   const filteredEntries =
-    activeTab === 'all' || activeTab === 'unanswered'
+    activeTab === "all" || activeTab === "unanswered"
       ? entries
-      : entries.filter((e) => e.category === activeTab)
+      : entries.filter((e) => e.category === activeTab);
 
   return (
     <div>
@@ -139,22 +150,22 @@ export default function FaqManagementPage() {
         <div className="flex items-center justify-between px-5 pt-4">
           <div className="flex gap-2">
             <TabButton
-              active={activeTab === 'all'}
+              active={activeTab === "all"}
               onClick={() => {
-                setActiveTab('all')
-                setEntriesPage(1)
+                setActiveTab("all");
+                setEntriesPage(1);
               }}
             >
               All Categories
             </TabButton>
             <TabButton
-              active={activeTab === 'unanswered'}
+              active={activeTab === "unanswered"}
               onClick={() => {
-                setActiveTab('unanswered')
-                setInquiriesPage(1)
+                setActiveTab("unanswered");
+                setInquiriesPage(1);
               }}
             >
-              Unanswered{' '}
+              Unanswered{" "}
               {inquiries.length > 0 && (
                 <span className="ml-1 bg-red-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full">
                   {inquiries.length}
@@ -166,8 +177,8 @@ export default function FaqManagementPage() {
                 key={cat}
                 active={activeTab === cat}
                 onClick={() => {
-                  setActiveTab(cat)
-                  setEntriesPage(1)
+                  setActiveTab(cat);
+                  setEntriesPage(1);
                 }}
               >
                 {cat.charAt(0).toUpperCase() + cat.slice(1)}
@@ -192,7 +203,7 @@ export default function FaqManagementPage() {
 
         {loading && <p className="text-sm text-gray-500 p-5">Loading…</p>}
 
-        {!loading && activeTab === 'unanswered' && (
+        {!loading && activeTab === "unanswered" && (
           <div>
             {inquiries.length === 0 && (
               <p className="text-sm text-gray-500 p-5">No pending inquiries.</p>
@@ -200,7 +211,15 @@ export default function FaqManagementPage() {
             {inquiries
               .slice((inquiriesPage - 1) * PAGE_SIZE, inquiriesPage * PAGE_SIZE)
               .map((inq) => (
-                <FaqInquiryRow key={inq.faq_inquiries_id} inquiry={inq} onAnswer={setAnsweringInquiry} />
+                <FaqInquiryRow
+                  key={inq.faq_inquiries_id}
+                  inquiry={inq}
+                  isUnread={isUnread("faq_inquiries", inq.faq_inquiries_id)}
+                  onOpen={() =>
+                    markNotificationRead("faq_inquiries", inq.faq_inquiries_id)
+                  }
+                  onAnswer={setAnsweringInquiry}
+                />
               ))}
             <Pagination
               page={inquiriesPage}
@@ -212,7 +231,7 @@ export default function FaqManagementPage() {
           </div>
         )}
 
-        {!loading && activeTab !== 'unanswered' && (
+        {!loading && activeTab !== "unanswered" && (
           <div>
             {filteredEntries.length === 0 && (
               <p className="text-sm text-gray-500 p-5">No FAQ entries yet.</p>
@@ -220,11 +239,19 @@ export default function FaqManagementPage() {
             {filteredEntries
               .slice((entriesPage - 1) * PAGE_SIZE, entriesPage * PAGE_SIZE)
               .map((entry) => (
-                <FaqEntryRow key={entry.faq_id} entry={entry} onEdit={setEditingEntry} onDelete={setDeletingEntry} />
+                <FaqEntryRow
+                  key={entry.faq_id}
+                  entry={entry}
+                  onEdit={setEditingEntry}
+                  onDelete={setDeletingEntry}
+                />
               ))}
             <Pagination
               page={entriesPage}
-              totalPages={Math.max(1, Math.ceil(filteredEntries.length / PAGE_SIZE))}
+              totalPages={Math.max(
+                1,
+                Math.ceil(filteredEntries.length / PAGE_SIZE),
+              )}
               totalCount={filteredEntries.length}
               pageSize={PAGE_SIZE}
               onPageChange={setEntriesPage}
@@ -239,13 +266,13 @@ export default function FaqManagementPage() {
           entry={editingEntry}
           categories={categories}
           onClose={() => {
-            setShowAddModal(false)
-            setEditingEntry(null)
+            setShowAddModal(false);
+            setEditingEntry(null);
           }}
           onSaved={() => {
-            setShowAddModal(false)
-            setEditingEntry(null)
-            loadEverything()
+            setShowAddModal(false);
+            setEditingEntry(null);
+            loadEverything();
           }}
         />
       )}
@@ -281,13 +308,13 @@ export default function FaqManagementPage() {
           categories={categories}
           onClose={() => setAnsweringInquiry(null)}
           onAnswered={() => {
-            setAnsweringInquiry(null)
-            loadEverything()
+            setAnsweringInquiry(null);
+            loadEverything();
           }}
         />
       )}
 
-            {showManageCategories && (
+      {showManageCategories && (
         <ManageFaqCategoriesModal
           cooperativeId={cooperativeId}
           categories={categories}
@@ -295,9 +322,8 @@ export default function FaqManagementPage() {
           onUpdated={(newList) => setCategories(newList)}
         />
       )}
-      
     </div>
-  )
+  );
 }
 
 function TabButton({ active, onClick, children }) {
@@ -305,10 +331,10 @@ function TabButton({ active, onClick, children }) {
     <button
       onClick={onClick}
       className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
-        active ? 'bg-blue-700 text-white' : 'text-gray-600 hover:bg-gray-100'
+        active ? "bg-blue-700 text-white" : "text-gray-600 hover:bg-gray-100"
       }`}
     >
       {children}
     </button>
-  )
+  );
 }

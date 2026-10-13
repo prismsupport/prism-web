@@ -1,267 +1,291 @@
-'use client'
+"use client";
 
-import { useEffect, useState } from 'react'
-import Link from 'next/link'
-import { createClient } from '@/lib/supabase/client'
-import Pagination from '@/components/ui/Pagination'
-import DispatchStatCards from '@/components/dispatch/DispatchStatCards'
-import DispatchFilters from '@/components/dispatch/DispatchFilters'
-import DuplicateSuggestionCard from '@/components/dispatch/DuplicateSuggestionCard'
-import DispatchTicketRow from '@/components/dispatch/DispatchTicketRow'
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { createClient } from "@/lib/supabase/client";
+import Pagination from "@/components/ui/Pagination";
+import DispatchStatCards from "@/components/dispatch/DispatchStatCards";
+import DispatchFilters from "@/components/dispatch/DispatchFilters";
+import DuplicateSuggestionCard from "@/components/dispatch/DuplicateSuggestionCard";
+import DispatchTicketRow from "@/components/dispatch/DispatchTicketRow";
+import {
+  useSupervisorNotificationRefresh,
+  useUnreadSupervisorNotifications,
+} from "@/lib/supervisor/useSupervisorLiveUpdates";
 
-const PAGE_SIZE = 10
+const PAGE_SIZE = 10;
 
 const ASSIGNMENT_TO_BUCKET = {
-  assigned: 'dispatched',
-  on_the_way: 'dispatched',
-  arrived_at_site: 'in_progress',
-  in_progress: 'in_progress',
-  fixed: 'qa_review',
-  resolved: 'resolved',
-}
+  assigned: "dispatched",
+  on_the_way: "dispatched",
+  arrived_at_site: "in_progress",
+  in_progress: "in_progress",
+  fixed: "qa_review",
+  resolved: "resolved",
+};
 
 export default function DispatchPage() {
-  const [reports, setReports] = useState([])
-  const [assignments, setAssignments] = useState([])
-  const [linemenNames, setLinemenNames] = useState({})
-  const [clusters, setClusters] = useState([])
-  const [joinSuggestions, setJoinSuggestions] = useState([])
-  const [reopenRequests, setReopenRequests] = useState([])
-  const [masterTickets, setMasterTickets] = useState([])
+  const [reports, setReports] = useState([]);
+  const [assignments, setAssignments] = useState([]);
+  const [linemenNames, setLinemenNames] = useState({});
+  const [clusters, setClusters] = useState([]);
+  const [joinSuggestions, setJoinSuggestions] = useState([]);
+  const [reopenRequests, setReopenRequests] = useState([]);
+  const [masterTickets, setMasterTickets] = useState([]);
 
-  const [priorityFilter, setPriorityFilter] = useState('all')
-  const [statusFilter, setStatusFilter] = useState('all')
-  const [page, setPage] = useState(1)
+  const [priorityFilter, setPriorityFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [page, setPage] = useState(1);
 
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   // Response Time Monitoring
-  const [cooperativeId, setCooperativeId] = useState(null)
-  const [threshold, setThreshold] = useState(30)
-  const [thresholdInput, setThresholdInput] = useState('30')
-  const [savingThreshold, setSavingThreshold] = useState(false)
-  const [overdueTickets, setOverdueTickets] = useState([])
+  const [cooperativeId, setCooperativeId] = useState(null);
+  const [threshold, setThreshold] = useState(30);
+  const [thresholdInput, setThresholdInput] = useState("30");
+  const [savingThreshold, setSavingThreshold] = useState(false);
+  const [overdueTickets, setOverdueTickets] = useState([]);
+  const { isUnread, markNotificationRead } = useUnreadSupervisorNotifications([
+    "reports",
+  ]);
 
   useEffect(() => {
-    loadEverything()
-  }, [])
+    loadEverything();
+  }, []);
+  useSupervisorNotificationRefresh(loadEverything);
 
   async function loadEverything() {
-    setLoading(true)
-    setError('')
-    const supabase = createClient()
+    setLoading(true);
+    setError("");
+    const supabase = createClient();
 
     const {
       data: { user },
-    } = await supabase.auth.getUser()
+    } = await supabase.auth.getUser();
 
     const { data: myRow, error: myRowError } = await supabase
-      .from('users')
-      .select('cooperative_id')
-      .eq('id', user.id)
-      .single()
+      .from("users")
+      .select("cooperative_id")
+      .eq("id", user.id)
+      .single();
 
     if (myRowError || !myRow) {
-      setError('Unable to load your cooperative.')
-      setLoading(false)
-      return
+      setError("Unable to load your cooperative.");
+      setLoading(false);
+      return;
     }
 
-    const coopId = myRow.cooperative_id
-    setCooperativeId(coopId)
+    const coopId = myRow.cooperative_id;
+    setCooperativeId(coopId);
 
     const { data: coop } = await supabase
-      .from('cooperative_settings')
-      .select('response_time_threshold_minutes')
-      .eq('cooperative_id', coopId)
-      .single()
+      .from("cooperative_settings")
+      .select("response_time_threshold_minutes")
+      .eq("cooperative_id", coopId)
+      .single();
 
     if (coop?.response_time_threshold_minutes != null) {
-      setThreshold(coop.response_time_threshold_minutes)
-      setThresholdInput(String(coop.response_time_threshold_minutes))
+      setThreshold(coop.response_time_threshold_minutes);
+      setThresholdInput(String(coop.response_time_threshold_minutes));
     }
 
     const { data: reportData, error: reportError } = await supabase
-      .from('reports')
-      .select('*')
-      .eq('cooperative_id', coopId)
-      .order('created_at', { ascending: false })
+      .from("reports")
+      .select("*")
+      .eq("cooperative_id", coopId)
+      .order("created_at", { ascending: false });
 
-    if (reportError) setError(reportError.message)
+    if (reportError) setError(reportError.message);
 
-    const standaloneReports = (reportData || []).filter((r) => !r.master_id)
-    setReports(standaloneReports)
+    const standaloneReports = (reportData || []).filter((r) => !r.master_id);
+    setReports(standaloneReports);
 
     const { data: masterData, error: masterError } = await supabase
-      .from('master_tickets')
-      .select('*')
-      .eq('cooperative_id', coopId)
-      .order('created_at', { ascending: false })
+      .from("master_tickets")
+      .select("*")
+      .eq("cooperative_id", coopId)
+      .order("created_at", { ascending: false });
 
-    if (masterError) setError((prev) => prev || masterError.message)
-    setMasterTickets(masterData || [])
+    if (masterError) setError((prev) => prev || masterError.message);
+    setMasterTickets(masterData || []);
 
-    const reportIds = standaloneReports.map((r) => r.report_id)
-    const masterIds = (masterData || []).map((m) => m.master_id)
+    const reportIds = standaloneReports.map((r) => r.report_id);
+    const masterIds = (masterData || []).map((m) => m.master_id);
 
-    let assignmentData = []
+    let assignmentData = [];
     if (reportIds.length > 0) {
       const { data } = await supabase
-        .from('job_assignments')
-        .select('*')
-        .in('report_id', reportIds)
-        .order('assigned_at', { ascending: false })
-      assignmentData = [...assignmentData, ...(data || [])]
+        .from("job_assignments")
+        .select("*")
+        .in("report_id", reportIds)
+        .order("assigned_at", { ascending: false });
+      assignmentData = [...assignmentData, ...(data || [])];
     }
     if (masterIds.length > 0) {
       const { data } = await supabase
-        .from('job_assignments')
-        .select('*')
-        .in('master_id', masterIds)
-        .order('assigned_at', { ascending: false })
-      assignmentData = [...assignmentData, ...(data || [])]
+        .from("job_assignments")
+        .select("*")
+        .in("master_id", masterIds)
+        .order("assigned_at", { ascending: false });
+      assignmentData = [...assignmentData, ...(data || [])];
     }
-    setAssignments(assignmentData)
+    setAssignments(assignmentData);
 
     const linemanIds = Array.from(
-      new Set(assignmentData.map((a) => a.lineman_id).filter(Boolean))
-    )
-    let namesMap = {}
+      new Set(assignmentData.map((a) => a.lineman_id).filter(Boolean)),
+    );
+    let namesMap = {};
     if (linemanIds.length > 0) {
       const { data } = await supabase
-        .from('users')
-        .select('id, first_name, last_name')
-        .in('id', linemanIds)
-      ;(data || []).forEach((u) => {
-        namesMap[u.id] = `${u.first_name} ${u.last_name}`
-      })
+        .from("users")
+        .select("id, first_name, last_name")
+        .in("id", linemanIds);
+      (data || []).forEach((u) => {
+        namesMap[u.id] = `${u.first_name} ${u.last_name}`;
+      });
     }
-    setLinemenNames(namesMap)
+    setLinemenNames(namesMap);
 
     const { data: clusterData, error: clusterError } = await supabase.rpc(
-      'get_duplicate_clusters',
-      { p_cooperative_id: coopId }
-    )
-    if (clusterError) setError((prev) => prev || clusterError.message)
-    setClusters(clusterData || [])
+      "get_duplicate_clusters",
+      { p_cooperative_id: coopId },
+    );
+    if (clusterError) setError((prev) => prev || clusterError.message);
+    setClusters(clusterData || []);
 
     const { data: joinData, error: joinError } = await supabase.rpc(
-      'get_join_suggestions',
-      { p_cooperative_id: coopId }
-    )
-    if (joinError) setError((prev) => prev || joinError.message)
-    setJoinSuggestions(joinData || [])
+      "get_join_suggestions",
+      { p_cooperative_id: coopId },
+    );
+    if (joinError) setError((prev) => prev || joinError.message);
+    setJoinSuggestions(joinData || []);
 
     const { data: reopenData, error: reopenError } = await supabase
-      .from('reopen_requests')
-      .select('reopen_id, report_id, description, requested_at, reports(ticket_number, consumer_id)')
-      .eq('status', 'pending')
+      .from("reopen_requests")
+      .select(
+        "reopen_id, report_id, description, requested_at, reports(ticket_number, consumer_id)",
+      )
+      .eq("status", "pending");
 
-    if (reopenError) setError((prev) => prev || reopenError.message)
-    setReopenRequests(reopenData || [])
+    if (reopenError) setError((prev) => prev || reopenError.message);
+    setReopenRequests(reopenData || []);
 
     // Response Time Monitoring — checks + fires overdue notifications as a side effect
     const { data: overdueData, error: overdueError } = await supabase.rpc(
-      'check_response_time_overdue',
-      { p_cooperative_id: coopId }
-    )
-    if (overdueError) setError((prev) => prev || overdueError.message)
-    setOverdueTickets(overdueData || [])
+      "check_response_time_overdue",
+      { p_cooperative_id: coopId },
+    );
+    if (overdueError) setError((prev) => prev || overdueError.message);
+    setOverdueTickets(overdueData || []);
 
-    setLoading(false)
+    setLoading(false);
   }
 
   async function handleSaveThreshold() {
-    const parsed = parseInt(thresholdInput, 10)
+    const parsed = parseInt(thresholdInput, 10);
     if (isNaN(parsed) || parsed <= 0) {
-      setError('Response time threshold must be a positive number of minutes.')
-      return
+      setError("Response time threshold must be a positive number of minutes.");
+      return;
     }
 
-    setSavingThreshold(true)
-    setError('')
-    const supabase = createClient()
+    setSavingThreshold(true);
+    setError("");
+    const supabase = createClient();
 
     const { error: updateError } = await supabase
-      .from('cooperative_settings')
+      .from("cooperative_settings")
       .update({ response_time_threshold_minutes: parsed })
-      .eq('cooperative_id', cooperativeId)
+      .eq("cooperative_id", cooperativeId);
 
     if (updateError) {
-      setError(updateError.message)
-      setSavingThreshold(false)
-      return
+      setError(updateError.message);
+      setSavingThreshold(false);
+      return;
     }
 
-    setThreshold(parsed)
-    setSavingThreshold(false)
-    loadEverything()
+    setThreshold(parsed);
+    setSavingThreshold(false);
+    loadEverything();
   }
 
   function assignmentFor(reportId, masterId) {
     return assignments.find(
-      (a) => (reportId && a.report_id === reportId) || (masterId && a.master_id === masterId)
-    )
+      (a) =>
+        (reportId && a.report_id === reportId) ||
+        (masterId && a.master_id === masterId),
+    );
   }
 
   const allTickets = [
-    ...reports.map((r) => ({ ...r, kind: 'report', ticketKey: r.report_id })),
-    ...masterTickets.map((m) => ({ ...m, kind: 'master', ticketKey: m.master_id })),
-  ]
+    ...reports.map((r) => ({ ...r, kind: "report", ticketKey: r.report_id })),
+    ...masterTickets.map((m) => ({
+      ...m,
+      kind: "master",
+      ticketKey: m.master_id,
+    })),
+  ];
 
   function bucketForTicket(ticket) {
     const assignment =
-      ticket.kind === 'report'
+      ticket.kind === "report"
         ? assignmentFor(ticket.report_id, null)
-        : assignmentFor(null, ticket.master_id)
+        : assignmentFor(null, ticket.master_id);
     if (assignment) {
-      return ASSIGNMENT_TO_BUCKET[assignment.status] || ticket.status
+      return ASSIGNMENT_TO_BUCKET[assignment.status] || ticket.status;
     }
-    return ticket.status
+    return ticket.status;
   }
 
   const counts = {
-    pending: allTickets.filter((t) => bucketForTicket(t) === 'pending').length,
-    dispatched: allTickets.filter((t) => bucketForTicket(t) === 'dispatched').length,
-    in_progress: allTickets.filter((t) => bucketForTicket(t) === 'in_progress').length,
-    qa_review: allTickets.filter((t) => bucketForTicket(t) === 'qa_review').length,
-    resolved: allTickets.filter((t) => bucketForTicket(t) === 'resolved').length,
-  }
+    pending: allTickets.filter((t) => bucketForTicket(t) === "pending").length,
+    dispatched: allTickets.filter((t) => bucketForTicket(t) === "dispatched")
+      .length,
+    in_progress: allTickets.filter((t) => bucketForTicket(t) === "in_progress")
+      .length,
+    qa_review: allTickets.filter((t) => bucketForTicket(t) === "qa_review")
+      .length,
+    resolved: allTickets.filter((t) => bucketForTicket(t) === "resolved")
+      .length,
+  };
 
   const filtered = allTickets.filter((t) => {
-    const priorityMatch = priorityFilter === 'all' || t.priority === priorityFilter
-    const statusMatch = statusFilter === 'all' || bucketForTicket(t) === statusFilter
-    return priorityMatch && statusMatch
-  })
+    const priorityMatch =
+      priorityFilter === "all" || t.priority === priorityFilter;
+    const statusMatch =
+      statusFilter === "all" || bucketForTicket(t) === statusFilter;
+    return priorityMatch && statusMatch;
+  });
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
-  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  const clusteredReportIds = new Set(clusters.flatMap((c) => c.report_ids || []))
-  const overdueIds = new Set(overdueTickets.map((o) => o.ticket_id))
+  const clusteredReportIds = new Set(
+    clusters.flatMap((c) => c.report_ids || []),
+  );
+  const overdueIds = new Set(overdueTickets.map((o) => o.ticket_id));
 
   const joinGroups = Object.values(
-  joinSuggestions.reduce((acc, s) => {
-    const key = `${s.target_type}-${s.target_id}`
-    if (!acc[key]) {
-      acc[key] = {
-        target_type: s.target_type,
-        target_id: s.target_id,
-        target_label: s.target_label,
-        reportIds: [],
-        maxScore: 0,
+    joinSuggestions.reduce((acc, s) => {
+      const key = `${s.target_type}-${s.target_id}`;
+      if (!acc[key]) {
+        acc[key] = {
+          target_type: s.target_type,
+          target_id: s.target_id,
+          target_label: s.target_label,
+          reportIds: [],
+          maxScore: 0,
+        };
       }
-    }
-    acc[key].reportIds.push(s.report_id)
-    acc[key].maxScore = Math.max(acc[key].maxScore, s.score)
-    return acc
-    }, {})
-  )
+      acc[key].reportIds.push(s.report_id);
+      acc[key].maxScore = Math.max(acc[key].maxScore, s.score);
+      return acc;
+    }, {}),
+  );
 
   function handleFilterChange(setter, value) {
-    setter(value)
-    setPage(1)
+    setter(value);
+    setPage(1);
   }
 
   return (
@@ -277,9 +301,11 @@ export default function DispatchPage() {
         onFilterChange={(value) => handleFilterChange(setStatusFilter, value)}
       />
 
-  <DispatchFilters
+      <DispatchFilters
         priorityFilter={priorityFilter}
-        onPriorityChange={(value) => handleFilterChange(setPriorityFilter, value)}
+        onPriorityChange={(value) =>
+          handleFilterChange(setPriorityFilter, value)
+        }
         statusFilter={statusFilter}
         onStatusChange={(value) => handleFilterChange(setStatusFilter, value)}
         statusOptions={Object.keys(counts)}
@@ -299,13 +325,16 @@ export default function DispatchPage() {
         <span className="text-sm text-gray-500">minutes</span>
         <button
           onClick={handleSaveThreshold}
-          disabled={savingThreshold || parseInt(thresholdInput, 10) === threshold}
+          disabled={
+            savingThreshold || parseInt(thresholdInput, 10) === threshold
+          }
           className="bg-blue-700 hover:bg-blue-800 disabled:opacity-50 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
         >
-          {savingThreshold ? 'Saving…' : 'Save'}
+          {savingThreshold ? "Saving…" : "Save"}
         </button>
         <span className="text-xs text-gray-400 ml-2">
-          Pending tickets unassigned past this limit are flagged below and notify supervisors once.
+          Pending tickets unassigned past this limit are flagged below and
+          notify supervisors once.
         </span>
       </div>
 
@@ -325,17 +354,22 @@ export default function DispatchPage() {
               ⏱
             </div>
             <div>
-              <p className="text-sm font-bold text-gray-900">RESPONSE TIME EXCEEDED</p>
+              <p className="text-sm font-bold text-gray-900">
+                RESPONSE TIME EXCEEDED
+              </p>
               <p className="text-sm text-gray-600">
-                <span className="font-medium">{o.ticket_number}</span> has been unassigned for{' '}
-                <span className="font-semibold text-red-600">{o.minutes_elapsed} minutes</span>{' '}
+                <span className="font-medium">{o.ticket_number}</span> has been
+                unassigned for{" "}
+                <span className="font-semibold text-red-600">
+                  {o.minutes_elapsed} minutes
+                </span>{" "}
                 (threshold: {threshold} min)
               </p>
             </div>
           </div>
           <Link
             href={
-              o.ticket_kind === 'master'
+              o.ticket_kind === "master"
                 ? `/supervisor/dispatch/master/${o.ticket_id}`
                 : `/supervisor/dispatch/report/${o.ticket_id}`
             }
@@ -356,10 +390,12 @@ export default function DispatchPage() {
               ↺
             </div>
             <div>
-              <p className="text-sm font-bold text-gray-900">TICKET REOPEN REQUEST</p>
+              <p className="text-sm font-bold text-gray-900">
+                TICKET REOPEN REQUEST
+              </p>
               <p className="text-sm text-gray-600">
-                <span className="font-medium">{r.reports?.ticket_number}</span> — Consumer
-                requested this resolved ticket be reopened
+                <span className="font-medium">{r.reports?.ticket_number}</span>{" "}
+                — Consumer requested this resolved ticket be reopened
               </p>
             </div>
           </div>
@@ -379,16 +415,22 @@ export default function DispatchPage() {
           title={
             g.reportIds.length > 1
               ? `${g.reportIds.length} POSSIBLE MATCHES TO EXISTING TICKET`
-              : 'POSSIBLE MATCH TO EXISTING TICKET'
+              : "POSSIBLE MATCH TO EXISTING TICKET"
           }
           description={
             <>
-              {g.reportIds.length} report{g.reportIds.length === 1 ? '' : 's'} may belong to{' '}
-              <span className="text-purple-700 font-medium">{g.target_label}</span>
-              {'   '}Best match: <span className="font-semibold text-green-600">{g.maxScore}%</span>
+              {g.reportIds.length} report{g.reportIds.length === 1 ? "" : "s"}{" "}
+              may belong to{" "}
+              <span className="text-purple-700 font-medium">
+                {g.target_label}
+              </span>
+              {"   "}Best match:{" "}
+              <span className="font-semibold text-green-600">
+                {g.maxScore}%
+              </span>
             </>
           }
-          href={`/supervisor/dispatch/join-group/${g.target_type}/${g.target_id}?reports=${g.reportIds.join(',')}`}
+          href={`/supervisor/dispatch/join-group/${g.target_type}/${g.target_id}?reports=${g.reportIds.join(",")}`}
           buttonLabel="Review Matches"
         />
       ))}
@@ -400,10 +442,16 @@ export default function DispatchPage() {
           title="POTENTIAL DUPLICATE"
           description={
             <>
-              <span className="text-blue-700 font-medium">{cluster.area_label}</span>
-              {'   '}Confidence: <span className="font-semibold text-green-600">{cluster.confidence}%</span>
-              {'   '}Related Reports: <span className="font-semibold">{cluster.related_count}</span>
-              {'   '}Status: Pending Administrator Review
+              <span className="text-blue-700 font-medium">
+                {cluster.area_label}
+              </span>
+              {"   "}Confidence:{" "}
+              <span className="font-semibold text-green-600">
+                {cluster.confidence}%
+              </span>
+              {"   "}Related Reports:{" "}
+              <span className="font-semibold">{cluster.related_count}</span>
+              {"   "}Status: Pending Administrator Review
             </>
           }
           href={`/supervisor/dispatch/cluster/${cluster.cluster_anchor_id}`}
@@ -441,21 +489,32 @@ export default function DispatchPage() {
             )}
             {!loading &&
               paginated.map((t) => {
-                const isMaster = t.kind === 'master'
+                const isMaster = t.kind === "master";
                 const assignment = isMaster
                   ? assignmentFor(null, t.master_id)
-                  : assignmentFor(t.report_id, null)
+                  : assignmentFor(t.report_id, null);
                 return (
                   <DispatchTicketRow
                     key={t.ticketKey}
                     ticket={t}
                     assignment={assignment}
                     bucket={bucketForTicket(t)}
-                    isClustered={!isMaster && clusteredReportIds.has(t.report_id)}
+                    isClustered={
+                      !isMaster && clusteredReportIds.has(t.report_id)
+                    }
                     isOverdue={overdueIds.has(t.ticketKey)}
-                    assigneeName={assignment ? linemenNames[assignment.lineman_id] : null}
+                    assigneeName={
+                      assignment ? linemenNames[assignment.lineman_id] : null
+                    }
+                    isUnread={
+                      t.kind === "report" && isUnread("reports", t.report_id)
+                    }
+                    onOpen={() =>
+                      t.kind === "report" &&
+                      markNotificationRead("reports", t.report_id)
+                    }
                   />
-                )
+                );
               })}
           </tbody>
         </table>
@@ -471,5 +530,5 @@ export default function DispatchPage() {
         )}
       </div>
     </div>
-  )
+  );
 }
