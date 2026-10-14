@@ -22,6 +22,7 @@ export default function UsersPage() {
   const [areaOffices, setAreaOffices] = useState([])
 
   const [linemen, setLinemen] = useState([])
+  const [dutyById, setDutyById] = useState({})
   const [consumers, setConsumers] = useState([])
   const [supervisors, setSupervisors] = useState([])
   const [loading, setLoading] = useState(true)
@@ -44,6 +45,14 @@ export default function UsersPage() {
   useEffect(() => {
     loadEverything()
   }, [])
+
+  // Keep the live duty badges fresh while the Personnel tab is open
+  useEffect(() => {
+    if (activeTab !== 'lineman') return
+    loadDutyStatus()
+    const timer = setInterval(loadDutyStatus, 60000)
+    return () => clearInterval(timer)
+  }, [activeTab])
 
   async function loadEverything() {
     setLoading(true)
@@ -161,6 +170,23 @@ export default function UsersPage() {
     setSupervisors(mergedSupervisors)
 
     setLoading(false)
+  }
+
+  async function loadDutyStatus() {
+    const supabase = createClient()
+    const [dutyRes, seenRes] = await Promise.all([
+      supabase.rpc('get_lineman_duty_status'),
+      supabase.from('lineman').select('profile_id, location_updated_at'),
+    ])
+
+    const map = {}
+    ;(dutyRes.data || []).forEach((d) => {
+      map[d.lineman_id] = { ...d }
+    })
+    ;(seenRes.data || []).forEach((s) => {
+      if (map[s.profile_id]) map[s.profile_id].location_updated_at = s.location_updated_at
+    })
+    setDutyById(map)
   }
 
   async function handleToggleActive(userId, currentlyActive) {
@@ -290,6 +316,7 @@ export default function UsersPage() {
                   <th className="px-5 py-3 font-semibold">Name</th>
                   <th className="px-5 py-3 font-semibold">Assigned Area Office</th>
                   <th className="px-5 py-3 font-semibold">Shift</th>
+                  <th className="px-5 py-3 font-semibold">Duty Status</th>
                   <th className="px-5 py-3 font-semibold">Contact Number</th>
                   <th className="px-5 py-3 font-semibold">Actions</th>
                 </tr>
@@ -297,21 +324,21 @@ export default function UsersPage() {
               <tbody>
                 {loading && (
                   <tr>
-                    <td colSpan={4} className="px-5 py-8 text-center text-gray-500">
+                    <td colSpan={6} className="px-5 py-8 text-center text-gray-500">
                       Loading…
                     </td>
                   </tr>
                 )}
                 {!loading && filteredLinemen.length === 0 && (
                   <tr>
-                    <td colSpan={4} className="px-5 py-8 text-center text-gray-500">
+                    <td colSpan={6} className="px-5 py-8 text-center text-gray-500">
                       No lineman accounts yet.
                     </td>
                   </tr>
                 )}
                 {!loading &&
                   paginatedLinemen.map((l) => (
-                    <LinemanRow key={l.id} lineman={l} onSelect={setSelectedLineman} />
+                    <LinemanRow key={l.id} lineman={l} duty={dutyById[l.id]} onSelect={setSelectedLineman} />
                   ))}
               </tbody>
             </table>

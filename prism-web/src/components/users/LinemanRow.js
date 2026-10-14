@@ -1,7 +1,9 @@
 import { summarizeSchedule } from '@/lib/lineman/schedule'
+import { formatLastSeen, DUTY_BADGES } from '@/lib/lineman/duty'
 
-export default function LinemanRow({ lineman, onSelect }) {
+export default function LinemanRow({ lineman, duty, onSelect }) {
   const shifts = summarizeSchedule(lineman.schedule)
+  const badge = duty ? DUTY_BADGES[duty.availability_reason] : null
 
   return (
     <tr className="border-b border-gray-100 last:border-0">
@@ -25,6 +27,29 @@ export default function LinemanRow({ lineman, onSelect }) {
               </div>
             ))}
           </div>
+        )}
+      </td>
+      <td className="px-5 py-4">
+        {!lineman.is_active ? (
+          <span className="text-xs text-gray-400">Deactivated</span>
+        ) : badge ? (
+          <div>
+            <span
+              className={`inline-block text-xs font-bold px-2 py-0.5 rounded ${badge.cls}`}
+            >
+              {badge.label}
+            </span>
+            {duty.on_call && (
+              <span className="ml-1 inline-block text-xs font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-700">
+                ON-CALL
+              </span>
+            )}
+            <p className="text-xs text-gray-400 mt-1">
+              {formatLastSeen(duty.location_updated_at)}
+            </p>
+          </div>
+        ) : (
+          <span className="text-xs text-gray-400">—</span>
         )}
       </td>
       <td className="px-5 py-4 text-gray-600">{lineman.phone_number}</td>
