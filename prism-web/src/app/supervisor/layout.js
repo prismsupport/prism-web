@@ -6,20 +6,23 @@ import SupervisorSidebar from "@/components/navigation/SupervisorSidebar";
 import SupervisorTopBar from "@/components/navigation/SupervisorTopBar";
 import { createClient } from "@/lib/supabase/client";
 import { PermissionsProvider, usePermissions } from "@/lib/supervisor/PermissionsContext";
+import AccessRestricted from "@/components/ui/AccessRestricted";
 
 function RouteGuard({ children }) {
   const pathname = usePathname();
-  const router = useRouter();
-  const { loading, canAccessPath } = usePermissions();
-
-  useEffect(() => {
-    if (!loading && !canAccessPath(pathname)) {
-      router.replace("/supervisor/dashboard");
-    }
-  }, [loading, pathname]);
+  const { loading, getRestriction } = usePermissions();
 
   if (loading) return <p className="text-sm text-gray-500">Loading…</p>;
-  if (!canAccessPath(pathname)) return null;
+
+  const restriction = getRestriction(pathname);
+  if (restriction) {
+    return (
+      <AccessRestricted
+        pageName={restriction.label}
+        ownerOnly={restriction.ownerOnly}
+      />
+    );
+  }
 
   return children;
 }

@@ -5,14 +5,21 @@ import { createClient } from '@/lib/supabase/client'
 
 const PermissionsContext = createContext(null)
 
-// Maps a route to the feature key that must be present in feature_access
-// for a non-owner Supervisor to reach it. Routes not listed here (Dashboard,
-// profile, search) are open to every Supervisor regardless of permissions.
-const FEATURE_ROUTES = {
-  '/supervisor/dispatch': 'dispatch',
-  '/supervisor/advisories': 'advisories',
-  '/supervisor/faq': 'faq',
-  '/supervisor/billing': 'billing',
+// Every restricted page, matched by path prefix so sub-pages are covered too
+// (e.g. /supervisor/dispatch/report/123 follows /supervisor/dispatch).
+// Pages not listed here (Dashboard, profile, search) are open to every Supervisor.
+const PAGE_RULES = [
+  { prefix: '/supervisor/users', label: 'Users', ownerOnly: true },
+  { prefix: '/supervisor/dispatch', label: 'Dispatch', feature: 'dispatch' },
+  { prefix: '/supervisor/lineman-performance', label: 'Lineman Performance', feature: 'dispatch' },
+  { prefix: '/supervisor/advisories', label: 'Advisories', feature: 'advisories' },
+  { prefix: '/supervisor/service-areas', label: 'Service Areas', feature: 'advisories' },
+  { prefix: '/supervisor/faq', label: 'FAQ', feature: 'faq' },
+  { prefix: '/supervisor/billing', label: 'Billing Requests', feature: 'billing' },
+]
+
+function matchesPrefix(pathname, prefix) {
+  return pathname === prefix || pathname.startsWith(prefix + '/')
 }
 
 export function PermissionsProvider({ children }) {
@@ -52,17 +59,29 @@ export function PermissionsProvider({ children }) {
     return featureAccess.includes(feature)
   }
 
-  // Users is structurally owner-only — not a grantable feature toggle.
+  // Returns null when the page is allowed, otherwise { label, ownerOnly }
+  function getRestriction(pathname) {
+    const rule = PAGE_RULES.find((r) => matchesPrefix(pathname, r.prefix))
+    if (!rule) return null
+    if (rule.ownerOnly) return isOwner ? null : { label: rule.label, ownerOnly: true }
+    return hasFeature(rule.feature) ? null : { label: rule.label, ownerOnly: false }
+  }
+
   function canAccessPath(pathname) {
-    if (pathname.startsWith('/supervisor/users')) return isOwner
-    const requiredFeature = FEATURE_ROUTES[pathname]
-    if (!requiredFeature) return true
-    return hasFeature(requiredFeature)
+    return getRestriction(pathname) === null
   }
 
   return (
     <PermissionsContext.Provider
-      value={{ isOwner, featureAccess, loading, hasFeature, canAccessPath, refresh: load }}
+      value={{
+        isOwner,
+        featureAccess,
+        loading,
+        hasFeature,
+        getRestriction,
+        canAccessPath,
+        refresh: load,
+      }}
     >
       {children}
     </PermissionsContext.Provider>

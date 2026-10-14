@@ -4,6 +4,7 @@ import { useSearchParams } from 'next/navigation'
 import { Suspense, useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import SearchResultRow from '@/components/ui/SearchResultRow'
+import { usePermissions } from '@/lib/supervisor/PermissionsContext'
 
 function escapeSearchTerm(value) {
   return value.replace(/[%,()]/g, ' ').replace(/\s+/g, ' ').trim()
@@ -18,6 +19,7 @@ function formatLabel(value) {
 
 function SupervisorSearchContent() {
   const searchParams = useSearchParams()
+  const { hasFeature, isOwner } = usePermissions()
   const [query, setQuery] = useState('')
   const [results, setResults] = useState([])
   const [loading, setLoading] = useState(true)
@@ -113,7 +115,14 @@ function SupervisorSearchContent() {
       faqEntriesResponse.error
     if (firstError) setError(firstError.message)
 
-    setResults([
+    const allowedTypes = new Set([
+      ...(hasFeature('dispatch') ? ['Report', 'Master ticket'] : []),
+      ...(isOwner ? ['User'] : []),
+      ...(hasFeature('advisories') ? ['Advisory'] : []),
+      ...(hasFeature('faq') ? ['FAQ'] : []),
+    ])
+
+    const allResults = [
       ...(reportsResponse.data || []).map((report) => ({
         id: report.report_id,
         title: report.ticket_number || report.report_id,
@@ -154,7 +163,8 @@ function SupervisorSearchContent() {
         type: 'FAQ',
         href: '/supervisor/faq',
       })),
-    ])
+    ]
+    setResults(allResults.filter((r) => allowedTypes.has(r.type)))
     setLoading(false)
   }
 
