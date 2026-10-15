@@ -1,11 +1,6 @@
 import PencilIcon from '@/components/ui/icons/PencilIcon'
 import TrashIcon from '@/components/ui/icons/TrashIcon'
-
-const statusStyles = {
-  upcoming: 'bg-amber-50 text-amber-700',
-  active: 'bg-green-50 text-green-700',
-  completed: 'bg-gray-100 text-gray-600',
-}
+import StatusPill from '@/components/ui/StatusPill'
 
 function formatTime(timeString) {
   const [h, m] = timeString.split(':')
@@ -43,11 +38,7 @@ export default function AdvisoryRow({ advisory, onEdit, onDelete }) {
       <td className="px-5 py-4 text-gray-600">{formatTime(advisory.start_time)}</td>
       <td className="px-5 py-4 text-gray-600">{formatTime(advisory.end_time)}</td>
       <td className="px-5 py-4">
-        <span
-          className={`inline-block text-xs font-bold px-2 py-0.5 rounded uppercase ${statusStyles[advisory.computedStatus]}`}
-        >
-          {advisory.computedStatus}
-        </span>
+        <StatusPill status={advisory.computedStatus} />
       </td>
       <td className="px-5 py-4">
         <div className="flex flex-wrap gap-1">

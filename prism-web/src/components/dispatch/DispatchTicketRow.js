@@ -1,20 +1,5 @@
 import Link from "next/link";
-
-const priorityStyles = {
-  low: "bg-blue-50 text-blue-700",
-  medium: "bg-amber-50 text-amber-700",
-  high: "bg-red-50 text-red-700",
-  critical: "bg-red-100 text-red-800",
-};
-
-const bucketColor = {
-  pending: "text-red-600",
-  dispatched: "text-amber-600",
-  in_progress: "text-amber-600",
-  qa_review: "text-blue-600",
-  resolved: "text-green-600",
-  cancelled: "text-gray-400",
-};
+import StatusPill from "@/components/ui/StatusPill"
 
 function labelize(value) {
   return value
@@ -90,15 +75,7 @@ export default function DispatchTicketRow({
         )}
       </td>
       <td className="px-5 py-4">
-        {ticket.priority
-          ? <span
-              className={`inline-block text-xs font-bold px-2 py-0.5 rounded uppercase ${priorityStyles[ticket.priority]}`}
-            >
-              {ticket.priority}
-            </span>
-          : <span className="inline-block text-xs font-bold px-2 py-0.5 rounded uppercase bg-gray-100 text-gray-500">
-              None
-            </span>}
+        <StatusPill kind="priority" status={ticket.priority} />
       </td>
       <td className="px-5 py-4">
         <p className="font-medium text-gray-900">
@@ -114,12 +91,7 @@ export default function DispatchTicketRow({
         </p>
       </td>
       <td className="px-5 py-4">
-        <span
-          className={`inline-flex items-center gap-1.5 font-medium ${bucketColor[bucket]}`}
-        >
-          <span className="w-1.5 h-1.5 rounded-full bg-current" />
-          {labelize(status)}
-        </span>
+        <StatusPill status={bucket} label={labelize(status)} />
       </td>
       <td className="px-5 py-4 text-gray-700">
         {assignment ? assigneeName || "Assigned" : "Unassigned"}
