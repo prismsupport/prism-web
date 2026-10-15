@@ -8,6 +8,8 @@ import Pagination from '@/components/ui/Pagination'
 import StatCard from '@/components/ui/StatCard'
 import AdvisoryRow from '@/components/advisories/AdvisoryRow'
 import AdvisoryFormModal from '@/components/advisories/AdvisoryFormModal'
+import EmptyState from '@/components/ui/EmptyState'
+import { TableSkeletonRows } from '@/components/ui/Skeleton'
 
 const PAGE_SIZE = 10
 
@@ -256,17 +258,13 @@ export default function AdvisoriesPage() {
             </tr>
           </thead>
           <tbody>
-            {loading && (
-              <tr>
-                <td colSpan={8} className="px-5 py-8 text-center text-gray-500">
-                  Loading…
-                </td>
-              </tr>
-            )}
             {!loading && filtered.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-5 py-8 text-center text-gray-500">
-                  No advisories match this view.
+                <td colSpan={8}>
+                  <EmptyState
+                    title="No advisories match this view"
+                    description="Try a different filter, or create a new advisory."
+                  />
                 </td>
               </tr>
             )}

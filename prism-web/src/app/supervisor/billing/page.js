@@ -9,6 +9,7 @@ import {
   useSupervisorNotificationRefresh,
   useUnreadSupervisorNotifications,
 } from "@/lib/supervisor/useSupervisorLiveUpdates";
+import { PageLoading } from "@/components/ui/Skeleton";
 
 export default function BillingRequestsPage() {
   const [billingRequests, setBillingRequests] = useState([]);
@@ -61,7 +62,7 @@ export default function BillingRequestsPage() {
     setLoading(false);
   }
 
-  if (loading) return <p className="text-sm text-gray-500">Loading…</p>;
+  if (loading) return <PageLoading />
 
   return (
     <div>

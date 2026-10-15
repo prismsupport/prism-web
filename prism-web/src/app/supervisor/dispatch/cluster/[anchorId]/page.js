@@ -9,6 +9,7 @@ import ClusterMemberList from '@/components/dispatch/ClusterMemberList'
 import MasterTicketSuccessCard from '@/components/dispatch/MasterTicketSuccessCard'
 import BackToDispatchLink from '@/components/dispatch/BackToDispatchLink'
 import { aggregateBreakdowns } from '@/lib/scoring/masterTicketScoringConfig'
+import { PageLoading } from "@/components/ui/Skeleton";
 
 function generateMasterTicketNumber() {
   const date = new Date().toISOString().slice(0, 10).replace(/-/g, '')
@@ -211,7 +212,7 @@ export default function ClusterReviewPage() {
     router.push('/supervisor/dispatch')
   }
 
-  if (loading) return <p className="text-sm text-gray-500">Loading…</p>
+  if (loading) return <PageLoading />
 
   if (successData) {
     return (

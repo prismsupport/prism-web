@@ -17,6 +17,7 @@ import LinemanDispatchedModal from '@/components/dispatch/LinemanDispatchedModal
 import ResolveTicketBar from '@/components/dispatch/ResolveTicketBar'
 import AttemptReviewCard from '@/components/dispatch/AttemptReviewCard'
 import { reopenAssignment } from '@/lib/dispatch/reopenAssignment'
+import { PageLoading } from "@/components/ui/Skeleton";
 
 export default function ReportReviewPage() {
   const { id } = useParams()
@@ -269,7 +270,7 @@ export default function ReportReviewPage() {
     loadReport()
   }
 
-  if (loading) return <p className="text-sm text-gray-500">Loading…</p>
+  if (loading) return <PageLoading />
 
   if (!report) {
     return <p className="text-sm text-red-600">{error || 'Report not found.'}</p>

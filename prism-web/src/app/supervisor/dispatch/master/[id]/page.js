@@ -15,6 +15,7 @@ import AttemptReviewCard from '@/components/dispatch/AttemptReviewCard'
 import LinemanDispatchedModal from '@/components/dispatch/LinemanDispatchedModal'
 import ResolveTicketBar from '@/components/dispatch/ResolveTicketBar'
 import { reopenAssignment } from '@/lib/dispatch/reopenAssignment'
+import { PageLoading } from "@/components/ui/Skeleton";
 
 export default function MasterTicketDetailPage() {
   const { id } = useParams()
@@ -288,7 +289,7 @@ export default function MasterTicketDetailPage() {
     loadMaster()
   }
 
-  if (loading) return <p className="text-sm text-gray-500">Loading…</p>
+  if (loading) return <PageLoading />
 
   if (error || !master) {
     return (

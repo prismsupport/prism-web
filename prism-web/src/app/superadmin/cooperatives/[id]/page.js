@@ -8,6 +8,7 @@ import Card from '@/components/ui/Card'
 import CooperativeStatusActions from '@/components/superadmin/CooperativeStatusActions'
 import CooperativeStatusHistory from '@/components/superadmin/CooperativeStatusHistory'
 import BackButton from '@/components/ui/BackButton'
+import { PageLoading } from "@/components/ui/Skeleton";
 
 export default function CooperativeDetailPage() {
   const { id } = useParams()
@@ -195,7 +196,7 @@ export default function CooperativeDetailPage() {
     router.push('/superadmin/cooperatives')
   }
 
-  if (loading) return <p className="text-sm text-gray-500">Loading…</p>
+  if (loading) return <PageLoading />
 
   if (!coop) {
     return (

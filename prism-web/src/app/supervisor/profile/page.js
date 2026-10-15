@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import Card from '@/components/ui/Card'
 import FormSection from '@/components/ui/FormSection'
 import FormField from '@/components/ui/FormField'
+import { PageLoading } from "@/components/ui/Skeleton";
 
 function TabButton({ active, onClick, children }) {
   return (
@@ -242,7 +243,7 @@ export default function SupervisorProfilePage() {
     setPasswordSuccess('Password changed successfully.')
   }
 
-  if (loading) return <p className="text-sm text-gray-500">Loading…</p>
+  if (loading) return <PageLoading />
 
   return (
     <div className="max-w-5xl">

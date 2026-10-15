@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import EmptyState from "@/components/ui/EmptyState";
 import Modal from "@/components/ui/Modal";
 import FaqEntryRow from "@/components/faq/FaqEntryRow";
 import FaqInquiryRow from "@/components/faq/FaqInquiryRow";
@@ -234,7 +235,10 @@ export default function FaqManagementPage() {
         {!loading && activeTab !== "unanswered" && (
           <div>
             {filteredEntries.length === 0 && (
-              <p className="text-sm text-gray-500 p-5">No FAQ entries yet.</p>
+              <EmptyState
+                title="No FAQ entries yet"
+                description="Add a question and answer for your consumers, or answer a pending inquiry."
+              />
             )}
             {filteredEntries
               .slice((entriesPage - 1) * PAGE_SIZE, entriesPage * PAGE_SIZE)

@@ -5,6 +5,8 @@ import { createClient } from '@/lib/supabase/client'
 import StatCard from '@/components/ui/StatCard'
 import Pagination from '@/components/ui/Pagination'
 import CooperativeRow from '@/components/superadmin/CooperativeRow'
+import EmptyState from '@/components/ui/EmptyState'
+import { TableSkeletonRows } from '@/components/ui/Skeleton'
 
 const PAGE_SIZE = 10
 
@@ -179,21 +181,19 @@ export default function AllCooperativesPage() {
             </tr>
           </thead>
           <tbody>
-            {loading && (
-              <tr>
-                <td colSpan={7} className="px-5 py-8 text-center text-gray-500">
-                  Loading…
-                </td>
-              </tr>
-            )}
+            
+          {loading && <TableSkeletonRows rows={6} cols={7} />}
 
-            {!loading && cooperatives.length === 0 && (
-              <tr>
-                <td colSpan={7} className="px-5 py-8 text-center text-gray-500">
-                  No cooperatives match this view.
-                </td>
-              </tr>
-            )}
+          {!loading && cooperatives.length === 0 && (
+            <tr>
+              <td colSpan={7}>
+                <EmptyState
+                  title="No cooperatives match this view"
+                  description="Try a different status filter or search for another cooperative."
+                />
+              </td>
+            </tr>
+          )}
 
             {!loading &&
               cooperatives.map((coop) => (

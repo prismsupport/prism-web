@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { formatMinutes, summarizeRatings } from '@/lib/performance'
 import { usePermissions } from '@/lib/supervisor/PermissionsContext'
+import { PageLoading } from "@/components/ui/Skeleton";
 
 const MAX_ROWS = 1000 // Supabase returns at most 1000 rows per request
 
@@ -373,7 +374,7 @@ export default function SupervisorDashboardPage() {
     return { ...dispatchPart, advisoryCounts: advisoryPart, attention: attentionPart }
   }
 
-  if (loading) return <p className="text-sm text-gray-500">Loading…</p>
+  if (loading) return <PageLoading />
 
   if (!data) {
     return (

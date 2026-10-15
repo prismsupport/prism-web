@@ -7,12 +7,13 @@ import SupervisorTopBar from "@/components/navigation/SupervisorTopBar";
 import { createClient } from "@/lib/supabase/client";
 import { PermissionsProvider, usePermissions } from "@/lib/supervisor/PermissionsContext";
 import AccessRestricted from "@/components/ui/AccessRestricted";
+import { PageLoading } from "@/components/ui/Skeleton";
 
 function RouteGuard({ children }) {
   const pathname = usePathname();
   const { loading, getRestriction } = usePermissions();
 
-  if (loading) return <p className="text-sm text-gray-500">Loading…</p>;
+  if (loading) return <PageLoading />
 
   const restriction = getRestriction(pathname);
   if (restriction) {

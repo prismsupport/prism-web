@@ -10,6 +10,7 @@ import PhotoDropdown from '@/components/dispatch/PhotoDropdown'
 import MapModal from '@/components/dispatch/MapModal'
 import AttemptReviewCard from '@/components/dispatch/AttemptReviewCard'
 import { reopenAssignment } from '@/lib/dispatch/reopenAssignment'
+import { PageLoading } from "@/components/ui/Skeleton";
 
 export default function ReopenReviewPage() {
   const { reopenId } = useParams()
@@ -212,7 +213,7 @@ export default function ReopenReviewPage() {
     router.push('/supervisor/dispatch')
   }
 
-  if (loading) return <p className="text-sm text-gray-500">Loading…</p>
+  if (loading) return <PageLoading />
 
   if (error && !reopen) {
     return (

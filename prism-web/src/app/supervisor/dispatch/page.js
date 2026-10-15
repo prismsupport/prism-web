@@ -12,6 +12,8 @@ import {
   useSupervisorNotificationRefresh,
   useUnreadSupervisorNotifications,
 } from "@/lib/supervisor/useSupervisorLiveUpdates";
+import EmptyState from "@/components/ui/EmptyState" 
+import { TableSkeletonRows } from "@/components/ui/Skeleton"
 
 const PAGE_SIZE = 10;
 
@@ -473,17 +475,14 @@ export default function DispatchPage() {
             </tr>
           </thead>
           <tbody>
-            {loading && (
-              <tr>
-                <td colSpan={7} className="px-5 py-8 text-center text-gray-500">
-                  Loading…
-                </td>
-              </tr>
-            )}
+            {loading && <TableSkeletonRows rows={6} cols={7} />}
             {!loading && paginated.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-5 py-8 text-center text-gray-500">
-                  No tickets match this view.
+                <td colSpan={7}>
+                  <EmptyState
+                    title="No tickets match this view"
+                    description="Try a different filter, or wait for new outage reports to come in."
+                  />
                 </td>
               </tr>
             )}

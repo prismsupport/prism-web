@@ -7,6 +7,7 @@ import ReportMap from '@/components/ui/ReportMap'
 import SuggestionConfidenceBanner from '@/components/dispatch/SuggestionConfidenceBanner'
 import MatchReviewCard from '@/components/dispatch/MatchReviewCard'
 import BackToDispatchLink from '@/components/dispatch/BackToDispatchLink'
+import { PageLoading } from "@/components/ui/Skeleton";
 
 function generateMasterTicketNumber() {
   const date = new Date().toISOString().slice(0, 10).replace(/-/g, '')
@@ -217,7 +218,7 @@ function JoinGroupReviewContent() {
     router.push('/supervisor/dispatch')
   }
 
-  if (loading) return <p className="text-sm text-gray-500">Loading…</p>
+  if (loading) return <PageLoading />
 
   if (error && candidates.length === 0) {
     return (
