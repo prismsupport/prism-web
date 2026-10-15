@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { toast } from "@/lib/toast";
 import EmptyState from "@/components/ui/EmptyState";
 import Modal from "@/components/ui/Modal";
 import FaqEntryRow from "@/components/faq/FaqEntryRow";
@@ -117,11 +118,17 @@ export default function FaqManagementPage() {
 
   async function handleDeleteConfirmed() {
     const supabase = createClient();
-    await supabase
-      .from("faq_entries")
+    const { data, error: deleteError } = await supabase
+      .from('faq_entries')
       .delete()
-      .eq("faq_id", deletingEntry.faq_id);
-    setDeletingEntry(null);
+      .eq('faq_id', deletingEntry.faq_id)
+      .select()
+    if (deleteError || !data?.length) {
+      toast.error(deleteError?.message || "Couldn't delete this entry.")
+    } else {
+      toast.success("FAQ entry deleted")
+    }
+    setDeletingEntry(null)
     loadEverything();
   }
 

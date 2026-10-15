@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { toast } from "@/lib/toast";
 import Modal from '@/components/ui/Modal'
 import Pagination from '@/components/ui/Pagination'
 import StatCard from '@/components/ui/StatCard'
@@ -108,18 +109,35 @@ export default function AdvisoriesPage() {
   async function handleDeleteConfirmed() {
     const supabase = createClient()
 
-    // Remove the attached photo from storage first, if there is one
-    if (deletingAdvisory.photo_url) {
-      await supabase.storage.from('advisory-photos').remove([deletingAdvisory.photo_url])
-    }
-
-    // advisory_target rows are removed automatically via "on delete cascade"
-    await supabase
+    // Delete the advisory and check the database response.
+    const { data, error: deleteError } = await supabase
       .from('advisories')
       .delete()
       .eq('advisory_id', deletingAdvisory.advisory_id)
+      .select('advisory_id')
+
+    // Show an error if the deletion failed or no row was deleted.
+    if (deleteError || !data?.length) {
+      toast.error(
+        deleteError?.message || "Couldn't delete this advisory."
+      )
+      return
+    }
+
+    // Remove the attached photo after the advisory is deleted.
+    if (deletingAdvisory.photo_url) {
+      const { error: photoError } = await supabase.storage
+        .from('advisory-photos')
+        .remove([deletingAdvisory.photo_url])
+
+      if (photoError) {
+        console.error('Failed to remove advisory photo:', photoError)
+      }
+    }
+
+    toast.success('Advisory deleted')
     setDeletingAdvisory(null)
-    loadAdvisories()
+    await loadAdvisories()
   }
 
   const allAreaValues = Array.from(
