@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Modal from '@/components/ui/Modal'
+import { toast } from "@/lib/toast"
 
 export default function AddEditFaqModal({ cooperativeId, entry, categories, onClose, onSaved }) {
   const isEditing = !!entry
@@ -58,6 +59,8 @@ export default function AddEditFaqModal({ cooperativeId, entry, categories, onCl
       }
     }
 
+    toast.success(isEditing ? "FAQ updated" : "FAQ added")
+    
     onSaved()
   }
 

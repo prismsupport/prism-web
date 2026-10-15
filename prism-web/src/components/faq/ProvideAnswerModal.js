@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Modal from '@/components/ui/Modal'
+import { toast } from "@/lib/toast"
 
 export default function ProvideAnswerModal({ inquiry, cooperativeId, categories, onClose, onAnswered }) {
   const [category, setCategory] = useState(categories[0] || '')
@@ -61,6 +62,8 @@ export default function ProvideAnswerModal({ inquiry, cooperativeId, categories,
       return
     }
 
+    toast.success("Answer published to the FAQ")
+    
     onAnswered()
   }
 

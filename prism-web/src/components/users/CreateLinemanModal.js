@@ -6,6 +6,7 @@ import FormSection from '@/components/ui/FormSection'
 import FormField from '@/components/ui/FormField'
 import ShiftScheduleEditor from '@/components/users/ShiftScheduleEditor'
 import { validateSchedule, cleanSchedule } from '@/lib/lineman/schedule'
+import { toast } from "@/lib/toast"
 
 export default function CreateLinemanModal({ cooperativeId, areaOffices, onManageAreas, onClose, onCreated }) {
   const [form, setForm] = useState({
@@ -50,6 +51,8 @@ export default function CreateLinemanModal({ cooperativeId, areaOffices, onManag
       return
     }
 
+    toast.success("Lineman account created")
+    
     onCreated()
   }
 

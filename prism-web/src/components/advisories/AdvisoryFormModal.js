@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Modal from '@/components/ui/Modal'
 import TrashIcon from '@/components/ui/icons/TrashIcon'
+import { toast } from "@/lib/toast"
 
 const SCOPE_TYPES = ['entire_cooperative', 'feeder', 'municipality', 'barangay']
 
@@ -263,6 +264,8 @@ export default function AdvisoryFormModal({ cooperativeId, advisory, onClose, on
       return
     }
 
+    toast.success(isEditing ? "Advisory updated" : "Advisory published")
+    
     onSaved()
   }
 

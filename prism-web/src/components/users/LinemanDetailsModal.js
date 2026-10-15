@@ -8,6 +8,7 @@ import FormField from '@/components/ui/FormField'
 import StatusDot from '@/components/ui/StatusDot'
 import ShiftScheduleEditor from '@/components/users/ShiftScheduleEditor'
 import { validateSchedule, cleanSchedule } from '@/lib/lineman/schedule'
+import { toast } from "@/lib/toast"
 
 function copySchedule(schedule) {
   return (schedule || []).map((b) => ({ ...b, days: [...b.days] }))
@@ -79,6 +80,8 @@ export default function LinemanDetailsModal({ lineman, areaOffices, onClose, onT
       return
     }
 
+    toast.success("Lineman details saved")
+
     onSaved()
   }
 
@@ -101,6 +104,8 @@ export default function LinemanDetailsModal({ lineman, areaOffices, onClose, onT
       return
     }
 
+    toast.success(hours ? `On-call set for ${hours} hours` : "On-call cleared")
+    
     onSaved()
   }
 
