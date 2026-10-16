@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import BackToDispatchLink from '@/components/dispatch/BackToDispatchLink'
 import MatchReviewCard from '@/components/dispatch/MatchReviewCard'
 import { getMatchTier, buildBreakdownFactors } from '@/lib/scoring/masterTicketScoringConfig'
+import { toast } from '@/lib/toast'
 
 function generateMasterTicketNumber() {
   const date = new Date().toISOString().slice(0, 10).replace(/-/g, '')
@@ -171,6 +172,7 @@ export default function CreateMasterTicketPage() {
       .single()
 
     if (masterError) {
+      toast.error(masterError.message)
       setError(masterError.message)
       setCreating(false)
       return
@@ -182,11 +184,13 @@ export default function CreateMasterTicketPage() {
       .in('report_id', selectedIds)
 
     if (linkError) {
+      toast.error(linkError.message)
       setError(linkError.message)
       setCreating(false)
       return
     }
 
+    toast.success('Master ticket created')
     router.push(`/supervisor/dispatch/master/${newMaster.master_id}`)
   }
 

@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Modal from '@/components/ui/Modal'
 import FormSection from '@/components/ui/FormSection'
 import FormField from '@/components/ui/FormField'
+import { toast } from '@/lib/toast'
 
 const FEATURES = [
   { key: 'dispatch', label: 'Dispatch' },
@@ -47,11 +48,13 @@ export default function CreateSupervisorModal({ cooperativeId, onClose, onCreate
     const result = await res.json()
 
     if (!res.ok) {
+      toast.error(result.error || 'Failed to create account.')
       setError(result.error || 'Failed to create account.')
       setLoading(false)
       return
     }
 
+    toast.success('Supervisor account created')
     onCreated()
   }
 

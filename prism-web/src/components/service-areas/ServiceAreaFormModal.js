@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Modal from '@/components/ui/Modal'
+import { toast } from '@/lib/toast'
 
 export default function ServiceAreaFormModal({
   cooperativeId,
@@ -52,6 +53,7 @@ export default function ServiceAreaFormModal({
         .eq('id', area.id)
 
       if (updateError) {
+        toast.error(updateError.message)
         setError(updateError.message)
         setLoading(false)
         return
@@ -63,12 +65,14 @@ export default function ServiceAreaFormModal({
       })
 
       if (insertError) {
+        toast.error(insertError.message)
         setError(insertError.message)
         setLoading(false)
         return
       }
     }
 
+    toast.success(isEditing ? 'Service area updated' : 'Service area added')
     onSaved()
   }
 

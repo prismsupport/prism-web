@@ -8,6 +8,7 @@ import ServiceAreaFormModal from '@/components/service-areas/ServiceAreaFormModa
 import ServiceAreaRow from '@/components/service-areas/ServiceAreaRow'
 import BackToAdvisoriesLink from '@/components/service-areas/BackToAdvisoriesLink'
 import ManageAreaOfficesModal from '@/components/users/ManageAreaOfficesModal'
+import { toast } from '@/lib/toast'
 
 const PAGE_SIZE = 10
 
@@ -105,6 +106,7 @@ export default function ServiceAreasPage() {
       .eq('id', deletingArea.id)
 
     if (deleteError) {
+      toast.error(deleteError.message)
       setError(deleteError.message)
       setDeleteLoading(false)
       return
@@ -112,6 +114,7 @@ export default function ServiceAreasPage() {
 
     setDeleteLoading(false)
     setDeletingArea(null)
+    toast.success('Service area deleted')
     loadServiceAreas()
   }
 

@@ -8,6 +8,7 @@ import SuggestionConfidenceBanner from '@/components/dispatch/SuggestionConfiden
 import MatchReviewCard from '@/components/dispatch/MatchReviewCard'
 import BackToDispatchLink from '@/components/dispatch/BackToDispatchLink'
 import { PageLoading } from "@/components/ui/Skeleton";
+import { toast } from '@/lib/toast'
 
 function generateMasterTicketNumber() {
   const date = new Date().toISOString().slice(0, 10).replace(/-/g, '')
@@ -157,6 +158,7 @@ function JoinGroupReviewContent() {
         .in('report_id', checkedIds)
 
       if (updateError) {
+        toast.error(updateError.message)
         setError(updateError.message)
         setActionLoading(false)
         return
@@ -189,6 +191,7 @@ function JoinGroupReviewContent() {
         .single()
 
       if (masterError) {
+        toast.error(masterError.message)
         setError(masterError.message)
         setActionLoading(false)
         return
@@ -200,6 +203,7 @@ function JoinGroupReviewContent() {
         .in('report_id', [targetId, ...checkedIds])
 
       if (linkError) {
+        toast.error(linkError.message)
         setError(linkError.message)
         setActionLoading(false)
         return
@@ -211,6 +215,7 @@ function JoinGroupReviewContent() {
         .eq('report_id', targetId)
     }
 
+    toast.success('Reports joined')
     router.push('/supervisor/dispatch')
   }
 

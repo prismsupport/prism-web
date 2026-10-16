@@ -16,6 +16,7 @@ import LinemanDispatchedModal from '@/components/dispatch/LinemanDispatchedModal
 import ResolveTicketBar from '@/components/dispatch/ResolveTicketBar'
 import { reopenAssignment } from '@/lib/dispatch/reopenAssignment'
 import { PageLoading } from "@/components/ui/Skeleton";
+import { toast } from '@/lib/toast'
 
 export default function MasterTicketDetailPage() {
   const { id } = useParams()
@@ -221,11 +222,16 @@ export default function MasterTicketDetailPage() {
 
   async function handlePriorityChange(newPriority) {
     const supabase = createClient()
-    await supabase
+    const { error } = await supabase
       .from('master_tickets')
       .update({ priority: newPriority })
       .eq('master_id', id)
+    if (error) {
+      toast.error(error.message)
+      return
+    }
     setMaster((prev) => ({ ...prev, priority: newPriority }))
+    toast.success('Priority updated')
   }
 
   async function handleAssignLineman(linemanId) {
@@ -241,6 +247,7 @@ export default function MasterTicketDetailPage() {
     })
 
     if (assignError) {
+      toast.error(assignError.message)
       setLinemenError(assignError.message)
       setAssigning(false)
       return
@@ -252,6 +259,7 @@ export default function MasterTicketDetailPage() {
       .eq('master_id', id)
 
     if (masterError) {
+      toast.error(masterError.message)
       setLinemenError(masterError.message)
       setAssigning(false)
       return
@@ -270,6 +278,7 @@ export default function MasterTicketDetailPage() {
     })
     setAssigning(false)
     setShowAssignPanel(false)
+    toast.success('Lineman assigned')
   }
 
   async function handleReopen() {
@@ -280,12 +289,14 @@ export default function MasterTicketDetailPage() {
     })
 
     if (reopenError) {
+      toast.error(reopenError)
       setError(reopenError)
       setActionLoading(false)
       return
     }
 
     setActionLoading(false)
+    toast.success('Assignment reopened')
     loadMaster()
   }
 

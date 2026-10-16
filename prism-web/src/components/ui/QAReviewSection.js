@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { reopenAssignment } from '@/lib/dispatch/reopenAssignment'
+import { toast } from '@/lib/toast'
 
 export default function QAReviewSection({ assignment, reportId, masterId, onReviewed }) {
   const [photoUrl, setPhotoUrl] = useState(null)
@@ -52,6 +53,7 @@ export default function QAReviewSection({ assignment, reportId, masterId, onRevi
     })
 
     if (reviewError) {
+      toast.error(reviewError.message)
       setError(reviewError.message)
       setActionLoading(false)
       return
@@ -64,16 +66,19 @@ export default function QAReviewSection({ assignment, reportId, masterId, onRevi
       .eq('assignment_id', assignment.assignment_id)
 
     if (updateError) {
+      toast.error(updateError.message)
       setError(updateError.message)
       setActionLoading(false)
       return
     }
 
+    toast.success('Proof of completion approved')
     onReviewed()
   }
 
   async function handleReject() {
     if (!remarks.trim()) {
+      toast.error('Please provide remarks explaining the rejection.')
       setError('Please provide remarks explaining the rejection.')
       return
     }
@@ -93,6 +98,7 @@ export default function QAReviewSection({ assignment, reportId, masterId, onRevi
     })
 
     if (reviewError) {
+      toast.error(reviewError.message)
       setError(reviewError.message)
       setActionLoading(false)
       return
@@ -108,11 +114,13 @@ export default function QAReviewSection({ assignment, reportId, masterId, onRevi
     })
 
     if (reopenError) {
+      toast.error(reopenError)
       setError(reopenError)
       setActionLoading(false)
       return
     }
 
+    toast.success('Proof of completion rejected. Ticket reopened.')
     onReviewed()
   }
 

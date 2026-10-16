@@ -7,6 +7,7 @@ import FormSection from '@/components/ui/FormSection'
 import FormField from '@/components/ui/FormField'
 import BillingStatusPill from '@/components/users/BillingStatusPill'
 import BillingVerificationPanel from '@/components/billing/BillingVerificationPanel'
+import { toast } from '@/lib/toast'
 
 export default function BillingRequestDetailsModal({ request, onClose, onDecided }) {
   const [showDecline, setShowDecline] = useState(false)
@@ -51,6 +52,7 @@ export default function BillingRequestDetailsModal({ request, onClose, onDecided
       .eq('link_id', request.link_id)
 
     if (updateError) {
+      toast.error(updateError.message)
       setError(updateError.message)
       setLoading(false)
       return
@@ -58,10 +60,12 @@ export default function BillingRequestDetailsModal({ request, onClose, onDecided
 
     setLoading(false)
     setShowSuccess(true)
+    toast.success('Billing linkage approved')
   }
 
   async function handleConfirmDecline() {
     if (!declineReason.trim()) {
+      toast.error('Please provide a reason before declining.')
       setError('Please provide a reason before declining.')
       return
     }
@@ -84,11 +88,13 @@ export default function BillingRequestDetailsModal({ request, onClose, onDecided
       .eq('link_id', request.link_id)
 
     if (updateError) {
+      toast.error(updateError.message)
       setError(updateError.message)
       setLoading(false)
       return
     }
 
+    toast.success('Billing linkage declined')
     onDecided()
   }
 

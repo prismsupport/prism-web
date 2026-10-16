@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Modal from '@/components/ui/Modal'
+import { toast } from '@/lib/toast'
 
 export default function ManageFaqCategoriesModal({ cooperativeId, categories, onClose, onUpdated }) {
   const [list, setList] = useState(categories)
@@ -20,8 +21,10 @@ export default function ManageFaqCategoriesModal({ cooperativeId, categories, on
       .eq('cooperative_id', cooperativeId)
 
     if (updateError) {
+      toast.error(updateError.message)
       setError(updateError.message)
       setSaving(false)
+      toast.success('FAQ categories updated')
       return
     }
 

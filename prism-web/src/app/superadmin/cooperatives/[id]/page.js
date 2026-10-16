@@ -9,6 +9,7 @@ import CooperativeStatusActions from '@/components/superadmin/CooperativeStatusA
 import CooperativeStatusHistory from '@/components/superadmin/CooperativeStatusHistory'
 import BackButton from '@/components/ui/BackButton'
 import { PageLoading } from "@/components/ui/Skeleton";
+import { toast } from '@/lib/toast'
 
 export default function CooperativeDetailPage() {
   const { id } = useParams()
@@ -39,6 +40,7 @@ export default function CooperativeDetailPage() {
       .single()
 
     if (coopError) {
+      toast.error(coopError.message)
       setError(coopError.message)
       setLoading(false)
       return
@@ -51,6 +53,7 @@ export default function CooperativeDetailPage() {
       .order('changed_at', { ascending: false })
 
     if (logError) {
+      toast.error(logError.message)
       setError(logError.message)
     }
 
@@ -65,12 +68,13 @@ export default function CooperativeDetailPage() {
       data: { user },
     } = await supabase.auth.getUser()
 
-    await supabase.from('cooperative_status_logs').insert({
+    const { error } = await supabase.from('cooperative_status_logs').insert({
       cooperative_id: id,
       previous_status: previousStatus,
       new_status: newStatus,
       changed_by: user?.id ?? null,
     })
+    if (error) toast.error(error.message)
   }
 
   async function handleApprove() {
@@ -85,6 +89,7 @@ export default function CooperativeDetailPage() {
       .eq('id', id)
 
     if (coopError) {
+      toast.error(coopError.message)
       setError(coopError.message)
       setActionLoading(false)
       return
@@ -97,17 +102,20 @@ export default function CooperativeDetailPage() {
       .eq('user_type', 'supervisor')
 
     if (userError) {
+      toast.error(userError.message)
       setError(userError.message)
       setActionLoading(false)
       return
     }
 
     await logStatusChange(previousStatus, 'Active')
+    toast.success('Cooperative approved')
     router.push('/superadmin/cooperatives')
   }
 
   async function handleConfirmReject() {
     if (!rejectReason.trim()) {
+      toast.error('Please provide a rejection reason before submitting.')
       setError('Please provide a rejection reason before submitting.')
       return
     }
@@ -123,12 +131,14 @@ export default function CooperativeDetailPage() {
       .eq('id', id)
 
     if (coopError) {
+      toast.error(coopError.message)
       setError(coopError.message)
       setActionLoading(false)
       return
     }
 
     await logStatusChange(previousStatus, 'Rejected')
+    toast.success('Cooperative rejected')
     router.push('/superadmin/cooperatives')
   }
 
@@ -144,6 +154,7 @@ export default function CooperativeDetailPage() {
       .eq('id', id)
 
     if (coopError) {
+      toast.error(coopError.message)
       setError(coopError.message)
       setActionLoading(false)
       return
@@ -155,12 +166,14 @@ export default function CooperativeDetailPage() {
       .eq('cooperative_id', id)
 
     if (userError) {
+      toast.error(userError.message)
       setError(userError.message)
       setActionLoading(false)
       return
     }
 
     await logStatusChange(previousStatus, 'Deactivated')
+    toast.success('Cooperative deactivated')
     router.push('/superadmin/cooperatives')
   }
 
@@ -176,6 +189,7 @@ export default function CooperativeDetailPage() {
       .eq('id', id)
 
     if (coopError) {
+      toast.error(coopError.message)
       setError(coopError.message)
       setActionLoading(false)
       return
@@ -187,12 +201,14 @@ export default function CooperativeDetailPage() {
       .eq('cooperative_id', id)
 
     if (userError) {
+      toast.error(userError.message)
       setError(userError.message)
       setActionLoading(false)
       return
     }
 
     await logStatusChange(previousStatus, 'Active')
+    toast.success('Cooperative reactivated')
     router.push('/superadmin/cooperatives')
   }
 

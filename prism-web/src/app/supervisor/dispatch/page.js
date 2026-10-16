@@ -15,6 +15,7 @@ import {
 } from "@/lib/supervisor/useSupervisorLiveUpdates";
 import EmptyState from "@/components/ui/EmptyState" 
 import { TableSkeletonRows } from "@/components/ui/Skeleton"
+import { toast } from "@/lib/toast"
 
 const PAGE_SIZE = 10;
 
@@ -220,6 +221,7 @@ function DispatchContent() {
       .eq("cooperative_id", cooperativeId);
 
     if (updateError) {
+      toast.error(updateError.message);
       setError(updateError.message);
       setSavingThreshold(false);
       return;
@@ -227,6 +229,7 @@ function DispatchContent() {
 
     setThreshold(parsed);
     setSavingThreshold(false);
+    toast.success("Response time threshold updated");
     loadEverything();
   }
 

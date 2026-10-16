@@ -6,6 +6,7 @@ import Modal from '@/components/ui/Modal'
 import FormSection from '@/components/ui/FormSection'
 import FormField from '@/components/ui/FormField'
 import StatusDot from '@/components/ui/StatusDot'
+import { toast } from '@/lib/toast'
 
 const FEATURES = [
   { key: 'dispatch', label: 'Dispatch' },
@@ -44,11 +45,13 @@ export default function SupervisorDetailsModal({
       .eq('profile_id', supervisor.id)
 
     if (updateError) {
+      toast.error(updateError.message)
       setError(updateError.message)
       setSaving(false)
       return
     }
 
+    toast.success('Supervisor access updated')
     onSaved()
   }
 
@@ -67,6 +70,7 @@ export default function SupervisorDetailsModal({
       .eq('profile_id', currentUserId)
 
     if (demoteError) {
+      toast.error(demoteError.message)
       setError(demoteError.message)
       setSaving(false)
       return
@@ -78,11 +82,13 @@ export default function SupervisorDetailsModal({
       .eq('profile_id', supervisor.id)
 
     if (promoteError) {
+      toast.error(promoteError.message)
       setError(promoteError.message)
       setSaving(false)
       return
     }
 
+    toast.success('Ownership transferred')
     onSaved()
   }
 

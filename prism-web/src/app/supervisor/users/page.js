@@ -12,6 +12,7 @@ import SupervisorDetailsModal from '@/components/users/SupervisorDetailsModal'
 import LinemanRow from '@/components/users/LinemanRow'
 import ConsumerRow from '@/components/users/ConsumerRow'
 import SupervisorRow from '@/components/users/SupervisorRow'
+import { toast } from '@/lib/toast'
 
 const PAGE_SIZE = 10
 
@@ -191,10 +192,15 @@ export default function UsersPage() {
 
   async function handleToggleActive(userId, currentlyActive) {
     const supabase = createClient()
-    await supabase
+    const { error } = await supabase
       .from('users')
       .update({ is_active: !currentlyActive })
       .eq('id', userId)
+    if (error) {
+      toast.error(error.message)
+      return
+    }
+    toast.success(currentlyActive ? 'Account deactivated' : 'Account activated')
     await loadEverything()
     setSelectedLineman(null)
     setSelectedConsumer(null)

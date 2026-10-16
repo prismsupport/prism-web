@@ -6,6 +6,7 @@ import Card from '@/components/ui/Card'
 import FormSection from '@/components/ui/FormSection'
 import FormField from '@/components/ui/FormField'
 import { PageLoading } from "@/components/ui/Skeleton";
+import { toast } from '@/lib/toast'
 
 function TabButton({ active, onClick, children }) {
   return (
@@ -126,6 +127,7 @@ export default function SupervisorProfilePage() {
       .eq('id', userId)
 
     if (updateError) {
+      toast.error(updateError.message)
       setError(updateError.message)
       setSaving(false)
       return
@@ -134,6 +136,7 @@ export default function SupervisorProfilePage() {
     setSaving(false)
     setEditing(false)
     setSuccess('Profile updated successfully.')
+    toast.success('Profile updated')
   }
 
   async function handleAvatarSelected(e) {
@@ -159,6 +162,7 @@ export default function SupervisorProfilePage() {
       .upload(path, file, { upsert: true })
 
     if (uploadError) {
+      toast.error(uploadError.message)
       setAvatarError(uploadError.message)
       setAvatarUploading(false)
       return
@@ -173,6 +177,7 @@ export default function SupervisorProfilePage() {
       .eq('id', userId)
 
     if (dbError) {
+      toast.error(dbError.message)
       setAvatarError(dbError.message)
       setAvatarUploading(false)
       return
@@ -180,6 +185,7 @@ export default function SupervisorProfilePage() {
 
     setAvatarUrl(bustCache)
     setAvatarUploading(false)
+    toast.success('Profile photo updated')
   }
 
   async function handleChangeEmail(e) {
@@ -199,6 +205,7 @@ export default function SupervisorProfilePage() {
     })
 
     if (emailUpdateError) {
+      toast.error(emailUpdateError.message)
       setEmailError(emailUpdateError.message)
       setEmailSaving(false)
       return
@@ -209,6 +216,7 @@ export default function SupervisorProfilePage() {
     setEmailSuccess(
       `Confirmation links sent to both ${form.email} and ${newEmail.trim()}. Your login email updates once you confirm.`
     )
+    toast.success('Email confirmation links sent')
   }
 
   async function handleChangePassword(e) {
@@ -232,8 +240,10 @@ export default function SupervisorProfilePage() {
     })
 
     if (passwordUpdateError) {
+      toast.error(passwordUpdateError.message)
       setPasswordError(passwordUpdateError.message)
       setPasswordSaving(false)
+      toast.success('Password updated')
       return
     }
 

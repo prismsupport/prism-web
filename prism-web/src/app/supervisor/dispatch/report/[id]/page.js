@@ -18,6 +18,7 @@ import ResolveTicketBar from '@/components/dispatch/ResolveTicketBar'
 import AttemptReviewCard from '@/components/dispatch/AttemptReviewCard'
 import { reopenAssignment } from '@/lib/dispatch/reopenAssignment'
 import { PageLoading } from "@/components/ui/Skeleton";
+import { toast } from '@/lib/toast'
 
 export default function ReportReviewPage() {
   const { id } = useParams()
@@ -186,8 +187,13 @@ export default function ReportReviewPage() {
 
   async function handlePriorityChange(newPriority) {
     const supabase = createClient()
-    await supabase.from('reports').update({ priority: newPriority }).eq('report_id', id)
+    const { error } = await supabase.from('reports').update({ priority: newPriority }).eq('report_id', id)
+    if (error) {
+      toast.error(error.message)
+      return
+    }
     setReport((prev) => ({ ...prev, priority: newPriority }))
+    toast.success('Priority updated')
   }
 
   async function handleAssignLineman(linemanId) {
@@ -203,6 +209,7 @@ export default function ReportReviewPage() {
     })
 
     if (assignError) {
+      toast.error(assignError.message)
       setLinemenError(assignError.message)
       setAssigning(false)
       return
@@ -214,6 +221,7 @@ export default function ReportReviewPage() {
       .eq('report_id', id)
 
     if (reportError) {
+      toast.error(reportError.message)
       setLinemenError(reportError.message)
       setAssigning(false)
       return
@@ -232,6 +240,7 @@ export default function ReportReviewPage() {
     })
     setAssigning(false)
     setShowAssignPanel(false)
+    toast.success('Lineman assigned')
   }
 
   async function handleConfirmDecline(reason) {
@@ -245,11 +254,13 @@ export default function ReportReviewPage() {
       .eq('report_id', id)
 
     if (updateError) {
+      toast.error(updateError.message)
       setError(updateError.message)
       setActionLoading(false)
       return
     }
 
+    toast.success('Report declined')
     router.push('/supervisor/dispatch')
   }
 
@@ -261,12 +272,14 @@ export default function ReportReviewPage() {
     })
 
     if (reopenError) {
+      toast.error(reopenError)
       setError(reopenError)
       setActionLoading(false)
       return
     }
 
     setActionLoading(false)
+    toast.success('Assignment reopened')
     loadReport()
   }
 

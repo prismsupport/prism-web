@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Modal from '@/components/ui/Modal'
+import { toast } from '@/lib/toast'
 
 export default function ManageAreaOfficesModal({ cooperativeId, areaOffices, onClose, onUpdated }) {
   const [list, setList] = useState(areaOffices || [])
@@ -31,6 +32,7 @@ export default function ManageAreaOfficesModal({ cooperativeId, areaOffices, onC
       .eq('cooperative_id', cooperativeId)
 
     if (updateError) {
+      toast.error(updateError.message)
       setError(updateError.message)
       setSaving(false)
       return false
@@ -39,6 +41,7 @@ export default function ManageAreaOfficesModal({ cooperativeId, areaOffices, onC
     setList(updatedList)
     onUpdated(updatedList)
     setSaving(false)
+    toast.success('Area offices updated')
     return true
   }
 
@@ -71,6 +74,7 @@ export default function ManageAreaOfficesModal({ cooperativeId, areaOffices, onC
 
     const checkError = linemenRes.error || areasRes.error
     if (checkError) {
+      toast.error(checkError.message)
       setError(`Could not check what uses this area office. (${checkError.message})`)
       setRemoving(null)
       setChecking(false)
@@ -102,6 +106,7 @@ export default function ManageAreaOfficesModal({ cooperativeId, areaOffices, onC
         .update({ assigned_area_office: target })
         .eq('assigned_area_office', removing)
       if (linemenError) {
+        toast.error(linemenError.message)
         setError(linemenError.message)
         setSaving(false)
         return
@@ -115,6 +120,7 @@ export default function ManageAreaOfficesModal({ cooperativeId, areaOffices, onC
         .eq('cooperative_id', cooperativeId)
         .eq('area_office', removing)
       if (areasError) {
+        toast.error(areasError.message)
         setError(areasError.message)
         setSaving(false)
         return

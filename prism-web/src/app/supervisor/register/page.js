@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import Logo from '@/components/ui/Logo'
+import { toast } from '@/lib/toast'
 
 export default function SupervisorRegisterPage() {
   const router = useRouter()
@@ -41,6 +42,7 @@ export default function SupervisorRegisterPage() {
     })
 
     if (signUpError) {
+      toast.error(signUpError.message)
       setError(signUpError.message)
       setLoading(false)
       return
@@ -67,6 +69,7 @@ export default function SupervisorRegisterPage() {
     const result = await res.json()
 
     if (!res.ok) {
+      toast.error(result.error || 'Registration failed.')
       setError(result.error || 'Registration failed.')
       setLoading(false)
       return
@@ -74,6 +77,7 @@ export default function SupervisorRegisterPage() {
 
     setSubmitted(true)
     setLoading(false)
+    toast.success('Registration submitted')
   }
 
   if (submitted) {

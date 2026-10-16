@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import LoginForm from '@/components/ui/LoginForm'
+import { toast } from '@/lib/toast'
 
 export default function SupervisorLoginPage() {
   const router = useRouter()
@@ -25,6 +26,7 @@ export default function SupervisorLoginPage() {
     })
 
     if (signInError) {
+      toast.error(signInError.message)
       setError(signInError.message)
       setLoading(false)
       return
@@ -39,12 +41,13 @@ export default function SupervisorLoginPage() {
 
     if (userError || !userRow || userRow.user_type !== 'supervisor') {
       await supabase.auth.signOut()
+      toast.error('This account is not registered as a Supervisor.')
       setError('This account is not registered as a Supervisor.')
       setLoading(false)
       return
     }
 
-    // Check the linked cooperative's status before granting dashboard access
+    // Check the linked cooperative's status before granting dashboard access.
     const { data: coop, error: coopError } = await supabase
       .from('cooperatives')
       .select('status, rejection_reason')
@@ -53,13 +56,35 @@ export default function SupervisorLoginPage() {
 
     if (coopError || !coop) {
       await supabase.auth.signOut()
+      toast.error('Unable to verify your cooperative status.')
       setError('Unable to verify your cooperative status.')
+      setLoading(false)
+      return
+    }
+
+    if (coop.status === 'Deactivated') {
+      await supabase.auth.signOut()
+      const deactivatedMessage =
+        'Your cooperative account has been deactivated. Contact the Superadmin for assistance.'
+      toast.error(deactivatedMessage)
+      setError(deactivatedMessage)
+      setLoading(false)
+      return
+    }
+
+    if (userRow.is_active !== true) {
+      await supabase.auth.signOut()
+      const inactiveMessage =
+        'Your supervisor account has been deactivated. Contact the Supervisor Owner for assistance.'
+      toast.error(inactiveMessage)
+      setError(inactiveMessage)
       setLoading(false)
       return
     }
 
     if (coop.status === 'Pending Approval') {
       await supabase.auth.signOut()
+      toast.error('Your cooperative registration is still under review by the Superadmin.')
       setError(
         'Your cooperative registration is still under review by the Superadmin.'
       )
@@ -69,6 +94,7 @@ export default function SupervisorLoginPage() {
 
     if (coop.status === 'Rejected') {
       await supabase.auth.signOut()
+      toast.error('Your cooperative registration was rejected.')
       setError(
         `Your cooperative registration was rejected. Reason: ${
           coop.rejection_reason || 'No reason provided.'
@@ -78,15 +104,7 @@ export default function SupervisorLoginPage() {
       return
     }
 
-    if (coop.status === 'Deactivated') {
-      await supabase.auth.signOut()
-      setError(
-        'Your cooperative account has been deactivated. Contact the Superadmin for assistance.'
-      )
-      setLoading(false)
-      return
-    }
-
+    toast.success('Signed in successfully')
     router.push('/supervisor/dashboard')
   }
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Modal from '@/components/ui/Modal'
+import { toast } from '@/lib/toast'
 
 const STATUS_STYLES = {
   connected: { text: 'Connected', cls: 'bg-green-50 text-green-700' },
@@ -22,6 +23,7 @@ export default function BillingIntegrationModal({ onClose }) {
 
   const [saved, setSaved] = useState(null)
   const [apiUrl, setApiUrl] = useState('')
+  const [showApiUrl, setShowApiUrl] = useState(false)
   const [headerName, setHeaderName] = useState('X-api-key')
   const [apiKey, setApiKey] = useState('')
   const [enabled, setEnabled] = useState(false)
@@ -75,12 +77,15 @@ export default function BillingIntegrationModal({ onClose }) {
       })
       const body = await res.json()
       if (!res.ok) {
+        toast.error(body.error || 'Could not save.')
         setError(body.error || 'Could not save.')
       } else {
         setNotice('Saved. Run a test to confirm the connection.')
+        toast.success('Billing integration saved')
         await load(true)
       }
     } catch {
+      toast.error('Could not save.')
       setError('Could not save.')
     }
     setSaving(false)
@@ -99,12 +104,15 @@ export default function BillingIntegrationModal({ onClose }) {
       })
       const body = await res.json()
       if (!res.ok) {
+        toast.error(body.error || 'Test failed.')
         setError(body.error || 'Test failed.')
       } else {
         setTestResult(body)
+        toast.success('Billing connection test completed')
         await load(true)
       }
     } catch {
+      toast.error('Test failed.')
       setError('Test failed.')
     }
     setTesting(false)
@@ -128,12 +136,49 @@ export default function BillingIntegrationModal({ onClose }) {
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
                 Billing API address
               </label>
-              <input
-                value={apiUrl}
-                onChange={(e) => setApiUrl(e.target.value)}
-                placeholder="https://your-billing-api.example.com/api/accounts/"
-                className={INPUT_CLS}
-              />
+              <div className="relative">
+                <input
+                  type={showApiUrl ? 'text' : 'password'}
+                  autoComplete="off"
+                  value={apiUrl}
+                  onChange={(e) => setApiUrl(e.target.value)}
+                  placeholder="https://your-billing-api.example.com/api/accounts/"
+                  className={`${INPUT_CLS} pr-10`}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowApiUrl((visible) => !visible)}
+                  aria-label={showApiUrl ? 'Hide billing API address' : 'Show billing API address'}
+                  title={showApiUrl ? 'Hide billing API address' : 'Show billing API address'}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="h-4 w-4"
+                    aria-hidden="true"
+                  >
+                    {showApiUrl ? (
+                      <>
+                        <path d="M2.06 12.35a1 1 0 0 1 0-.7A10.94 10.94 0 0 1 12 5c5.52 0 9.64 3.8 9.94 6.65a1 1 0 0 1 0 .7C21.64 15.2 17.52 19 12 19a10.94 10.94 0 0 1-9.94-6.65Z" />
+                        <circle cx="12" cy="12" r="3" />
+                      </>
+                    ) : (
+                      <>
+                        <path d="m3 3 18 18" />
+                        <path d="M10.58 10.58a2 2 0 0 0 2.83 2.83" />
+                        <path d="M9.88 5.09A10.94 10.94 0 0 1 12 5c5.52 0 9.64 3.8 9.94 6.65a1 1 0 0 1 0 .7 10.96 10.96 0 0 1-4.18 4.93" />
+                        <path d="M6.61 6.61A10.96 10.96 0 0 0 2.06 11.65a1 1 0 0 0 0 .7A10.94 10.94 0 0 0 12 19c.74 0 1.46-.08 2.14-.23" />
+                      </>
+                    )}
+                  </svg>
+                </button>
+              </div>
               <p className="text-xs text-gray-400 mt-1">
                 Must start with https://. The account number is added to the end of this address.
               </p>

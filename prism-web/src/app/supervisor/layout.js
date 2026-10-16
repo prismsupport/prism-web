@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import { PermissionsProvider, usePermissions } from "@/lib/supervisor/PermissionsContext";
 import AccessRestricted from "@/components/ui/AccessRestricted";
 import { PageLoading } from "@/components/ui/Skeleton";
+import { toast } from "@/lib/toast";
 
 function RouteGuard({ children }) {
   const pathname = usePathname();
@@ -65,7 +66,12 @@ export default function SupervisorLayout({ children }) {
 
   async function handleLogout() {
     const supabase = createClient();
-    await supabase.auth.signOut();
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("Logged out");
     router.push("/supervisor/login");
   }
 

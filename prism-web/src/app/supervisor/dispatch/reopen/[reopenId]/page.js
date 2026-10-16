@@ -11,6 +11,7 @@ import MapModal from '@/components/dispatch/MapModal'
 import AttemptReviewCard from '@/components/dispatch/AttemptReviewCard'
 import { reopenAssignment } from '@/lib/dispatch/reopenAssignment'
 import { PageLoading } from "@/components/ui/Skeleton";
+import { toast } from '@/lib/toast'
 
 export default function ReopenReviewPage() {
   const { reopenId } = useParams()
@@ -159,6 +160,7 @@ export default function ReopenReviewPage() {
     })
 
     if (reopenErrorMsg) {
+      toast.error(reopenErrorMsg)
       setError(reopenErrorMsg)
       setActionLoading(false)
       return
@@ -174,11 +176,13 @@ export default function ReopenReviewPage() {
       .eq('reopen_id', reopenId)
 
     if (statusError) {
+      toast.error(statusError.message)
       setError(statusError.message)
       setActionLoading(false)
       return
     }
 
+    toast.success('Reopen request approved')
     router.push('/supervisor/dispatch')
   }
 
@@ -205,11 +209,13 @@ export default function ReopenReviewPage() {
       .eq('reopen_id', reopenId)
 
     if (reopenError) {
+      toast.error(reopenError.message)
       setError(reopenError.message)
       setActionLoading(false)
       return
     }
 
+    toast.success('Reopen request rejected')
     router.push('/supervisor/dispatch')
   }
 

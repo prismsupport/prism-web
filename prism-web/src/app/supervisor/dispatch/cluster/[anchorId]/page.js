@@ -10,6 +10,7 @@ import MasterTicketSuccessCard from '@/components/dispatch/MasterTicketSuccessCa
 import BackToDispatchLink from '@/components/dispatch/BackToDispatchLink'
 import { aggregateBreakdowns } from '@/lib/scoring/masterTicketScoringConfig'
 import { PageLoading } from "@/components/ui/Skeleton";
+import { toast } from '@/lib/toast'
 
 function generateMasterTicketNumber() {
   const date = new Date().toISOString().slice(0, 10).replace(/-/g, '')
@@ -183,6 +184,7 @@ export default function ClusterReviewPage() {
       .single()
 
     if (masterError) {
+      toast.error(masterError.message)
       setError(masterError.message)
       setActionLoading(false)
       return
@@ -194,6 +196,7 @@ export default function ClusterReviewPage() {
       .in('report_id', checkedIds)
 
     if (linkError) {
+      toast.error(linkError.message)
       setError(linkError.message)
       setActionLoading(false)
       return
@@ -206,6 +209,7 @@ export default function ClusterReviewPage() {
       areaLabel: cluster.area_label,
       reportCount: checkedIds.length,
     })
+    toast.success('Master ticket created')
   }
 
   function handleReject() {

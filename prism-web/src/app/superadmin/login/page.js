@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import LoginForm from '@/components/ui/LoginForm'
+import { toast } from '@/lib/toast'
 
 export default function SuperadminLoginPage() {
   const router = useRouter()
@@ -25,6 +26,7 @@ export default function SuperadminLoginPage() {
     })
 
     if (signInError) {
+      toast.error('Invalid email or password.')
       setError('Invalid email or password.')
       setLoading(false)
       return
@@ -41,11 +43,13 @@ export default function SuperadminLoginPage() {
 
     if (!result.isSuperadmin) {
       await supabase.auth.signOut()
+      toast.error('This account is not authorized as Superadmin.')
       setError('This account is not authorized as Superadmin.')
       setLoading(false)
       return
     }
 
+    toast.success('Signed in successfully')
     router.push('/superadmin/cooperatives')
   }
 

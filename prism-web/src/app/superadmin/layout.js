@@ -4,6 +4,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import TopBar from '@/components/ui/TopBar'
 import NotificationBell from '@/components/ui/NotificationBell'
+import { toast } from '@/lib/toast'
 
 export default function SuperadminLayout({ children }) {
   const pathname = usePathname()
@@ -15,7 +16,12 @@ export default function SuperadminLayout({ children }) {
 
   async function handleLogout() {
     const supabase = createClient()
-    await supabase.auth.signOut()
+    const { error } = await supabase.auth.signOut()
+    if (error) {
+      toast.error(error.message)
+      return
+    }
+    toast.success('Logged out')
     router.push('/superadmin/login')
   }
 
