@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import ReportMap from '@/components/ui/ReportMap'
 import ReporterInfo from '@/components/dispatch/ReporterInfo'
+import MatchReviewCard from '@/components/dispatch/MatchReviewCard'
 import LinemanRecommendationPanel from '@/components/ui/LinemanRecommendationPanel'
 import QAReviewSection from '@/components/ui/QAReviewSection'
 import TicketDetailHeader from '@/components/dispatch/TicketDetailHeader'
@@ -42,6 +43,7 @@ export default function MasterTicketDetailPage() {
   const [dispatchedInfo, setDispatchedInfo] = useState(null)
   const [linemanDetailsOpen, setLinemanDetailsOpen] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
+  const [expandedReportId, setExpandedReportId] = useState(null)
 
   useEffect(() => {
     loadMaster()
@@ -96,7 +98,19 @@ export default function MasterTicketDetailPage() {
       memberReports = data || []
     }
 
-    const consumerIds = (memberReports || []).map((r) => r.consumer_id)
+    const memberReportsWithPhotos = await Promise.all(
+      memberReports.map(async (report) => {
+        if (!report.photo_url) return report
+
+        const { data: signed } = await supabase.storage
+          .from('report-photos')
+          .createSignedUrl(report.photo_url, 3600)
+
+        return { ...report, photo_url: signed?.signedUrl || null }
+      })
+    )
+
+    const consumerIds = memberReportsWithPhotos.map((r) => r.consumer_id)
     let consumerNames = []
     if (consumerIds.length > 0) {
       const { data } = await supabase
@@ -107,7 +121,7 @@ export default function MasterTicketDetailPage() {
     }
 
     setMembers(
-      (memberReports || []).map((r) => ({
+      memberReportsWithPhotos.map((r) => ({
         ...r,
         reporterName: consumerNames.find((c) => c.id === r.consumer_id),
       }))
@@ -365,25 +379,55 @@ export default function MasterTicketDetailPage() {
               </span>
             </div>
             <div className="space-y-2">
-              {members.map((m) => (
-                <div
-                  key={m.report_id}
-                  className="flex items-center justify-between border border-gray-200 rounded-lg p-3"
-                >
-                  <div>
-                    <p className="text-sm font-semibold text-gray-900">
-                      {m.reporterName?.first_name} {m.reporterName?.last_name}
-                    </p>
-                    <p className="text-xs text-gray-400">
-                      Zone {m.zone || '—'}, {m.barangay}, {m.municipality}
-                    </p>
-                    <ReporterInfo compact reportId={m.report_id} consumerId={m.consumer_id} />
+              {members.map((m) => {
+                const isExpanded = expandedReportId === m.report_id
+
+                return (
+                  <div key={m.report_id} className="border border-gray-200 rounded-lg">
+                    <div className="flex items-center justify-between gap-3 p-3">
+                      <div>
+                        <p className="text-sm font-semibold text-gray-900">
+                          {m.reporterName?.first_name} {m.reporterName?.last_name}
+                        </p>
+                        <p className="text-xs text-gray-400">
+                          Zone {m.zone || '—'}, {m.barangay}, {m.municipality}
+                        </p>
+                        <ReporterInfo compact reportId={m.report_id} consumerId={m.consumer_id} />
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs font-medium text-blue-700">
+                          {m.ticket_number}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setExpandedReportId(isExpanded ? null : m.report_id)}
+                          className="inline-flex min-w-24 justify-center items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 shadow-sm transition-colors hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-600 whitespace-nowrap"
+                        >
+                          {isExpanded ? 'Hide Details' : 'View Details'}
+                        </button>
+                      </div>
+                    </div>
+
+                    {isExpanded && (
+                      <div className="border-t border-gray-100 bg-gray-50 p-3">
+                        <MatchReviewCard
+                          title="Report Details"
+                          ticketLabel={m.ticket_number}
+                          reportId={m.report_id}
+                          consumerId={m.consumer_id}
+                          barangay={m.barangay}
+                          municipality={m.municipality}
+                          zone={m.zone}
+                          nearestLandmark={m.nearest_landmark}
+                          description={m.report_details}
+                          photoUrl={m.photo_url}
+                          otherHomesAffected={m.other_homes_affected}
+                        />
+                      </div>
+                    )}
                   </div>
-                  <span className="text-xs font-medium text-blue-700">
-                    {m.ticket_number}
-                  </span>
-                </div>
-              ))}
+                )
+              })}
             </div>
           </div>
 

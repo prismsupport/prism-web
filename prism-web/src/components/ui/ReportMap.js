@@ -31,9 +31,52 @@ export default function ReportMap({ lat, lng, label, markers }) {
         attribution: '&copy; OpenStreetMap contributors',
       }).addTo(map)
 
-      const markerInstances = points.map((p) =>
-        L.marker([p.lat, p.lng]).addTo(map).bindPopup(p.label || 'Location')
-      )
+      const markerInstances = points.map((p) => {
+        const marker = L.marker([p.lat, p.lng], { riseOnHover: true })
+          .addTo(map)
+          .bindPopup(p.label || 'Location')
+        marker._icon?.classList.add('report-map-marker')
+        return marker
+      })
+
+      let selectedMarker = null
+
+      function clearSelectedMarker() {
+        if (!selectedMarker) return
+        selectedMarker.closePopup()
+        selectedMarker._icon?.classList.remove('report-map-marker-selected')
+        selectedMarker = null
+      }
+
+      markerInstances.forEach((marker) => {
+        marker.on('mouseover', () => {
+          marker._icon?.classList.add('report-map-marker-hover')
+          marker.openPopup()
+        })
+
+        marker.on('mouseout', () => {
+          marker._icon?.classList.remove('report-map-marker-hover')
+          if (selectedMarker !== marker) marker.closePopup()
+        })
+
+        marker.on('click', () => {
+          if (selectedMarker && selectedMarker !== marker) {
+            selectedMarker._icon?.classList.remove('report-map-marker-selected')
+          }
+          selectedMarker = marker
+          marker._icon?.classList.add('report-map-marker-selected')
+          marker.openPopup()
+        })
+
+        marker.on('popupclose', () => {
+          if (selectedMarker === marker) {
+            marker._icon?.classList.remove('report-map-marker-selected')
+            selectedMarker = null
+          }
+        })
+      })
+
+      map.on('click', clearSelectedMarker)
 
       if (points.length > 1) {
         const group = L.featureGroup(markerInstances)

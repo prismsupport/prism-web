@@ -3,6 +3,21 @@
 @import "shadcn/tailwind.css";
 @import 'leaflet/dist/leaflet.css';
 
+.report-map-marker {
+  transition: transform 150ms ease, filter 150ms ease;
+  transform-origin: bottom center;
+}
+
+.report-map-marker-hover {
+  transform: scale(1.12);
+  filter: drop-shadow(0 2px 3px rgb(15 23 42 / 0.3));
+}
+
+.report-map-marker-selected {
+  transform: scale(1.22);
+  filter: drop-shadow(0 3px 5px rgb(15 23 42 / 0.45));
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme {
