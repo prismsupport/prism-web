@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { formatLastSeen } from '@/lib/lineman/duty'
 
 const PRIORITIES = ['low', 'medium', 'high', 'critical']
 
@@ -160,7 +161,7 @@ export default function LinemanRecommendationPanel({
                       )}
                       {l.availability_reason === 'no_signal' && (
                         <span className="text-[10px] font-bold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">
-                          NO SIGNAL
+                          {formatLastSeen(l.location_updated_at)}
                         </span>
                       )}
                       {l.availability_reason === 'off_schedule' && (
