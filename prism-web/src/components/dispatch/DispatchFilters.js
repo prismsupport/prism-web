@@ -1,3 +1,5 @@
+import { useStatusLabels } from '@/lib/workflow/StatusLabelsContext'
+
 function labelize(value) {
   return value
     .split('_')
@@ -14,6 +16,7 @@ export default function DispatchFilters({
   onStatusChange,
   statusOptions,
 }) {
+  const { statusLabel } = useStatusLabels()
   return (
     <div className="flex items-center justify-between bg-white rounded-xl border border-gray-200 p-4 mb-6">
       <div className="flex items-center gap-6">
@@ -44,10 +47,10 @@ export default function DispatchFilters({
             <option value="all">All Statuses</option>
             {statusOptions.map((s) => (
               <option key={s} value={s}>
-                {labelize(s)}
+                {statusLabel(s)}
               </option>
             ))}
-            <option value="cancelled">Cancelled</option>
+            <option value="cancelled">{statusLabel('cancelled')}</option>
           </select>
         </div>
       </div>

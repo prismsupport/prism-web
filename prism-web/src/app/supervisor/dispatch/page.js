@@ -9,6 +9,7 @@ import DispatchStatCards from "@/components/dispatch/DispatchStatCards";
 import DispatchFilters from "@/components/dispatch/DispatchFilters";
 import DuplicateSuggestionCard from "@/components/dispatch/DuplicateSuggestionCard";
 import DispatchTicketRow from "@/components/dispatch/DispatchTicketRow";
+import StatusNamesModal from "@/components/dispatch/StatusNamesModal";
 import {
   useSupervisorNotificationRefresh,
   useUnreadSupervisorNotifications,
@@ -39,6 +40,7 @@ const ASSIGNMENT_TO_BUCKET = {
 
 function DispatchContent() {
   const searchParams = useSearchParams()
+  const [showStatusNames, setShowStatusNames] = useState(false)
   const [reports, setReports] = useState([]);
   const [assignments, setAssignments] = useState([]);
   const [linemenNames, setLinemenNames] = useState({});
@@ -314,7 +316,16 @@ function DispatchContent() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-gray-900">Dispatch Management</h1>
+      <div className="flex items-center justify-between gap-4">
+        <h1 className="text-2xl font-bold text-gray-900">Dispatch Management</h1>
+        <button
+          onClick={() => setShowStatusNames(true)}
+          className="bg-white hover:bg-gray-50 text-gray-700 text-sm font-semibold px-4 py-2 rounded-lg border border-gray-200 transition-colors whitespace-nowrap"
+        >
+          Status Names
+        </button>
+      </div>
+      {showStatusNames && <StatusNamesModal onClose={() => setShowStatusNames(false)} />}
       <p className="text-sm text-gray-500 mt-1 mb-6">
         Real-time tickets monitoring and lineman coordination.
       </p>

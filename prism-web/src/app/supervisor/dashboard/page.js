@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { formatMinutes, summarizeRatings } from '@/lib/performance'
 import { usePermissions } from '@/lib/supervisor/PermissionsContext'
 import { PageLoading } from "@/components/ui/Skeleton";
+import { useStatusLabels } from '@/lib/workflow/StatusLabelsContext'
 
 const MAX_ROWS = 1000 // Supabase returns at most 1000 rows per request
 
@@ -303,6 +304,7 @@ async function loadAttention(supabase, coopId, can) {
 
 export default function SupervisorDashboardPage() {
   const { hasFeature, isOwner } = usePermissions()
+  const { statusLabel } = useStatusLabels()
   const can = {
     dispatch: hasFeature('dispatch'),
     advisories: hasFeature('advisories'),
@@ -392,7 +394,7 @@ export default function SupervisorDashboardPage() {
   const attentionItems = []
   if (can.dispatch && statusCounts) {
     attentionItems.push(
-      { key: 'pending', label: 'Pending tickets', count: statusCounts.pending, href: '/supervisor/dispatch?status=pending', color: 'text-red-600' },
+      { key: 'pending', label: `${statusLabel('pending')} tickets`, count: statusCounts.pending, href: '/supervisor/dispatch?status=pending', color: 'text-red-600' },
       { key: 'overdue', label: 'Overdue tickets', count: attention.overdue ?? 0, href: '/supervisor/dispatch?status=pending', color: 'text-red-600' },
       { key: 'qa', label: 'QA reviews waiting', count: statusCounts.qa_review, href: '/supervisor/dispatch?status=qa_review', color: 'text-blue-700' },
       { key: 'reopen', label: 'Reopen requests', count: attention.reopen ?? 0, href: '/supervisor/dispatch', color: 'text-amber-600' }
@@ -583,7 +585,7 @@ export default function SupervisorDashboardPage() {
                     href={`/supervisor/dispatch?status=${s.key}`}
                     className="rounded-lg hover:bg-gray-50 -m-1 p-1"
                   >
-                    <p className="text-xs text-gray-400">{s.label}</p>
+                    <p className="text-xs text-gray-400">{statusLabel(s.key)}</p>
                     <p className={`text-xl font-bold ${s.color}`}>{statusCounts[s.key]}</p>
                   </Link>
                 ))}

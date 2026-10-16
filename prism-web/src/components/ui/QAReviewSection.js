@@ -4,8 +4,10 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { reopenAssignment } from '@/lib/dispatch/reopenAssignment'
 import { toast } from '@/lib/toast'
+import { useStatusLabels } from '@/lib/workflow/StatusLabelsContext'
 
 export default function QAReviewSection({ assignment, reportId, masterId, onReviewed }) {
+  const { statusLabel } = useStatusLabels()
   const [photoUrl, setPhotoUrl] = useState(null)
   const [voiceUrl, setVoiceUrl] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -175,7 +177,7 @@ export default function QAReviewSection({ assignment, reportId, masterId, onRevi
 
       {assignment.status === 'resolved' ? (
         <p className="text-sm text-green-700 bg-green-50 border border-green-100 rounded-lg px-3 py-2 font-medium">
-          ✓ Approved and marked as Resolved
+          ✓ Approved and marked as {statusLabel('resolved')}
         </p>
       ) : !showRejectBox ? (
         <div className="flex gap-3">

@@ -1,6 +1,8 @@
 import StatCard from '@/components/ui/StatCard'
+import { useStatusLabels } from '@/lib/workflow/StatusLabelsContext'
 
 export default function DispatchStatCards({ counts, statusFilter, onFilterChange }) {
+  const { statusLabel } = useStatusLabels()
   const cards = [
     { key: 'pending', label: 'Pending', color: 'text-red-600' },
     { key: 'dispatched', label: 'Dispatched', color: 'text-amber-600' },
@@ -14,7 +16,7 @@ export default function DispatchStatCards({ counts, statusFilter, onFilterChange
       {cards.map((c) => (
         <StatCard
           key={c.key}
-          label={c.label}
+          label={statusLabel(c.key)}
           value={counts[c.key]}
           color={c.color}
           active={statusFilter === c.key}

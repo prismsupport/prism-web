@@ -5,6 +5,7 @@ import { Suspense, useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import SearchResultRow from '@/components/ui/SearchResultRow'
 import { usePermissions } from '@/lib/supervisor/PermissionsContext'
+import { useStatusLabels } from '@/lib/workflow/StatusLabelsContext'
 
 function escapeSearchTerm(value) {
   return value.replace(/[%,()]/g, ' ').replace(/\s+/g, ' ').trim()
@@ -20,6 +21,7 @@ function formatLabel(value) {
 function SupervisorSearchContent() {
   const searchParams = useSearchParams()
   const { hasFeature, isOwner } = usePermissions()
+  const { statusLabel } = useStatusLabels()
   const [query, setQuery] = useState('')
   const [results, setResults] = useState([])
   const [loading, setLoading] = useState(true)
@@ -127,7 +129,7 @@ function SupervisorSearchContent() {
         id: report.report_id,
         title: report.ticket_number || report.report_id,
         subtitle: report.nearest_landmark || `${report.barangay}, ${report.municipality}`,
-        meta: `${formatLabel(report.status)}${report.priority ? ` · ${formatLabel(report.priority)} priority` : ''}${report.account_number ? ` · Acct ${report.account_number}` : ''}`,
+        meta: `${statusLabel(report.status)}${report.priority ? ` · ${formatLabel(report.priority)} priority` : ''}${report.account_number ? ` · Acct ${report.account_number}` : ''}`,
         type: 'Report',
         href: `/supervisor/dispatch/report/${report.report_id}`,
       })),
@@ -135,7 +137,7 @@ function SupervisorSearchContent() {
         id: ticket.master_id,
         title: ticket.master_ticket || ticket.master_id,
         subtitle: `${ticket.barangay}, ${ticket.municipality}`,
-        meta: `${formatLabel(ticket.status)}${ticket.priority ? ` · ${formatLabel(ticket.priority)} priority` : ''}`,
+        meta: `${statusLabel(ticket.status)}${ticket.priority ? ` · ${formatLabel(ticket.priority)} priority` : ''}`,
         type: 'Master ticket',
         href: `/supervisor/dispatch/master/${ticket.master_id}`,
       })),

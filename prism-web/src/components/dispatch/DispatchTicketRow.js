@@ -91,7 +91,7 @@ export default function DispatchTicketRow({
         </p>
       </td>
       <td className="px-5 py-4">
-        <StatusPill status={bucket} label={labelize(status)} />
+        <StatusPill status={bucket} labelOf={status} />
       </td>
       <td className="px-5 py-4 text-gray-700">
         {assignment ? assigneeName || "Assigned" : "Unassigned"}

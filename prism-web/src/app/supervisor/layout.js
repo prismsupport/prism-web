@@ -9,6 +9,7 @@ import { PermissionsProvider, usePermissions } from "@/lib/supervisor/Permission
 import AccessRestricted from "@/components/ui/AccessRestricted";
 import { PageLoading } from "@/components/ui/Skeleton";
 import { toast } from "@/lib/toast";
+import { StatusLabelsProvider } from "@/lib/workflow/StatusLabelsContext";
 
 function RouteGuard({ children }) {
   const pathname = usePathname();
@@ -77,20 +78,22 @@ export default function SupervisorLayout({ children }) {
 
   return (
     <PermissionsProvider>
-      <div className="flex h-screen overflow-hidden bg-gray-50">
-        <SupervisorSidebar />
+      <StatusLabelsProvider>
+        <div className="flex h-screen overflow-hidden bg-gray-50">
+          <SupervisorSidebar />
 
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <SupervisorTopBar
-            supervisorName={supervisorName}
-            avatarUrl={avatarUrl}
-            onLogout={handleLogout}
-          />
-          <main className="min-h-0 flex-1 overflow-y-auto p-8">
-            <RouteGuard>{children}</RouteGuard>
-          </main>
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+            <SupervisorTopBar
+              supervisorName={supervisorName}
+              avatarUrl={avatarUrl}
+              onLogout={handleLogout}
+            />
+            <main className="min-h-0 flex-1 overflow-y-auto p-8">
+              <RouteGuard>{children}</RouteGuard>
+            </main>
+          </div>
         </div>
-      </div>
+      </StatusLabelsProvider>
     </PermissionsProvider>
   );
 }

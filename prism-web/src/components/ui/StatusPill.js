@@ -1,3 +1,7 @@
+"use client";
+
+import { useStatusLabels } from "@/lib/workflow/StatusLabelsContext";
+
 const TONES = {
   red: "bg-red-50 text-red-700 ring-red-200",
   amber: "bg-amber-50 text-amber-700 ring-amber-200",
@@ -30,11 +34,20 @@ function labelize(value) {
 }
 
 // status: the key that decides the colour. label: optional text override.
-export default function StatusPill({ status, label, kind }) {
+export default function StatusPill({ status, label, labelOf, kind }) {
+  const { labels } = useStatusLabels();
   const empty = !status;
   const key = empty ? "" : String(status).toLowerCase();
   const tone = TONES[empty ? "gray" : STATUS_TONE[key] || "gray"];
-  const text = label || (empty ? (kind === "priority" ? "None" : "—") : labelize(status));
+  const labelCode = String(labelOf || status || "").toLowerCase();
+  const useCustom = kind !== "priority" && kind !== "coop";
+  const text =
+    label ||
+    (empty
+      ? kind === "priority"
+        ? "None"
+        : "—"
+      : (useCustom && labels[labelCode]) || labelize(labelOf || status));
   return (
     <span
       className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${tone}`}

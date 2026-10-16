@@ -1,4 +1,5 @@
 import PhotoDropdown from '@/components/dispatch/PhotoDropdown'
+import { useStatusLabels } from '@/lib/workflow/StatusLabelsContext'
 
 function labelize(value) {
   return value
@@ -8,6 +9,7 @@ function labelize(value) {
 }
 
 export default function AttemptReviewCard({ attempt }) {
+  const { statusLabel } = useStatusLabels()
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-5">
       <div className="flex items-center justify-between mb-2">
@@ -27,7 +29,7 @@ export default function AttemptReviewCard({ attempt }) {
         <div className="space-y-1 mb-2">
           {attempt.logs.map((log) => (
             <div key={log.id} className="flex items-center justify-between text-xs">
-              <span className="text-gray-700">{labelize(log.new_status)}</span>
+              <span className="text-gray-700">{statusLabel(log.new_status)}</span>
               <span className="text-gray-400">
                 {new Date(log.changed_at).toLocaleString('en-PH', {
                   month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
