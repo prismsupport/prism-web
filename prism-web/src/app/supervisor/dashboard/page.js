@@ -392,9 +392,9 @@ export default function SupervisorDashboardPage() {
   const attentionItems = []
   if (can.dispatch && statusCounts) {
     attentionItems.push(
-      { key: 'pending', label: 'Pending reports', count: statusCounts.pending, href: '/supervisor/dispatch', color: 'text-red-600' },
-      { key: 'overdue', label: 'Overdue tickets', count: attention.overdue ?? 0, href: '/supervisor/dispatch', color: 'text-red-600' },
-      { key: 'qa', label: 'QA reviews waiting', count: statusCounts.qa_review, href: '/supervisor/dispatch', color: 'text-blue-700' },
+      { key: 'pending', label: 'Pending tickets', count: statusCounts.pending, href: '/supervisor/dispatch?status=pending', color: 'text-red-600' },
+      { key: 'overdue', label: 'Overdue tickets', count: attention.overdue ?? 0, href: '/supervisor/dispatch?status=pending', color: 'text-red-600' },
+      { key: 'qa', label: 'QA reviews waiting', count: statusCounts.qa_review, href: '/supervisor/dispatch?status=qa_review', color: 'text-blue-700' },
       { key: 'reopen', label: 'Reopen requests', count: attention.reopen ?? 0, href: '/supervisor/dispatch', color: 'text-amber-600' }
     )
   }
@@ -577,10 +577,14 @@ export default function SupervisorDashboardPage() {
               <p className="text-xs text-gray-400 mb-4">Current, all tickets</p>
               <div className="grid grid-cols-3 gap-4">
                 {STATUS_CARDS.map((s) => (
-                  <div key={s.key}>
+                  <Link
+                    key={s.key}
+                    href={`/supervisor/dispatch?status=${s.key}`}
+                    className="rounded-lg hover:bg-gray-50 -m-1 p-1"
+                  >
                     <p className="text-xs text-gray-400">{s.label}</p>
                     <p className={`text-xl font-bold ${s.color}`}>{statusCounts[s.key]}</p>
-                  </div>
+                  </Link>
                 ))}
               </div>
             </div>
