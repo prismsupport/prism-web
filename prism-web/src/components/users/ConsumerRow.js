@@ -10,10 +10,11 @@ export default function ConsumerRow({ consumer, onSelect }) {
       <td className="px-5 py-4 text-gray-600">
         {consumer.municipality || '—'}
       </td>
-      <td className="px-5 py-4">
+      <td className="px-5 py-4 text-center">
         <button
+          type="button"
           onClick={() => onSelect(consumer)}
-          className="bg-blue-700 hover:bg-blue-800 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
+          className="inline-flex min-w-28 justify-center items-center gap-2 rounded-lg bg-blue-700 px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-600 whitespace-nowrap"
         >
           Review
         </button>

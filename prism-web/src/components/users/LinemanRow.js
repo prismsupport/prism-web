@@ -13,7 +13,7 @@ export default function LinemanRow({ lineman, duty, onSelect }) {
       <td className="px-5 py-4 text-gray-600">
         {lineman.assigned_area_office || '—'}
       </td>
-      <td className="px-5 py-4">
+      <td className="px-5 py-4 text-center">
         {shifts.length === 0 ? (
           <span className="text-xs text-gray-400">No schedule set</span>
         ) : (
@@ -55,10 +55,11 @@ export default function LinemanRow({ lineman, duty, onSelect }) {
       <td className="px-5 py-4 text-gray-600">{lineman.phone_number}</td>
       <td className="px-5 py-4">
         <button
+          type="button"
           onClick={() => onSelect(lineman)}
-          className="bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
+          className="inline-flex min-w-28 justify-center items-center gap-2 rounded-lg border border-gray-200 bg-white px-3.5 py-2 text-xs font-semibold text-gray-700 shadow-sm transition-colors hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-600 whitespace-nowrap"
         >
-          Details
+          View Details
         </button>
       </td>
     </tr>

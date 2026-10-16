@@ -10,7 +10,6 @@ import StatCard from '@/components/ui/StatCard'
 import AdvisoryRow from '@/components/advisories/AdvisoryRow'
 import AdvisoryFormModal from '@/components/advisories/AdvisoryFormModal'
 import EmptyState from '@/components/ui/EmptyState'
-import { TableSkeletonRows } from '@/components/ui/Skeleton'
 
 const PAGE_SIZE = 10
 
@@ -231,7 +230,7 @@ export default function AdvisoriesPage() {
               setAreaFilter(e.target.value)
               setPage(1)
             }}
-            className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white"
+            className="select-control text-sm border border-gray-200 rounded-lg px-3 py-1.5"
           >
             <option>All Area</option>
             {allAreaValues.map((a) => (

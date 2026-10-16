@@ -22,7 +22,7 @@ export default function DispatchFilters({
           <select
             value={priorityFilter}
             onChange={(e) => onPriorityChange(e.target.value)}
-            className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white"
+            className="select-control text-sm border border-gray-200 rounded-lg px-3 py-1.5"
           >
             <option value="all">All Priorities</option>
             {PRIORITIES.map((p) => (
@@ -39,7 +39,7 @@ export default function DispatchFilters({
           <select
             value={statusFilter}
             onChange={(e) => onStatusChange(e.target.value)}
-            className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white"
+            className="select-control text-sm border border-gray-200 rounded-lg px-3 py-1.5"
           >
             <option value="all">All Statuses</option>
             {statusOptions.map((s) => (

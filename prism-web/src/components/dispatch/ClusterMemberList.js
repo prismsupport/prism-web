@@ -59,7 +59,11 @@ export default function ClusterMemberList({ members, expandedId, onToggleExpand,
                 </div>
                 <button
                   onClick={() => onToggleExpand(isExpanded ? null : m.report_id)}
-                  className="bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap"
+                  className={`inline-flex min-w-28 justify-center items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-blue-600 whitespace-nowrap ${
+                    isExpanded
+                      ? 'border border-gray-200 bg-white text-gray-700 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700'
+                      : 'bg-blue-700 text-white hover:bg-blue-800'
+                  }`}
                 >
                   {isExpanded ? 'Hide' : 'Review'}
                 </button>

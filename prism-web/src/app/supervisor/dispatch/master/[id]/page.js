@@ -413,10 +413,10 @@ export default function MasterTicketDetailPage() {
               <button
                 type="button"
                 onClick={() => setShowHistory(!showHistory)}
-                className="flex items-center justify-between w-full bg-white rounded-xl border border-gray-200 px-5 py-4 text-sm font-bold text-gray-900"
+                className="group flex items-center justify-between w-full bg-white rounded-xl border border-gray-200 px-5 py-4 text-xs font-bold text-gray-900 shadow-sm transition-colors hover:border-blue-200 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-600"
               >
                 <span>Job Order History ({pastAttempts.length})</span>
-                <span className="text-xs font-semibold text-blue-700">
+                <span className="inline-flex w-fit items-center gap-2 rounded-lg border border-gray-200 bg-white px-3.5 py-2 text-xs font-semibold text-gray-700 shadow-sm whitespace-nowrap group-hover:border-blue-200 group-hover:bg-blue-50 group-hover:text-blue-700">
                   {showHistory ? 'Hide ▲' : 'View ▾'}
                 </span>
               </button>

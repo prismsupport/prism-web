@@ -189,7 +189,7 @@ export default function LinemanPerformancePage() {
             <select
               value={periodIndex}
               onChange={(e) => setPeriodIndex(Number(e.target.value))}
-              className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white"
+              className="select-control text-sm border border-gray-200 rounded-lg px-3 py-1.5"
             >
               {PERIODS.map((p, i) => (
                 <option key={p.label} value={i}>
@@ -203,7 +203,7 @@ export default function LinemanPerformancePage() {
             <select
               value={sortKey}
               onChange={(e) => setSortKey(e.target.value)}
-              className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white"
+              className="select-control text-sm border border-gray-200 rounded-lg px-3 py-1.5"
             >
               {SORTS.map((s) => (
                 <option key={s.key} value={s.key}>

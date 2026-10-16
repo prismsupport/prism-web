@@ -82,8 +82,9 @@ export default function BillingRequestsPage() {
         isUnread={isUnread}
         headerAction={
           <button
+            type="button"
             onClick={() => setShowIntegration(true)}
-            className="bg-white hover:bg-gray-50 text-gray-700 text-sm font-semibold px-4 py-2.5 rounded-lg border border-gray-200 transition-colors whitespace-nowrap"
+            className="bg-blue-700 hover:bg-blue-800 text-white text-sm font-semibold px-4 py-2.5 rounded-lg transition-colors whitespace-nowrap"
           >
             Billing Integration
           </button>

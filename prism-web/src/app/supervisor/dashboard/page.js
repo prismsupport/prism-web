@@ -426,7 +426,7 @@ export default function SupervisorDashboardPage() {
                 value={rangeKey}
                 onChange={(e) => setRangeKey(e.target.value)}
                 disabled={refreshing}
-                className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white disabled:opacity-60"
+                className="select-control text-sm border border-gray-200 rounded-lg px-3 py-1.5 disabled:opacity-60"
               >
                 {RANGES.map((r) => (
                   <option key={r.key} value={r.key}>
@@ -443,9 +443,10 @@ export default function SupervisorDashboardPage() {
             </span>
           )}
           <button
+            type="button"
             onClick={loadDashboard}
             disabled={refreshing}
-            className="px-3 py-1.5 rounded-lg text-sm font-semibold text-gray-700 border border-gray-200 hover:bg-gray-50 disabled:opacity-60"
+            className="bg-blue-700 hover:bg-blue-800 text-white text-sm font-semibold px-4 py-2.5 rounded-lg transition-colors disabled:cursor-not-allowed disabled:opacity-60 whitespace-nowrap"
           >
             {refreshing ? 'Refreshing…' : 'Refresh'}
           </button>

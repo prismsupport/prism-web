@@ -282,7 +282,7 @@ export default function UsersPage() {
                     setAreaFilter(e.target.value)
                     setLinemanPage(1)
                   }}
-                  className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white"
+                  className="select-control text-sm border border-gray-200 rounded-lg px-3 py-1.5"
                 >
                   <option>All Area</option>
                   {areaOffices.map((a) => (
@@ -300,7 +300,7 @@ export default function UsersPage() {
                     setSortOrder(e.target.value)
                     setLinemanPage(1)
                   }}
-                  className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white"
+                  className="select-control text-sm border border-gray-200 rounded-lg px-3 py-1.5"
                 >
                   <option>Name (A-Z)</option>
                   <option>Name (Z-A)</option>

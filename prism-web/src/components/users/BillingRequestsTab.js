@@ -119,7 +119,7 @@ export default function BillingRequestsTab({
                 <td className="px-5 py-4 text-gray-600 capitalize">
                   {r.account_type}
                 </td>
-                <td className="px-5 py-4">
+                <td className="px-5 py-4 text-center">
                   <BillingStatusPill status={r.status} />
                 </td>
                 <td className="px-5 py-4 text-gray-600">
@@ -131,14 +131,15 @@ export default function BillingRequestsTab({
                 </td>
                 <td className="px-5 py-4">
                   <button
+                    type="button"
                     onClick={() => onSelectRequest(r)}
-                    className={`text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors ${
+                    className={`inline-flex min-w-28 justify-center items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-blue-600 whitespace-nowrap ${
                       r.status === "pending"
-                        ? "bg-blue-700 hover:bg-blue-800 text-white"
-                        : "bg-blue-50 hover:bg-blue-100 text-blue-700"
+                        ? "bg-blue-700 text-white hover:bg-blue-800"
+                        : "border border-gray-200 bg-white text-gray-700 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
                     }`}
                   >
-                    {r.status === "pending" ? "Review" : "Details"}
+                    {r.status === "pending" ? "Review" : "View Details"}
                   </button>
                 </td>
               </tr>

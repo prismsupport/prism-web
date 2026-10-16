@@ -104,21 +104,21 @@ export default function DispatchTicketRow({
             ticket.created_at,
         )}
       </td>
-      <td className="px-5 py-4">
+      <td className="px-5 py-4 text-center">
         {isReviewable
           ? <Link
               href={detailHref}
               onClick={onOpen}
-              className="bg-blue-700 hover:bg-blue-800 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-colors inline-block"
+              className="inline-flex min-w-28 justify-center items-center gap-2 rounded-lg bg-blue-700 px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-600 whitespace-nowrap"
             >
               Review
             </Link>
           : <Link
               href={detailHref}
               onClick={onOpen}
-              className="bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold px-4 py-2 rounded-lg transition-colors inline-block"
+              className="inline-flex min-w-28 justify-center items-center gap-2 rounded-lg border border-gray-200 bg-white px-3.5 py-2 text-xs font-semibold text-gray-700 shadow-sm transition-colors hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-600 whitespace-nowrap"
             >
-              Details
+              View Details
             </Link>}
       </td>
     </tr>
