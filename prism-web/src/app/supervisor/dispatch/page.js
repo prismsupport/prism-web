@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { useSearchParams } from "next/navigation";
 import Pagination from "@/components/ui/Pagination";
 import DispatchStatCards from "@/components/dispatch/DispatchStatCards";
 import DispatchFilters from "@/components/dispatch/DispatchFilters";
@@ -17,6 +18,15 @@ import { TableSkeletonRows } from "@/components/ui/Skeleton"
 
 const PAGE_SIZE = 10;
 
+const VALID_STATUS_FILTERS = [
+  'pending',
+  'dispatched',
+  'in_progress',
+  'qa_review',
+  'resolved',
+  'cancelled',
+]
+
 const ASSIGNMENT_TO_BUCKET = {
   assigned: "dispatched",
   on_the_way: "dispatched",
@@ -26,7 +36,8 @@ const ASSIGNMENT_TO_BUCKET = {
   resolved: "resolved",
 };
 
-export default function DispatchPage() {
+function DispatchContent() {
+  const searchParams = useSearchParams()
   const [reports, setReports] = useState([]);
   const [assignments, setAssignments] = useState([]);
   const [linemenNames, setLinemenNames] = useState({});
@@ -53,8 +64,16 @@ export default function DispatchPage() {
   ]);
 
   useEffect(() => {
-    loadEverything();
-  }, []);
+    loadEverything()
+  }, [])
+
+  // Open pre-filtered when linked from the Dashboard,
+  // e.g. /supervisor/dispatch?status=qa_review
+  useEffect(() => {
+    const status = searchParams.get('status')
+    setStatusFilter(VALID_STATUS_FILTERS.includes(status) ? status : 'all')
+    setPage(1)
+  }, [searchParams])
   useSupervisorNotificationRefresh(loadEverything);
 
   async function loadEverything() {
@@ -530,4 +549,13 @@ export default function DispatchPage() {
       </div>
     </div>
   );
+}
+
+
+export default function DispatchPage() {
+  return (
+    <Suspense fallback={<p className="text-sm text-gray-500">Loading…</p>}>
+      <DispatchContent />
+    </Suspense>
+  )
 }
