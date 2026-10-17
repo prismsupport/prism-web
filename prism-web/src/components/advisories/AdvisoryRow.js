@@ -25,9 +25,6 @@ export default function AdvisoryRow({ advisory, onEdit, onDelete }) {
           <span className="font-semibold text-gray-900">{advisory.title}</span>
         </div>
       </td>
-      <td className="px-5 py-4 text-gray-600 max-w-xs truncate">
-        {advisory.description}
-      </td>
       <td className="px-5 py-4 text-gray-600">
         {new Date(advisory.date).toLocaleDateString('en-PH', {
           month: 'long',

@@ -265,7 +265,6 @@ export default function AdvisoriesPage() {
           <thead>
             <tr className="bg-gray-50 border-b border-gray-200 text-left text-xs text-gray-500 uppercase tracking-wide">
               <th className="px-5 py-3 font-semibold">Advisory Title</th>
-              <th className="px-5 py-3 font-semibold">Description</th>
               <th className="px-5 py-3 font-semibold">Date</th>
               <th className="px-5 py-3 font-semibold">Start Time</th>
               <th className="px-5 py-3 font-semibold">End Time</th>
@@ -277,7 +276,7 @@ export default function AdvisoriesPage() {
           <tbody>
             {!loading && filtered.length === 0 && (
               <tr>
-                <td colSpan={8}>
+                <td colSpan={7}>
                   <EmptyState
                     title="No advisories match this view"
                     description="Try a different filter, or create a new advisory."

@@ -319,8 +319,9 @@ function DispatchContent() {
       <div className="flex items-center justify-between gap-4">
         <h1 className="text-2xl font-bold text-gray-900">Dispatch Management</h1>
         <button
+          type="button"
           onClick={() => setShowStatusNames(true)}
-          className="bg-white hover:bg-gray-50 text-gray-700 text-sm font-semibold px-4 py-2 rounded-lg border border-gray-200 transition-colors whitespace-nowrap"
+          className="group flex w-fit items-center gap-2 rounded-lg border border-gray-200 bg-white px-3.5 py-2 text-sm font-semibold text-gray-700 shadow-sm transition-colors hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-600 whitespace-nowrap"
         >
           Status Names
         </button>
