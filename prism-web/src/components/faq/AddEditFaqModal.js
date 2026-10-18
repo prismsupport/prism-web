@@ -3,13 +3,16 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Modal from '@/components/ui/Modal'
-import { toast } from "@/lib/toast"
+import FaqBilingualFields from '@/components/faq/FaqBilingualFields'
+import { toast } from '@/lib/toast'
 
 export default function AddEditFaqModal({ cooperativeId, entry, categories, onClose, onSaved }) {
   const isEditing = !!entry
   const [category, setCategory] = useState(entry?.category || categories[0] || '')
   const [question, setQuestion] = useState(entry?.question || '')
   const [answer, setAnswer] = useState(entry?.answer || '')
+  const [questionTl, setQuestionTl] = useState(entry?.question_tl || '')
+  const [answerTl, setAnswerTl] = useState(entry?.answer_tl || '')
   const [keywords, setKeywords] = useState(entry?.keywords || '')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -17,6 +20,12 @@ export default function AddEditFaqModal({ cooperativeId, entry, categories, onCl
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
+
+    if (!!questionTl.trim() !== !!answerTl.trim()) {
+      setError('Fill in both the Tagalog question and answer, or leave both empty.')
+      return
+    }
+
     setLoading(true)
     const supabase = createClient()
 
@@ -26,16 +35,19 @@ export default function AddEditFaqModal({ cooperativeId, entry, categories, onCl
       .filter(Boolean)
       .join(', ')
 
+    const fields = {
+      category,
+      question,
+      answer,
+      question_tl: questionTl.trim() || null,
+      answer_tl: answerTl.trim() || null,
+      keywords: normalizedKeywords || null,
+    }
+
     if (isEditing) {
       const { error: updateError } = await supabase
         .from('faq_entries')
-        .update({
-          category,
-          question,
-          answer,
-          keywords: normalizedKeywords || null,
-          updated_at: new Date().toISOString(),
-        })
+        .update({ ...fields, updated_at: new Date().toISOString() })
         .eq('faq_id', entry.faq_id)
 
       if (updateError) {
@@ -44,13 +56,9 @@ export default function AddEditFaqModal({ cooperativeId, entry, categories, onCl
         return
       }
     } else {
-      const { error: insertError } = await supabase.from('faq_entries').insert({
-        cooperative_id: cooperativeId,
-        category,
-        question,
-        answer,
-        keywords: normalizedKeywords || null,
-      })
+      const { error: insertError } = await supabase
+        .from('faq_entries')
+        .insert({ cooperative_id: cooperativeId, ...fields })
 
       if (insertError) {
         setError(insertError.message)
@@ -59,18 +67,15 @@ export default function AddEditFaqModal({ cooperativeId, entry, categories, onCl
       }
     }
 
-    toast.success(isEditing ? "FAQ updated" : "FAQ added")
-    
+    toast.success(isEditing ? 'FAQ updated' : 'FAQ added')
     onSaved()
   }
 
   return (
-    <Modal title={isEditing ? 'Edit FAQ' : 'Add New FAQ'} onClose={onClose}>
+    <Modal title={isEditing ? 'Edit FAQ' : 'Add New FAQ'} onClose={onClose} size="xl">
       <form onSubmit={handleSubmit}>
         <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-1.5">
-            Category
-          </label>
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">Category</label>
           <select
             value={category}
             onChange={(e) => setCategory(e.target.value)}
@@ -84,32 +89,16 @@ export default function AddEditFaqModal({ cooperativeId, entry, categories, onCl
           </select>
         </div>
 
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-1.5">
-            Question
-          </label>
-          <input
-            required
-            value={question}
-            onChange={(e) => setQuestion(e.target.value)}
-            placeholder="e.g. How do I reset my password?"
-            className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm placeholder-gray-400"
-          />
-        </div>
-
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-1.5">
-            Answer
-          </label>
-          <textarea
-            required
-            rows={4}
-            value={answer}
-            onChange={(e) => setAnswer(e.target.value)}
-            placeholder="Provide a detailed answer with any necessary steps..."
-            className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm placeholder-gray-400"
-          />
-        </div>
+        <FaqBilingualFields
+          question={question}
+          onQuestionChange={setQuestion}
+          answer={answer}
+          onAnswerChange={setAnswer}
+          questionTl={questionTl}
+          onQuestionTlChange={setQuestionTl}
+          answerTl={answerTl}
+          onAnswerTlChange={setAnswerTl}
+        />
 
         <div className="mb-4">
           <label className="block text-sm font-medium text-gray-700 mb-1.5">
