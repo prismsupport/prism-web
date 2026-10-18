@@ -2,8 +2,7 @@
 
 import { useState } from 'react'
 import { formatLastSeen } from '@/lib/lineman/duty'
-
-const PRIORITIES = ['low', 'medium', 'high', 'critical']
+import { useStatusLabels } from '@/lib/workflow/StatusLabelsContext'
 
 const REASON_LABEL = {
   on_duty: 'On duty',
@@ -50,6 +49,7 @@ export default function LinemanRecommendationPanel({
   assigning,
 }) {
   const [selectedId, setSelectedId] = useState(null)
+  const { priorityLevels } = useStatusLabels()
 
   // Scores are computed in the database (score_lineman_candidates).
   // This panel only displays them.
@@ -75,13 +75,18 @@ export default function LinemanRecommendationPanel({
           Incident Priority
         </label>
         <select
-          value={priority || 'low'}
+          value={priority || ''}
           onChange={(e) => onPriorityChange(e.target.value)}
           className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm"
         >
-          {PRIORITIES.map((p) => (
-            <option key={p} value={p}>
-              {labelize(p)}
+          {!priority && (
+            <option value="" disabled>
+              Not set
+            </option>
+          )}
+          {priorityLevels.map((p) => (
+            <option key={p.key} value={p.key}>
+              {p.label}
             </option>
           ))}
         </select>

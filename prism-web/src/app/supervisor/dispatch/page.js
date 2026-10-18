@@ -10,6 +10,7 @@ import DispatchFilters from "@/components/dispatch/DispatchFilters";
 import DuplicateSuggestionCard from "@/components/dispatch/DuplicateSuggestionCard";
 import DispatchTicketRow from "@/components/dispatch/DispatchTicketRow";
 import StatusNamesModal from "@/components/dispatch/StatusNamesModal";
+import ManagePriorityLevelsModal from "@/components/dispatch/ManagePriorityLevelsModal";
 import {
   useSupervisorNotificationRefresh,
   useUnreadSupervisorNotifications,
@@ -41,6 +42,7 @@ const ASSIGNMENT_TO_BUCKET = {
 function DispatchContent() {
   const searchParams = useSearchParams()
   const [showStatusNames, setShowStatusNames] = useState(false)
+  const [showPriorityLevels, setShowPriorityLevels] = useState(false)
   const [reports, setReports] = useState([]);
   const [assignments, setAssignments] = useState([]);
   const [linemenNames, setLinemenNames] = useState({});
@@ -318,15 +320,31 @@ function DispatchContent() {
     <div>
       <div className="flex items-center justify-between gap-4">
         <h1 className="text-2xl font-bold text-gray-900">Dispatch Management</h1>
-        <button
-          type="button"
-          onClick={() => setShowStatusNames(true)}
-          className="group flex w-fit items-center gap-2 rounded-lg border border-gray-200 bg-white px-3.5 py-2 text-sm font-semibold text-gray-700 shadow-sm transition-colors hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-600 whitespace-nowrap"
-        >
-          Status Names
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowPriorityLevels(true)}
+            className="bg-white hover:bg-gray-50 text-gray-700 text-sm font-semibold px-4 py-2 rounded-lg border border-gray-200 transition-colors whitespace-nowrap"
+          >
+            Priority Levels
+          </button>
+          <button
+            onClick={() => setShowStatusNames(true)}
+            className="bg-white hover:bg-gray-50 text-gray-700 text-sm font-semibold px-4 py-2 rounded-lg border border-gray-200 transition-colors whitespace-nowrap"
+          >
+            Status Names
+          </button>
+        </div>
       </div>
       {showStatusNames && <StatusNamesModal onClose={() => setShowStatusNames(false)} />}
+      {showPriorityLevels && (
+        <ManagePriorityLevelsModal
+          onClose={() => setShowPriorityLevels(false)}
+          onSaved={() => {
+            setPriorityFilter('all')
+            loadEverything()
+          }}
+        />
+      )}
       <p className="text-sm text-gray-500 mt-1 mb-6">
         Real-time tickets monitoring and lineman coordination.
       </p>

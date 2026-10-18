@@ -7,8 +7,6 @@ function labelize(value) {
     .join(' ')
 }
 
-const PRIORITIES = ['low', 'medium', 'high', 'critical']
-
 export default function DispatchFilters({
   priorityFilter,
   onPriorityChange,
@@ -16,7 +14,7 @@ export default function DispatchFilters({
   onStatusChange,
   statusOptions,
 }) {
-  const { statusLabel } = useStatusLabels()
+  const { statusLabel, priorityLevels } = useStatusLabels()
   return (
     <div className="flex items-center justify-between bg-white rounded-xl border border-gray-200 p-4 mb-6">
       <div className="flex items-center gap-6">
@@ -28,9 +26,9 @@ export default function DispatchFilters({
             className="select-control text-sm border border-gray-200 rounded-lg px-3 py-1.5"
           >
             <option value="all">All Priorities</option>
-            {PRIORITIES.map((p) => (
-              <option key={p} value={p}>
-                {labelize(p)}
+            {priorityLevels.map((p) => (
+              <option key={p.key} value={p.key}>
+                {p.label}
               </option>
             ))}
           </select>

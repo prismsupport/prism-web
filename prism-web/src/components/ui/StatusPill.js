@@ -22,8 +22,6 @@ const STATUS_TONE = {
   active: "green", "pending approval": "red", rejected: "amber", deactivated: "gray",
   // advisories
   upcoming: "amber", completed: "gray",
-  // priorities
-  low: "blue", medium: "amber", high: "red", critical: "solid",
 };
 
 function labelize(value) {
@@ -33,21 +31,18 @@ function labelize(value) {
     .join(" ");
 }
 
-// status: the key that decides the colour. label: optional text override.
-export default function StatusPill({ status, label, labelOf, kind }) {
-  const { labels } = useStatusLabels();
-  const empty = !status;
-  const key = empty ? "" : String(status).toLowerCase();
-  const tone = TONES[empty ? "gray" : STATUS_TONE[key] || "gray"];
-  const labelCode = String(labelOf || status || "").toLowerCase();
-  const useCustom = kind !== "priority" && kind !== "coop";
-  const text =
-    label ||
-    (empty
-      ? kind === "priority"
-        ? "None"
-        : "—"
-      : (useCustom && labels[labelCode]) || labelize(labelOf || status));
+// Colour for a priority level from its position in the list (rank 1 = lowest)
+function priorityTone(rank, count) {
+  if (!rank || !count) return "gray";
+  if (count === 1) return "blue";
+  const position = (rank - 1) / (count - 1); // 0 = lowest, 1 = highest
+  if (position >= 1) return "solid";
+  if (position >= 0.6) return "red";
+  if (position >= 0.3) return "amber";
+  return "blue";
+}
+
+function Pill({ tone, text }) {
   return (
     <span
       className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${tone}`}
@@ -56,4 +51,30 @@ export default function StatusPill({ status, label, labelOf, kind }) {
       {text}
     </span>
   );
+}
+
+// Also used by the Priority Levels dialog for its live preview
+export function PriorityPill({ label, rank, count }) {
+  return <Pill tone={TONES[priorityTone(rank, count)]} text={label} />;
+}
+
+// status: the key that decides the colour. label: optional text override.
+// labelOf: show the name of a different status code than the one that sets the colour.
+export default function StatusPill({ status, label, labelOf, kind }) {
+  const { labels, priorityLevels } = useStatusLabels();
+  const empty = !status;
+
+  if (kind === "priority") {
+    const level = empty ? null : priorityLevels.find((l) => l.key === status);
+    const tone = TONES[level ? priorityTone(level.rank, priorityLevels.length) : "gray"];
+    const text = label || (empty ? "None" : level ? level.label : labelize(status));
+    return <Pill tone={tone} text={text} />;
+  }
+
+  const key = empty ? "" : String(status).toLowerCase();
+  const labelCode = String(labelOf || status || "").toLowerCase();
+  const tone = TONES[empty ? "gray" : STATUS_TONE[key] || "gray"];
+  const custom = kind !== "coop" ? labels[labelCode] : undefined;
+  const text = label || (empty ? "—" : custom || labelize(labelOf || status));
+  return <Pill tone={tone} text={text} />;
 }

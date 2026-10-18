@@ -22,21 +22,48 @@ export const DEFAULT_STATUS_LABELS = {
 export const TICKET_STATUS_CODES = ['pending', 'dispatched', 'in_progress', 'qa_review', 'resolved', 'cancelled']
 export const JOB_STATUS_CODES = ['assigned', 'on_the_way', 'arrived_at_site', 'in_progress', 'fixed', 'resolved']
 
-function fallbackLabel(code) {
+// Fallback only. The real list comes from get_priority_levels() in the database.
+// Ordered lowest to highest, rank 1 = lowest.
+export const DEFAULT_PRIORITY_LEVELS = [
+  { key: 'low', label: 'Low', rank: 1 },
+  { key: 'medium', label: 'Medium', rank: 2 },
+  { key: 'high', label: 'High', rank: 3 },
+  { key: 'critical', label: 'Critical', rank: 4 },
+]
+
+function humanize(code) {
   return String(code)
     .split('_')
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join(' ')
 }
 
+function makeStatusLabel(labels) {
+  return (code) => {
+    if (!code) return '—'
+    return labels[String(code).toLowerCase()] || humanize(code)
+  }
+}
+
+function makePriorityLabel(levels) {
+  return (key) => {
+    if (!key) return 'None'
+    const level = levels.find((l) => l.key === key)
+    return level ? level.label : humanize(key)
+  }
+}
+
 const StatusLabelsContext = createContext({
   labels: DEFAULT_STATUS_LABELS,
-  statusLabel: (code) => (code ? DEFAULT_STATUS_LABELS[String(code).toLowerCase()] || fallbackLabel(code) : '—'),
+  priorityLevels: DEFAULT_PRIORITY_LEVELS,
+  statusLabel: makeStatusLabel(DEFAULT_STATUS_LABELS),
+  priorityLabel: makePriorityLabel(DEFAULT_PRIORITY_LEVELS),
   refresh: async () => {},
 })
 
 export function StatusLabelsProvider({ children }) {
   const [labels, setLabels] = useState(DEFAULT_STATUS_LABELS)
+  const [priorityLevels, setPriorityLevels] = useState(DEFAULT_PRIORITY_LEVELS)
 
   useEffect(() => {
     load()
@@ -44,17 +71,29 @@ export function StatusLabelsProvider({ children }) {
 
   async function load() {
     const supabase = createClient()
-    const { data, error } = await supabase.rpc('get_status_labels')
-    if (!error && data) setLabels({ ...DEFAULT_STATUS_LABELS, ...data })
-  }
+    const [labelRes, levelRes] = await Promise.all([
+      supabase.rpc('get_status_labels'),
+      supabase.rpc('get_priority_levels'),
+    ])
 
-  function statusLabel(code) {
-    if (!code) return '—'
-    return labels[String(code).toLowerCase()] || fallbackLabel(code)
+    if (!labelRes.error && labelRes.data) {
+      setLabels({ ...DEFAULT_STATUS_LABELS, ...labelRes.data })
+    }
+    if (!levelRes.error && Array.isArray(levelRes.data) && levelRes.data.length > 0) {
+      setPriorityLevels(levelRes.data)
+    }
   }
 
   return (
-    <StatusLabelsContext.Provider value={{ labels, statusLabel, refresh: load }}>
+    <StatusLabelsContext.Provider
+      value={{
+        labels,
+        priorityLevels,
+        statusLabel: makeStatusLabel(labels),
+        priorityLabel: makePriorityLabel(priorityLevels),
+        refresh: load,
+      }}
+    >
       {children}
     </StatusLabelsContext.Provider>
   )

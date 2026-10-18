@@ -1,9 +1,11 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
+import { useStatusLabels } from '@/lib/workflow/StatusLabelsContext'
 
 export default function LinemanDispatchedModal({ linemanName, ticketNumber, location, barangay, priority }) {
   const router = useRouter()
+  const { priorityLevels } = useStatusLabels()
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[9999] p-4">
@@ -25,7 +27,7 @@ export default function LinemanDispatchedModal({ linemanName, ticketNumber, loca
             </div>
             {priority && (
               <span className="text-xs font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded">
-                {priority.toUpperCase()}
+                {priorityLabel(priority).toUpperCase()}
               </span>
             )}
           </div>
