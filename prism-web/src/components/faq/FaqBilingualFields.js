@@ -28,7 +28,7 @@ export default function FaqBilingualFields({
           placeholder="e.g. How do I report a power outage?"
           className={`${INPUT_CLS} mb-1`}
         />
-        {questionHint}
+        {questionHint && <div className="h-10 leading-5">{questionHint}</div>}
 
         <label className="block text-sm font-medium text-gray-700 mt-3 mb-1.5">Answer</label>
         <textarea
@@ -53,6 +53,7 @@ export default function FaqBilingualFields({
           placeholder="hal. Paano mag-ulat ng brownout?"
           className={`${INPUT_CLS} mb-1`}
         />
+        {questionHint && <div aria-hidden="true" className="h-10" />}
 
         <label className="block text-sm font-medium text-gray-700 mt-3 mb-1.5">Sagot</label>
         <textarea

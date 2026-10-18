@@ -17,6 +17,7 @@ export default function ProvideAnswerModal({ inquiry, cooperativeId, categories,
   const [faqQuestionTl, setFaqQuestionTl] = useState('')
   const [faqAnswerTl, setFaqAnswerTl] = useState('')
   const [keywords, setKeywords] = useState('')
+  const [movedQuestion, setMovedQuestion] = useState(null)
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -28,8 +29,15 @@ export default function ProvideAnswerModal({ inquiry, cooperativeId, categories,
   }
 
   function moveQuestionToTagalog() {
+    setMovedQuestion(faqQuestion)
     setFaqQuestionTl(faqQuestion)
     setFaqQuestion('')
+  }
+
+  function undoMoveQuestionToTagalog() {
+    setFaqQuestion(movedQuestion)
+    setFaqQuestionTl('')
+    setMovedQuestion(null)
   }
 
   async function handleSubmit(e) {
@@ -191,13 +199,23 @@ export default function ProvideAnswerModal({ inquiry, cooperativeId, categories,
               answerTl={faqAnswerTl}
               onAnswerTlChange={setFaqAnswerTl}
               questionHint={
-                <button
-                  type="button"
-                  onClick={moveQuestionToTagalog}
-                  className="text-xs text-blue-700 font-medium"
-                >
-                  Consumer wrote in Tagalog? Move it to the Tagalog box
-                </button>
+                movedQuestion === null ? (
+                  <button
+                    type="button"
+                    onClick={moveQuestionToTagalog}
+                    className="text-xs text-blue-700 font-medium"
+                  >
+                    Consumer wrote in Tagalog? Move it to the Tagalog box
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={undoMoveQuestionToTagalog}
+                    className="text-xs text-blue-700 font-medium"
+                  >
+                    Undo
+                  </button>
+                )
               }
             />
 
