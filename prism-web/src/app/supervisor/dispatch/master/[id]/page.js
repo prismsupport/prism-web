@@ -18,6 +18,8 @@ import ResolveTicketBar from '@/components/dispatch/ResolveTicketBar'
 import { reopenAssignment } from '@/lib/dispatch/reopenAssignment'
 import { PageLoading } from "@/components/ui/Skeleton";
 import { toast } from '@/lib/toast'
+import ReopenTicketModal from '@/components/dispatch/ReopenTicketModal'
+import ReopenReasonNote from '@/components/dispatch/ReopenReasonNote'
 
 export default function MasterTicketDetailPage() {
   const { id } = useParams()
@@ -41,6 +43,7 @@ export default function MasterTicketDetailPage() {
   const [actionLoading, setActionLoading] = useState(false)
 
   const [dispatchedInfo, setDispatchedInfo] = useState(null)
+  const [showReopenModal, setShowReopenModal] = useState(false)
   const [linemanDetailsOpen, setLinemanDetailsOpen] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
   const [expandedReportId, setExpandedReportId] = useState(null)
@@ -159,7 +162,7 @@ export default function MasterTicketDetailPage() {
     // Reopen Review page, so a reopened/QA-rejected master ticket keeps its
     // full job order history visible here too.
     if (assignmentList.length > 1) {
-      const priorAssignments = assignmentList.slice(0, -1)
+      const priorAssignments = assignmentList
 
       const linemanIds = Array.from(new Set(priorAssignments.map((a) => a.lineman_id)))
       let linemenMap = {}
@@ -200,6 +203,7 @@ export default function MasterTicketDetailPage() {
         attempts.push({
           ...a,
           attemptNumber: index + 1,
+          isCurrent: index === assignmentList.length - 1,
           linemanName: linemenMap[a.lineman_id] || 'Unknown',
           logs: logs || [],
           review,
@@ -295,23 +299,21 @@ export default function MasterTicketDetailPage() {
     toast.success('Lineman assigned')
   }
 
-  async function handleReopen() {
-    setActionLoading(true)
+  // Called by the Re-open dialog. Returns an error message, or null on success.
+  async function handleReopen(reason) {
     const { error: reopenError } = await reopenAssignment({
       masterId: id,
       linemanId: assignment.lineman_id,
+      reason,
+      source: 'supervisor',
     })
 
-    if (reopenError) {
-      toast.error(reopenError)
-      setError(reopenError)
-      setActionLoading(false)
-      return
-    }
+    if (reopenError) return reopenError
 
-    setActionLoading(false)
-    toast.success('Assignment reopened')
+    setShowReopenModal(false)
+    toast.success('Ticket reopened')
     loadMaster()
+    return null
   }
 
   if (loading) return <PageLoading />
@@ -437,6 +439,14 @@ export default function MasterTicketDetailPage() {
             </p>
           )}
 
+          {assignment?.reopen_reason && (
+            <ReopenReasonNote source={assignment.reopen_source} reason={assignment.reopen_reason} />
+          )}
+
+          {assignment?.status === 'fixed' && (
+            <QAReviewSection assignment={assignment} masterId={id} onReviewed={loadMaster} />
+          )}
+
           {assignment && (
             <AssignedLinemanCard
               name={assignedLinemanName}
@@ -483,8 +493,16 @@ export default function MasterTicketDetailPage() {
             </button>
           )}
 
-          <ResolveTicketBar status={assignment?.status} onReopen={handleReopen} loading={actionLoading} />
+          <ResolveTicketBar status={assignment?.status} onReopen={() => setShowReopenModal(true)} loading={actionLoading} />
         </div>
+      )}
+
+      {showReopenModal && (
+        <ReopenTicketModal
+          ticketLabel={master.master_ticket}
+          onConfirm={handleReopen}
+          onClose={() => setShowReopenModal(false)}
+        />
       )}
 
       {dispatchedInfo && (

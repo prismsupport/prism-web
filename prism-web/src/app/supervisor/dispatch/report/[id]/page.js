@@ -19,6 +19,8 @@ import AttemptReviewCard from '@/components/dispatch/AttemptReviewCard'
 import { reopenAssignment } from '@/lib/dispatch/reopenAssignment'
 import { PageLoading } from "@/components/ui/Skeleton";
 import { toast } from '@/lib/toast'
+import ReopenTicketModal from '@/components/dispatch/ReopenTicketModal'
+import ReopenReasonNote from '@/components/dispatch/ReopenReasonNote'
 
 export default function ReportReviewPage() {
   const { id } = useParams()
@@ -45,6 +47,7 @@ export default function ReportReviewPage() {
   const [actionLoading, setActionLoading] = useState(false)
 
   const [dispatchedInfo, setDispatchedInfo] = useState(null)
+    const [showReopenModal, setShowReopenModal] = useState(false)
   const [linemanDetailsOpen, setLinemanDetailsOpen] = useState(false)
 
   useEffect(() => {
@@ -117,7 +120,7 @@ export default function ReportReviewPage() {
     // assignment) so a reopened or QA-rejected report keeps its complete
     // trail visible here, not just on the separate Reopen Review page.
     if (assignmentList.length > 1) {
-      const priorAssignments = assignmentList.slice(0, -1)
+      const priorAssignments = assignmentList
 
       const linemanIds = Array.from(new Set(priorAssignments.map((a) => a.lineman_id)))
       let linemenMap = {}
@@ -158,6 +161,7 @@ export default function ReportReviewPage() {
         attempts.push({
           ...a,
           attemptNumber: index + 1,
+          isCurrent: index === assignmentList.length - 1,
           linemanName: linemenMap[a.lineman_id] || 'Unknown',
           logs: logs || [],
           review,
@@ -264,23 +268,21 @@ export default function ReportReviewPage() {
     router.push('/supervisor/dispatch')
   }
 
-  async function handleReopen() {
-    setActionLoading(true)
+  // Called by the Re-open dialog. Returns an error message, or null on success.
+  async function handleReopen(reason) {
     const { error: reopenError } = await reopenAssignment({
       reportId: id,
       linemanId: assignment.lineman_id,
+      reason,
+      source: 'supervisor',
     })
 
-    if (reopenError) {
-      toast.error(reopenError)
-      setError(reopenError)
-      setActionLoading(false)
-      return
-    }
+    if (reopenError) return reopenError
 
-    setActionLoading(false)
-    toast.success('Assignment reopened')
+    setShowReopenModal(false)
+    toast.success('Ticket reopened')
     loadReport()
+    return null
   }
 
   if (loading) return <PageLoading />
@@ -391,6 +393,14 @@ export default function ReportReviewPage() {
             </p>
           )}
 
+          {assignment?.reopen_reason && (
+            <ReopenReasonNote source={assignment.reopen_source} reason={assignment.reopen_reason} />
+          )}
+
+          {assignment?.status === 'fixed' && (
+            <QAReviewSection assignment={assignment} reportId={id} onReviewed={loadReport} />
+          )}
+
           {assignment && (
             <AssignedLinemanCard
               name={assignedLinemanName}
@@ -399,7 +409,7 @@ export default function ReportReviewPage() {
               expanded={linemanDetailsOpen}
               onToggleExpand={() => setLinemanDetailsOpen(!linemanDetailsOpen)}
             >
-              {(assignment.status === 'fixed' || assignment.status === 'resolved') && (
+              {assignment.status === 'resolved' && (
                 <QAReviewSection assignment={assignment} reportId={id} onReviewed={loadReport} />
               )}
               <JobOrderStatusLog logs={statusLogs} />
@@ -445,7 +455,7 @@ export default function ReportReviewPage() {
             </div>
           )}
 
-          <ResolveTicketBar status={assignment?.status} onReopen={handleReopen} loading={actionLoading} />
+          <ResolveTicketBar status={assignment?.status} onReopen={() => setShowReopenModal(true)} loading={actionLoading} />
         </div>
       )}
 
@@ -456,6 +466,14 @@ export default function ReportReviewPage() {
           onConfirm={handleConfirmDecline}
           onCancel={() => setShowDeclineModal(false)}
           loading={actionLoading}
+        />
+      )}
+
+      {showReopenModal && (
+        <ReopenTicketModal
+          ticketLabel={report.ticket_number}
+          onConfirm={handleReopen}
+          onClose={() => setShowReopenModal(false)}
         />
       )}
 

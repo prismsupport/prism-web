@@ -115,6 +115,7 @@ export default function ReopenReviewPage() {
       attempts.push({
         ...a,
         attemptNumber: index + 1,
+        isCurrent: index === assignmentList.length - 1,
         linemanName: linemenMap[a.lineman_id] || 'Unknown',
         logs: logs || [],
         review,
@@ -157,6 +158,8 @@ export default function ReopenReviewPage() {
     const { error: reopenErrorMsg } = await reopenAssignment({
       reportId: reopen.report_id,
       linemanId: originalAssignment.lineman_id,
+      reason: reopen.description,
+      source: 'consumer',
     })
 
     if (reopenErrorMsg) {

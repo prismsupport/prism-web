@@ -113,6 +113,8 @@ export default function QAReviewSection({ assignment, reportId, masterId, onRevi
       reportId,
       masterId,
       linemanId: assignment.lineman_id,
+      reason: remarks.trim(),
+      source: 'qa_rejection',
     })
 
     if (reopenError) {
