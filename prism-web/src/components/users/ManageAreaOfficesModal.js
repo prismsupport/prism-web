@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Modal from '@/components/ui/Modal'
 import { toast } from '@/lib/toast'
+import AreaOfficeHotlines from '@/components/users/AreaOfficeHotlines'
 
 export default function ManageAreaOfficesModal({ cooperativeId, areaOffices, onClose, onUpdated }) {
   const [list, setList] = useState(areaOffices || [])
@@ -235,6 +236,7 @@ export default function ManageAreaOfficesModal({ cooperativeId, areaOffices, onC
           Add
         </button>
       </div>
+    <AreaOfficeHotlines areaOffices={list} />
     </Modal>
   )
 }

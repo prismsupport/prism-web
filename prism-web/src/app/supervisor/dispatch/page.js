@@ -11,6 +11,8 @@ import DuplicateSuggestionCard from "@/components/dispatch/DuplicateSuggestionCa
 import DispatchTicketRow from "@/components/dispatch/DispatchTicketRow";
 import StatusNamesModal from "@/components/dispatch/StatusNamesModal";
 import ManagePriorityLevelsModal from "@/components/dispatch/ManagePriorityLevelsModal";
+import OfficeHoursModal from "@/components/dispatch/OfficeHoursModal";
+import { usePermissions } from "@/lib/supervisor/PermissionsContext";
 import {
   useSupervisorNotificationRefresh,
   useUnreadSupervisorNotifications,
@@ -43,6 +45,8 @@ function DispatchContent() {
   const searchParams = useSearchParams()
   const [showStatusNames, setShowStatusNames] = useState(false)
   const [showPriorityLevels, setShowPriorityLevels] = useState(false)
+  const [showOfficeHours, setShowOfficeHours] = useState(false)
+  const { isOwner } = usePermissions()
   const [reports, setReports] = useState([]);
   const [assignments, setAssignments] = useState([]);
   const [linemenNames, setLinemenNames] = useState({});
@@ -321,6 +325,14 @@ function DispatchContent() {
       <div className="flex items-center justify-between gap-4">
         <h1 className="text-2xl font-bold text-gray-900">Dispatch Management</h1>
         <div className="flex items-center gap-3">
+          {isOwner && (
+            <button
+              onClick={() => setShowOfficeHours(true)}
+              className="bg-white hover:bg-gray-50 text-gray-700 text-sm font-semibold px-4 py-2 rounded-lg border border-gray-200 transition-colors whitespace-nowrap"
+            >
+              Office Hours
+            </button>
+          )}
           <button
             onClick={() => setShowPriorityLevels(true)}
             className="bg-white hover:bg-gray-50 text-gray-700 text-sm font-semibold px-4 py-2 rounded-lg border border-gray-200 transition-colors whitespace-nowrap"
@@ -336,6 +348,7 @@ function DispatchContent() {
         </div>
       </div>
       {showStatusNames && <StatusNamesModal onClose={() => setShowStatusNames(false)} />}
+      {showOfficeHours && <OfficeHoursModal onClose={() => setShowOfficeHours(false)} />}
       {showPriorityLevels && (
         <ManagePriorityLevelsModal
           onClose={() => setShowPriorityLevels(false)}
