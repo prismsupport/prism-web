@@ -10,7 +10,7 @@ export default function ConsumerRow({ consumer, onSelect }) {
       <td className="px-5 py-4 text-gray-600">
         {consumer.municipality || '—'}
       </td>
-      <td className="px-5 py-4 text-center">
+      <td className="px-5 py-4 text-center align-middle">
         <button
           type="button"
           onClick={() => onSelect(consumer)}

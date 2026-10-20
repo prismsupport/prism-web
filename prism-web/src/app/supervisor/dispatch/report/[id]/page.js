@@ -36,6 +36,7 @@ export default function ReportReviewPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [showHistory, setShowHistory] = useState(false)
+  const [showMap, setShowMap] = useState(true)
 
   const [showAssignPanel, setShowAssignPanel] = useState(false)
   const [linemen, setLinemen] = useState([])
@@ -295,14 +296,27 @@ export default function ReportReviewPage() {
   const currentStatus = assignment ? assignment.status : report.status
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[calc(100vh-8rem)]">
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <ReportMap
-          lat={report.lat}
-          lng={report.lng}
-          label={report.nearest_landmark || report.barangay}
-        />
-      </div>
+    <div
+      className={`grid grid-cols-1 ${
+        showMap ? 'lg:grid-cols-2' : ''
+      } gap-6 h-[calc(100vh-8rem)]`}
+    >
+      {showMap && (
+        <div className="relative bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <ReportMap
+            lat={report.lat}
+            lng={report.lng}
+            label={report.nearest_landmark || report.barangay}
+          />
+          <button
+            type="button"
+            onClick={() => setShowMap(false)}
+            className="absolute top-4 right-4 z-[500] text-sm text-blue-700 font-medium bg-white border border-blue-200 rounded-lg px-3 py-1.5 shadow-sm hover:bg-blue-50 whitespace-nowrap"
+          >
+            Collapse Map
+          </button>
+        </div>
+      )}
 
       {showAssignPanel ? (
         <LinemanRecommendationPanel
@@ -317,13 +331,25 @@ export default function ReportReviewPage() {
         />
       ) : (
         <div className="overflow-y-auto space-y-6">
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <TicketDetailHeader
-              ticketNumber={report.ticket_number}
-              reporterName={reporterName}
-              reopened={!!report.reopened_at}
-              onClose={() => router.push('/supervisor/dispatch')}
-            />
+          <div className="relative bg-white rounded-xl border border-gray-200 p-6">
+            <div className="flex items-start justify-between gap-4">
+              <TicketDetailHeader
+                ticketNumber={report.ticket_number}
+                reporterName={reporterName}
+                reopened={!!report.reopened_at}
+                onClose={() => router.push('/supervisor/dispatch')}
+                closeClassName="absolute top-4 right-4"
+              />
+              {!showMap && (
+                <button
+                  type="button"
+                  onClick={() => setShowMap(true)}
+                  className="mr-8 text-sm text-blue-700 font-medium border border-blue-200 rounded-lg px-3 py-1.5 hover:bg-blue-50 whitespace-nowrap"
+                >
+                  View Map
+                </button>
+              )}
+            </div>
 
             <TicketStatusPriority status={currentStatus} priority={report.priority} />
 

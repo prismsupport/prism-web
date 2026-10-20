@@ -1,4 +1,10 @@
-export default function TicketDetailHeader({ ticketNumber, reporterName, reopened, onClose }) {
+export default function TicketDetailHeader({
+  ticketNumber,
+  reporterName,
+  reopened,
+  onClose,
+  closeClassName = '',
+}) {
   return (
     <div className="flex items-start justify-between mb-4">
       <div>
@@ -21,7 +27,10 @@ export default function TicketDetailHeader({ ticketNumber, reporterName, reopene
         )}
       </div>
       {onClose && (
-        <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl">
+        <button
+          onClick={onClose}
+          className={`text-gray-400 hover:text-gray-600 text-xl ${closeClassName}`}
+        >
           ✕
         </button>
       )}

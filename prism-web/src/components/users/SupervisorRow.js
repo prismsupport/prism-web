@@ -7,13 +7,15 @@ export default function SupervisorRow({ supervisor, currentUserId, onSelect }) {
         {supervisor.first_name} {supervisor.last_name}
         {isSelf && <span className="ml-2 text-xs text-gray-400">(You)</span>}
       </td>
-      <td className="px-5 py-4 text-center">
+      <td className="px-5 py-4 text-center align-middle">
         {supervisor.is_owner ? (
-          <span className="text-xs font-bold bg-blue-100 text-blue-700 px-2 py-0.5 rounded">
-            OWNER
-          </span>
+          <div className="flex justify-center">
+            <span className="text-xs font-bold bg-blue-100 text-blue-700 px-2 py-0.5 rounded">
+              OWNER
+            </span>
+          </div>
         ) : supervisor.feature_access?.length > 0 ? (
-          <div className="flex flex-wrap gap-1">
+          <div className="flex flex-wrap justify-center gap-1">
             {supervisor.feature_access.map((f) => (
               <span
                 key={f}

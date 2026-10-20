@@ -375,7 +375,7 @@ export default function UsersPage() {
                   <th className="px-5 py-3 font-semibold">Zone</th>
                   <th className="px-5 py-3 font-semibold">Barangay</th>
                   <th className="px-5 py-3 font-semibold">Municipality</th>
-                  <th className="px-5 py-3 font-semibold">Actions</th>
+                  <th className="px-5 py-3 text-center font-semibold">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -435,7 +435,7 @@ export default function UsersPage() {
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200 text-left text-xs text-gray-500 uppercase tracking-wide">
                   <th className="px-5 py-3 font-semibold">Name</th>
-                  <th className="px-5 py-3 font-semibold">Access</th>
+                  <th className="px-5 py-3 text-center font-semibold">Access</th>
                   <th className="px-5 py-3 font-semibold">Contact Number</th>
                   <th className="px-5 py-3 font-semibold">Actions</th>
                 </tr>

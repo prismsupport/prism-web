@@ -66,6 +66,7 @@ export default function CreateSupervisorModal({ cooperativeId, onClose, onCreate
             label="First Name"
             name="firstName"
             required
+            placeholder="First name"
             value={form.firstName}
             onChange={handleChange}
           />
@@ -73,6 +74,7 @@ export default function CreateSupervisorModal({ cooperativeId, onClose, onCreate
             label="Last Name"
             name="lastName"
             required
+            placeholder="Last name"
             value={form.lastName}
             onChange={handleChange}
           />
@@ -84,6 +86,7 @@ export default function CreateSupervisorModal({ cooperativeId, onClose, onCreate
             name="email"
             type="email"
             required
+            placeholder="supervisor@utilitypro.com"
             value={form.email}
             onChange={handleChange}
           />
@@ -91,6 +94,7 @@ export default function CreateSupervisorModal({ cooperativeId, onClose, onCreate
             label="Contact Number"
             name="contactNumber"
             required
+            placeholder="+63 900 000 0000"
             value={form.contactNumber}
             onChange={handleChange}
           />
@@ -123,6 +127,7 @@ export default function CreateSupervisorModal({ cooperativeId, onClose, onCreate
           type="password"
           required
           minLength={6}
+          placeholder="••••••••"
           value={form.password}
           onChange={handleChange}
         />

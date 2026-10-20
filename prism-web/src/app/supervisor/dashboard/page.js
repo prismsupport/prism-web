@@ -268,13 +268,9 @@ async function loadAttention(supabase, coopId, can) {
           .eq('reports.cooperative_id', coopId),
         // Also notifies supervisors once per overdue ticket, same as the Dispatch page
         supabase.rpc('check_response_time_overdue', { p_cooperative_id: coopId }),
-        supabase.rpc('get_lineman_duty_status'),
-      ]).then(([reopenRes, overdueRes, dutyRes]) => {
+      ]).then(([reopenRes, overdueRes]) => {
         out.reopen = reopenRes.count ?? 0
         out.overdue = (overdueRes.data || []).length
-        const dutyRows = dutyRes.data || []
-        out.onDuty = dutyRows.filter((d) => d.is_available).length
-        out.linemenTotal = dutyRows.length
       })
     )
   }
@@ -310,7 +306,7 @@ async function loadAttention(supabase, coopId, can) {
 // ---------------------------------------------------------------------------
 
 export default function SupervisorDashboardPage() {
-  const { hasFeature, isOwner } = usePermissions()
+  const { hasFeature } = usePermissions()
   const { statusLabel } = useStatusLabels()
   const can = {
     dispatch: hasFeature('dispatch'),
@@ -582,83 +578,58 @@ export default function SupervisorDashboardPage() {
               <StatusBreakdown cards={STATUS_CARDS} counts={statusCounts} />
             </div>
 
-            {/* Linemen on duty now */}
-            {attention.linemenTotal != null && (
-              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-                <h2 className="text-sm font-bold text-gray-900 mb-1">Linemen On Duty Now</h2>
-                <p className="text-xs text-gray-400 mb-4">
-                  On shift (or on call) and reporting a location recently
-                </p>
-                <p className="text-3xl font-bold text-green-600">
-                  {attention.onDuty}
-                  <span className="text-lg text-gray-400 font-semibold">
-                    {' '}
-                    / {attention.linemenTotal}
-                  </span>
-                </p>
-                {isOwner && (
-                  <Link
-                    href="/supervisor/users"
-                    className="inline-block text-xs font-semibold text-blue-700 mt-3"
-                  >
-                    View lineman list
-                  </Link>
-                )}
+            {/* Top lineman performance */}
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-sm font-bold text-gray-900">Top Lineman Performance</h2>
+                <Link href="/supervisor/lineman-performance" className="text-xs font-semibold text-blue-700">
+                  View all
+                </Link>
               </div>
-            )}
-          </div>
-
-          {/* Top lineman performance */}
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 mb-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-bold text-gray-900">Top Lineman Performance</h2>
-              <Link href="/supervisor/lineman-performance" className="text-xs font-semibold text-blue-700">
-                View all
-              </Link>
-            </div>
-                        {linemenPerformance.length === 0 ? (
-              <EmptyState
-                title="No completed jobs in this period"
-                description="Linemen appear here once they complete jobs."
-              />
-            ) : (
-              <div className="divide-y divide-gray-100">
-                {linemenPerformance.map((l, i) => (
-                  <div
-                    key={l.id}
-                    className="flex items-center justify-between gap-3 py-3 text-sm first:pt-0 last:pb-0"
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="w-4 text-center text-xs font-bold text-gray-400">{i + 1}</span>
-                      <Avatar name={`${l.first_name} ${l.last_name}`} size={32} />
-                      <span className="font-medium text-gray-900">
-                        {l.first_name} {l.last_name}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <span className="text-gray-600">
-                        <span className="font-display font-bold tabular-nums text-gray-900">
-                          {l.jobsCompleted}
-                        </span>{" "}
-                        jobs
-                      </span>
-                      {l.ratingCount > 0 ? (
-                        <span className="text-gray-600">
-                          <span className="text-amber-500">★</span> {l.ratingAverage.toFixed(1)}{" "}
-                          <span className="text-gray-400">({l.ratingCount})</span>
+              {linemenPerformance.length === 0 ? (
+                <EmptyState
+                  title="No completed jobs in this period"
+                  description="Linemen appear here once they complete jobs."
+                />
+              ) : (
+                <div className="divide-y divide-gray-100">
+                  {linemenPerformance.map((l, i) => (
+                    <div
+                      key={l.id}
+                      className="flex items-center justify-between gap-3 py-3 text-sm first:pt-0 last:pb-0"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="w-4 text-center text-xs font-bold text-gray-400">{i + 1}</span>
+                        <Avatar name={`${l.first_name} ${l.last_name}`} size={32} />
+                        <span className="font-medium text-gray-900">
+                          {l.first_name} {l.last_name}
                         </span>
-                      ) : (
-                        <span className="text-xs text-gray-400">No ratings</span>
-                      )}
-                      <StatusPill
-                        status={l.is_active ? "active" : "deactivated"}
-                        label={l.is_active ? "Active" : "Inactive"}
-                      />
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <span className="text-gray-600">
+                          <span className="font-display font-bold tabular-nums text-gray-900">
+                            {l.jobsCompleted}
+                          </span>{' '}
+                          jobs
+                        </span>
+                        {l.ratingCount > 0 ? (
+                          <span className="text-gray-600">
+                            <span className="text-amber-500">★</span> {l.ratingAverage.toFixed(1)}{' '}
+                            <span className="text-gray-400">({l.ratingCount})</span>
+                          </span>
+                        ) : (
+                          <span className="text-xs text-gray-400">No ratings</span>
+                        )}
+                        <StatusPill
+                          status={l.is_active ? 'active' : 'deactivated'}
+                          label={l.is_active ? 'Active' : 'Inactive'}
+                        />
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </>
       )}
