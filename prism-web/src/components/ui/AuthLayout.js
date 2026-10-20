@@ -48,7 +48,7 @@ export default function AuthLayout({ children, logoSubtitle, variant = "supervis
         </div>
 
         <div className="relative mx-auto w-full max-w-sm">
-          <img src="/brand/mascot.png" alt="" className="mx-auto w-72 max-w-full drop-shadow-2xl" />
+          <img src="/brand/mascot.png" alt="" className="mx-auto w-56 max-w-full drop-shadow-2xl" />
           <h2 className="mt-8 text-3xl font-extrabold leading-tight text-white">{c.headline}</h2>
           <p className="mt-3 max-w-md text-sm text-blue-200">{c.text}</p>
           <ul className="mt-6 space-y-3">
