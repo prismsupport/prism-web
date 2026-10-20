@@ -7,6 +7,13 @@ import { formatMinutes, summarizeRatings } from '@/lib/performance'
 import { usePermissions } from '@/lib/supervisor/PermissionsContext'
 import { PageLoading } from "@/components/ui/Skeleton";
 import { useStatusLabels } from '@/lib/workflow/StatusLabelsContext'
+import SegmentedControl from '@/components/ui/SegmentedControl'
+import MetricCard from '@/components/dashboard/MetricCard'
+import TrendChart from '@/components/dashboard/TrendChart'
+import StatusBreakdown from '@/components/dashboard/StatusBreakdown'
+import Avatar from '@/components/ui/Avatar'
+import StatusPill from '@/components/ui/StatusPill'
+import EmptyState from '@/components/ui/EmptyState'
 
 const MAX_ROWS = 1000 // Supabase returns at most 1000 rows per request
 
@@ -422,21 +429,12 @@ export default function SupervisorDashboardPage() {
 
         <div className="flex items-center gap-3 shrink-0">
           {can.dispatch && (
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-gray-500 tracking-wide">PERIOD</span>
-              <select
-                value={rangeKey}
-                onChange={(e) => setRangeKey(e.target.value)}
-                disabled={refreshing}
-                className="select-control text-sm border border-gray-200 rounded-lg px-3 py-1.5 disabled:opacity-60"
-              >
-                {RANGES.map((r) => (
-                  <option key={r.key} value={r.key}>
-                    {r.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <SegmentedControl
+              options={RANGES}
+              value={rangeKey}
+              onChange={setRangeKey}
+              disabled={refreshing}
+            />
           )}
           {lastUpdated && (
             <span className="text-xs text-gray-400">
@@ -469,7 +467,7 @@ export default function SupervisorDashboardPage() {
       )}
 
       {!hasAnyWidget && (
-        <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-8 text-center">
           <p className="text-sm font-semibold text-gray-900 mb-1">
             No dashboard widgets are available for your account yet.
           </p>
@@ -503,98 +501,90 @@ export default function SupervisorDashboardPage() {
       {can.dispatch && stats && (
         <>
           {/* Top stat cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-            <div className="bg-white rounded-xl border border-gray-200 p-4">
-              <p className="text-xs font-bold text-gray-400 uppercase mb-1">
-                Total Outage Reports
-              </p>
-              <p className="text-2xl font-bold text-gray-900">{stats.totalReports}</p>
-              {stats.declinedReports > 0 && (
-                <p className="text-xs text-gray-400 mt-0.5">{stats.declinedReports} declined</p>
-              )}
-            </div>
-            <div className="bg-white rounded-xl border border-gray-200 p-4">
-              <p className="text-xs font-bold text-gray-400 uppercase mb-1">Reports Resolved</p>
-              <p className="text-2xl font-bold text-green-600">{stats.resolvedReports}</p>
-            </div>
-            <div className="bg-white rounded-xl border border-gray-200 p-4">
-              <p className="text-xs font-bold text-gray-400 uppercase mb-1">Avg. Response Time</p>
-              <p className="text-2xl font-bold text-gray-900">{formatMinutes(stats.avgResponse)}</p>
-              <p className="text-xs text-gray-400 mt-0.5">Submission to first dispatch</p>
-            </div>
-            <div className="bg-white rounded-xl border border-gray-200 p-4">
-              <p className="text-xs font-bold text-gray-400 uppercase mb-1">Avg. Repair Time</p>
-              <p className="text-2xl font-bold text-gray-900">{formatMinutes(stats.avgRepair)}</p>
-              <p className="text-xs text-gray-400 mt-0.5">First dispatch to completion</p>
-            </div>
+                    <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-4">
+            <MetricCard
+              label="Total outage reports"
+              value={stats.totalReports}
+              hint={stats.declinedReports > 0 ? `${stats.declinedReports} declined` : undefined}
+            >
+              <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+              <rect width="8" height="4" x="8" y="2" rx="1" />
+            </MetricCard>
+            <MetricCard tone="green" label="Reports resolved" value={stats.resolvedReports}>
+              <circle cx="12" cy="12" r="10" />
+              <path d="m9 12 2 2 4-4" />
+            </MetricCard>
+            <MetricCard
+              tone="amber"
+              label="Avg. response time"
+              value={formatMinutes(stats.avgResponse)}
+              hint="Submission to first dispatch"
+            >
+              <circle cx="12" cy="12" r="10" />
+              <path d="M12 6v6l4 2" />
+            </MetricCard>
+            <MetricCard
+              label="Avg. repair time"
+              value={formatMinutes(stats.avgRepair)}
+              hint="First dispatch to completion"
+            >
+              <path d="M13 2 3 14h7l-1 8 11-14h-7l1-6Z" />
+            </MetricCard>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
             {/* Outage reports by barangay */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
-              <h2 className="text-sm font-bold text-gray-900 mb-4">Outage Reports by Barangay</h2>
-              {barangayData.length === 0 && (
-                <p className="text-sm text-gray-500">No reports in this period.</p>
+                        <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+              <h2 className="mb-4 text-sm font-bold text-gray-900">Outage Reports by Barangay</h2>
+              {barangayData.length === 0 ? (
+                <EmptyState
+                  title="No reports in this period"
+                  description="Reports show up here as consumers submit them."
+                />
+              ) : (
+                <div className="space-y-4">
+                  {barangayData.map(([barangay, count], i) => (
+                    <div key={barangay}>
+                      <div className="mb-1.5 flex items-center justify-between text-sm">
+                        <span className="flex items-center gap-2 text-gray-700">
+                          <span className="flex h-5 w-5 items-center justify-center rounded-md bg-gray-100 text-[11px] font-bold text-gray-500">
+                            {i + 1}
+                          </span>
+                          {barangay}
+                        </span>
+                        <span className="font-display font-bold tabular-nums text-gray-900">{count}</span>
+                      </div>
+                      <div className="h-2 w-full rounded-full bg-gray-100">
+                        <div
+                          className="h-2 rounded-full bg-blue-700"
+                          style={{ width: `${(count / maxBarangayCount) * 100}%` }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
               )}
-              <div className="space-y-3">
-                {barangayData.map(([barangay, count]) => (
-                  <div key={barangay}>
-                    <div className="flex justify-between text-sm mb-1">
-                      <span className="text-gray-700">{barangay}</span>
-                      <span className="font-semibold text-gray-900">{count}</span>
-                    </div>
-                    <div className="w-full bg-gray-100 rounded-full h-2">
-                      <div
-                        className="bg-blue-700 h-2 rounded-full"
-                        style={{ width: `${(count / maxBarangayCount) * 100}%` }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
             </div>
 
             {/* Reports per day */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
               <h2 className="text-sm font-bold text-gray-900 mb-1">Reports per Day</h2>
               <p className="text-xs text-gray-400 mb-4">Last 7 days trend</p>
-              <div className="flex items-end justify-between gap-2 h-32">
-                {dailyTrend.map((d) => (
-                  <div key={d.label} className="flex-1 flex flex-col items-center gap-1">
-                    <span className="text-xs font-semibold text-gray-700">{d.count}</span>
-                    <div
-                      className="w-full bg-blue-200 rounded-t"
-                      style={{ height: `${Math.max(4, (d.count / maxTrendCount) * 80)}px` }}
-                    />
-                    <span className="text-[10px] text-gray-400">{d.label}</span>
-                  </div>
-                ))}
-              </div>
+              <TrendChart data={dailyTrend} />
             </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
             {/* Dispatch status overview */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
               <h2 className="text-sm font-bold text-gray-900 mb-1">Dispatch Status Overview</h2>
               <p className="text-xs text-gray-400 mb-4">Current, all tickets</p>
-              <div className="grid grid-cols-3 gap-4">
-                {STATUS_CARDS.map((s) => (
-                  <Link
-                    key={s.key}
-                    href={`/supervisor/dispatch?status=${s.key}`}
-                    className="rounded-lg hover:bg-gray-50 -m-1 p-1"
-                  >
-                    <p className="text-xs text-gray-400">{statusLabel(s.key)}</p>
-                    <p className={`text-xl font-bold ${s.color}`}>{statusCounts[s.key]}</p>
-                  </Link>
-                ))}
-              </div>
+              <StatusBreakdown cards={STATUS_CARDS} counts={statusCounts} />
             </div>
 
             {/* Linemen on duty now */}
             {attention.linemenTotal != null && (
-              <div className="bg-white rounded-xl border border-gray-200 p-6">
+              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
                 <h2 className="text-sm font-bold text-gray-900 mb-1">Linemen On Duty Now</h2>
                 <p className="text-xs text-gray-400 mb-4">
                   On shift (or on call) and reporting a location recently
@@ -619,56 +609,63 @@ export default function SupervisorDashboardPage() {
           </div>
 
           {/* Top lineman performance */}
-          <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 mb-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-sm font-bold text-gray-900">Top Lineman Performance</h2>
               <Link href="/supervisor/lineman-performance" className="text-xs font-semibold text-blue-700">
                 View all
               </Link>
             </div>
-            {linemenPerformance.length === 0 && (
-              <p className="text-sm text-gray-500">No completed jobs in this period.</p>
-            )}
-            <div className="space-y-3">
-              {linemenPerformance.map((l) => (
-                <div key={l.id} className="flex items-center justify-between text-sm">
-                  <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-full bg-blue-100 text-blue-700 text-xs font-bold flex items-center justify-center">
-                      {l.first_name[0]}
-                      {l.last_name[0]}
-                    </div>
-                    <span className="text-gray-900 font-medium">
-                      {l.first_name} {l.last_name}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-gray-600">{l.jobsCompleted} jobs</span>
-                    {l.ratingCount > 0 ? (
-                      <span className="text-gray-600">
-                        <span className="text-amber-500">★</span> {l.ratingAverage.toFixed(1)}{' '}
-                        <span className="text-gray-400">({l.ratingCount})</span>
+                        {linemenPerformance.length === 0 ? (
+              <EmptyState
+                title="No completed jobs in this period"
+                description="Linemen appear here once they complete jobs."
+              />
+            ) : (
+              <div className="divide-y divide-gray-100">
+                {linemenPerformance.map((l, i) => (
+                  <div
+                    key={l.id}
+                    className="flex items-center justify-between gap-3 py-3 text-sm first:pt-0 last:pb-0"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="w-4 text-center text-xs font-bold text-gray-400">{i + 1}</span>
+                      <Avatar name={`${l.first_name} ${l.last_name}`} size={32} />
+                      <span className="font-medium text-gray-900">
+                        {l.first_name} {l.last_name}
                       </span>
-                    ) : (
-                      <span className="text-xs text-gray-400">No ratings</span>
-                    )}
-                    <span
-                      className={`text-xs font-semibold ${
-                        l.is_active ? 'text-green-600' : 'text-gray-400'
-                      }`}
-                    >
-                      {l.is_active ? 'Active' : 'Inactive'}
-                    </span>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <span className="text-gray-600">
+                        <span className="font-display font-bold tabular-nums text-gray-900">
+                          {l.jobsCompleted}
+                        </span>{" "}
+                        jobs
+                      </span>
+                      {l.ratingCount > 0 ? (
+                        <span className="text-gray-600">
+                          <span className="text-amber-500">★</span> {l.ratingAverage.toFixed(1)}{" "}
+                          <span className="text-gray-400">({l.ratingCount})</span>
+                        </span>
+                      ) : (
+                        <span className="text-xs text-gray-400">No ratings</span>
+                      )}
+                      <StatusPill
+                        status={l.is_active ? "active" : "deactivated"}
+                        label={l.is_active ? "Active" : "Inactive"}
+                      />
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         </>
       )}
 
       {/* Advisories summary */}
       {can.advisories && advisoryCounts && (
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
           <h2 className="text-sm font-bold text-gray-900 mb-4">Advisories Summary</h2>
           <div className="grid grid-cols-4 gap-4">
             <div>
