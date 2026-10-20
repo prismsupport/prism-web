@@ -44,7 +44,7 @@ export default function AuthLayout({ children, logoSubtitle, variant = "supervis
         className="relative z-10 hidden flex-col justify-between p-12 lg:sticky lg:top-0 lg:flex lg:h-screen lg:self-start"
       >
         <div className="relative">
-          <Logo onDark subtitle={logoSubtitle} />
+          <Logo hideMark onDark subtitle={logoSubtitle} />
         </div>
 
         <div className="relative mx-auto w-full max-w-sm">
@@ -82,7 +82,7 @@ export default function AuthLayout({ children, logoSubtitle, variant = "supervis
       {/* Form panel */}
       <div className="relative z-10 flex flex-col items-center justify-center px-4 py-8 sm:px-6 sm:py-10">
         <div className="mb-8 lg:hidden">
-          <Logo subtitle={logoSubtitle} />
+          <Logo hideMark subtitle={logoSubtitle} />
         </div>
         <div
           className={`w-full rounded-3xl bg-white p-6 shadow-2xl shadow-blue-950/30 sm:p-8 ${

@@ -1,11 +1,13 @@
-export default function Logo({ subtitle, onDark = false, compact = false }) {
+export default function Logo({ subtitle, onDark = false, compact = false, hideMark = false }) {
   return (
     <div className="flex items-center gap-3">
-      <img
-        src="/brand/mascot-sm.png"
-        alt={compact ? "PRISM" : ""}
-        className="h-10 w-auto shrink-0"
-      />
+      {!hideMark && (
+        <img
+          src="/brand/mascot-sm.png"
+          alt={compact ? "PRISM" : ""}
+          className="h-10 w-auto shrink-0"
+        />
+      )}
       {!compact && (
         <div>
           <div
