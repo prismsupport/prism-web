@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import Logo from '@/components/ui/Logo'
+import AuthLayout from '@/components/ui/AuthLayout'
 import { toast } from '@/lib/toast'
 
 export default function SupervisorRegisterPage() {
@@ -82,39 +82,45 @@ export default function SupervisorRegisterPage() {
 
   if (submitted) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-        <div className="w-full max-w-md bg-white rounded-2xl shadow-sm overflow-hidden">
-          <div className="px-8 py-5 border-b border-gray-100">
-            <Logo subtitle="SUPERVISOR PORTAL" />
+      <AuthLayout logoSubtitle="SUPERVISOR PORTAL">
+        <div className="text-center lg:text-left">
+          <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-full bg-green-100 text-green-700 lg:mx-0">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="h-7 w-7"
+            >
+              <path d="m5 13 4 4L19 7" />
+            </svg>
           </div>
-          <div className="px-8 py-10 text-center">
-            <h1 className="text-xl font-bold text-gray-900 mb-2">
-              Registration Submitted
-            </h1>
-            <p className="text-sm text-gray-500">
-              Please check <span className="font-medium">{form.email}</span> to
-              confirm your account. After confirming, your registration will
-              be under review by the Superadmin — you'll be able to log in
-              once it's approved.
-            </p>
-          </div>
+          <h1 className="text-3xl font-extrabold text-gray-900">Registration submitted</h1>
+          <p className="mt-3 text-sm leading-relaxed text-gray-500">
+            Please check <span className="font-semibold text-gray-700">{form.email}</span> to
+            confirm your account. After confirming, your registration will be under review by
+            the Superadmin — you'll be able to log in once it's approved.
+          </p>
+          <a
+            href="/supervisor/login"
+            className="mt-8 inline-flex rounded-xl bg-blue-700 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-blue-800"
+          >
+            Back to log in
+          </a>
         </div>
-      </div>
+      </AuthLayout>
     )
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 py-10">
-      <div className="w-full max-w-lg bg-white rounded-2xl shadow-sm overflow-hidden">
-        <div className="px-8 py-5 border-b border-gray-100">
-          <Logo subtitle="SUPERVISOR PORTAL" />
-        </div>
-
-        <div className="px-8 pt-8 pb-10">
-          <h1 className="text-2xl font-bold text-gray-900">
-            Register Your Cooperative
+    <AuthLayout logoSubtitle="SUPERVISOR PORTAL" wide>
+          <h1 className="text-3xl font-extrabold text-gray-900">
+            Register your cooperative
           </h1>
-          <p className="text-sm text-gray-500 mt-1 mb-6">
+          <p className="mb-8 mt-2 text-sm text-gray-500">
             Create your cooperative profile and administrator account.
           </p>
 
@@ -130,7 +136,7 @@ export default function SupervisorRegisterPage() {
                   value={form.cooperativeName}
                   onChange={handleChange}
                   placeholder="Cooperative Name"
-                  className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600"
                 />
                 <input
                   name="officeAddress"
@@ -138,7 +144,7 @@ export default function SupervisorRegisterPage() {
                   value={form.officeAddress}
                   onChange={handleChange}
                   placeholder="Office Address"
-                  className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600"
                 />
                 <div className="grid grid-cols-2 gap-3">
                   <input
@@ -147,7 +153,7 @@ export default function SupervisorRegisterPage() {
                     value={form.municipality}
                     onChange={handleChange}
                     placeholder="Municipality"
-                    className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600"
                   />
                   <input
                     name="province"
@@ -155,7 +161,7 @@ export default function SupervisorRegisterPage() {
                     value={form.province}
                     onChange={handleChange}
                     placeholder="Province"
-                    className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600"
                   />
                 </div>
                 <input
@@ -164,7 +170,7 @@ export default function SupervisorRegisterPage() {
                   value={form.contactNumber}
                   onChange={handleChange}
                   placeholder="Contact Number"
-                  className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600"
                 />
                 <input
                   name="officialEmail"
@@ -173,7 +179,7 @@ export default function SupervisorRegisterPage() {
                   value={form.officialEmail}
                   onChange={handleChange}
                   placeholder="Official Cooperative Email"
-                  className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600"
                 />
               </div>
             </div>
@@ -190,7 +196,7 @@ export default function SupervisorRegisterPage() {
                     value={form.firstName}
                     onChange={handleChange}
                     placeholder="First Name"
-                    className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600"
                   />
                   <input
                     name="lastName"
@@ -198,7 +204,7 @@ export default function SupervisorRegisterPage() {
                     value={form.lastName}
                     onChange={handleChange}
                     placeholder="Last Name"
-                    className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600"
                   />
                 </div>
                 <input
@@ -208,7 +214,7 @@ export default function SupervisorRegisterPage() {
                   value={form.email}
                   onChange={handleChange}
                   placeholder="Your Personal Email (for login)"
-                  className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600"
                 />
                 <input
                   name="password"
@@ -218,7 +224,7 @@ export default function SupervisorRegisterPage() {
                   value={form.password}
                   onChange={handleChange}
                   placeholder="Password"
-                  className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600"
                 />
               </div>
             </div>
@@ -244,8 +250,6 @@ export default function SupervisorRegisterPage() {
               </a>
             </p>
           </form>
-        </div>
-      </div>
-    </div>
+    </AuthLayout>
   )
 }

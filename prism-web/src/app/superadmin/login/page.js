@@ -56,7 +56,7 @@ export default function SuperadminLoginPage() {
   return (
     <LoginForm
       logoSubtitle="SUPERADMIN DASHBOARD"
-      title="Superadmin Login"
+      title="Welcome Back!"
       description="Sign in with your platform administrator account."
       emailPlaceholder="superadmin@prism.com"
       email={email}

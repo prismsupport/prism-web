@@ -111,9 +111,9 @@ export default function SupervisorLoginPage() {
     return (
     <LoginForm
       logoSubtitle="SUPERVISOR PORTAL"
-      title="Supervisor Portal"
-      description="Sign in with your registered account."
-      emailPlaceholder="supervisor@gmail.com"
+      title="Welcome back!"
+      description="Sign in with your registered Supervisor account to continue."
+      emailPlaceholder="supervisor@mail.com"
       email={email}
       onEmailChange={setEmail}
       password={password}
