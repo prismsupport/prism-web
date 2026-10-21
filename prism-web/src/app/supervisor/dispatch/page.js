@@ -475,6 +475,30 @@ function DispatchContent() {
         </div>
       ))}
 
+      {clusters.map((cluster) => (
+        <DuplicateSuggestionCard
+          key={cluster.cluster_anchor_id}
+          type="cluster"
+          title="POTENTIAL DUPLICATE"
+          description={
+            <>
+              <span className="text-blue-700 font-medium">
+                {cluster.area_label}
+              </span>
+              {"   "}Confidence:{" "}
+              <span className="font-semibold text-green-600">
+                {cluster.confidence}%
+              </span>
+              {"   "}Related Reports:{" "}
+              <span className="font-semibold">{cluster.related_count}</span>
+              {"   "}Status: Pending Administrator Review
+            </>
+          }
+          href={`/supervisor/dispatch/cluster/${cluster.cluster_anchor_id}`}
+          buttonLabel="Review Cluster"
+        />
+      ))}
+
       {joinGroups.map((g) => (
         <DuplicateSuggestionCard
           key={`${g.target_type}-${g.target_id}`}
@@ -499,30 +523,6 @@ function DispatchContent() {
           }
           href={`/supervisor/dispatch/join-group/${g.target_type}/${g.target_id}?reports=${g.reportIds.join(",")}`}
           buttonLabel="Review Matches"
-        />
-      ))}
-
-      {clusters.map((cluster) => (
-        <DuplicateSuggestionCard
-          key={cluster.cluster_anchor_id}
-          type="cluster"
-          title="POTENTIAL DUPLICATE"
-          description={
-            <>
-              <span className="text-blue-700 font-medium">
-                {cluster.area_label}
-              </span>
-              {"   "}Confidence:{" "}
-              <span className="font-semibold text-green-600">
-                {cluster.confidence}%
-              </span>
-              {"   "}Related Reports:{" "}
-              <span className="font-semibold">{cluster.related_count}</span>
-              {"   "}Status: Pending Administrator Review
-            </>
-          }
-          href={`/supervisor/dispatch/cluster/${cluster.cluster_anchor_id}`}
-          buttonLabel="Review Cluster"
         />
       ))}
 
