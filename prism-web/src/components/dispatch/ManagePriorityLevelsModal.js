@@ -18,18 +18,17 @@ function plain(levels) {
   return levels.map(({ key, label }) => ({ key, label }))
 }
 
-async function countActive(supabase, key) {
+// How many tickets (of any status) still use this level
+async function countUsing(supabase, key) {
   const [reportsRes, mastersRes] = await Promise.all([
     supabase
       .from('reports')
       .select('report_id', { count: 'exact', head: true })
-      .eq('priority', key)
-      .not('status', 'in', '(resolved,cancelled)'),
+      .eq('priority', key),
     supabase
       .from('master_tickets')
       .select('master_id', { count: 'exact', head: true })
-      .eq('priority', key)
-      .not('status', 'in', '(resolved,cancelled)'),
+      .eq('priority', key),
   ])
   return (reportsRes.count ?? 0) + (mastersRes.count ?? 0)
 }
@@ -141,7 +140,7 @@ export default function ManagePriorityLevelsModal({ onClose, onSaved }) {
     const supabase = createClient()
     const inUse = []
     for (const r of removed) {
-      const count = await countActive(supabase, r.key)
+      const count = await countUsing(supabase, r.key)
       if (count > 0) inUse.push(r)
     }
     setSaving(false)
@@ -164,17 +163,17 @@ export default function ManagePriorityLevelsModal({ onClose, onSaved }) {
   // ----- Step 2: choose where active tickets go -----
   if (moveNeeded) {
     return (
-      <Modal title="Move Active Tickets" onClose={onClose}>
+      <Modal title="Move Tickets" onClose={onClose}>
         <p className="text-sm text-gray-500 mb-4 -mt-2">
-          Active tickets still use a level you removed. Choose the level they should move to.
-          Resolved and declined tickets keep what they had.
+          Tickets still use a level you removed. Choose the level they should move to. This
+          includes resolved and declined tickets, so no ticket keeps a level that no longer exists.
         </p>
 
         <div className="space-y-3 mb-4">
           {moveNeeded.map((r) => (
             <div key={r.key} className="border border-gray-200 rounded-lg p-3">
               <p className="text-sm text-gray-900 mb-2">
-                Active tickets use <span className="font-semibold">&ldquo;{r.label}&rdquo;</span>. Move them to:
+                Tickets use <span className="font-semibold">&ldquo;{r.label}&rdquo;</span>. Move them to:
               </p>
               <select
                 value={moves[r.key] || ''}
