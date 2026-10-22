@@ -256,7 +256,7 @@ export default function ClusterReviewPage() {
 
       <div className="overflow-y-auto space-y-6">
         <SuggestionConfidenceBanner
-          title="Potential Duplicate Cluster"
+          title="Smart Master Ticket Suggestion"
           confidence={cluster.confidence}
           subtitlePrefix={`${cluster.area_label} • Overall `}
           theme="blue"

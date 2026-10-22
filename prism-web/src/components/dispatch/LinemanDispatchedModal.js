@@ -5,7 +5,7 @@ import { useStatusLabels } from '@/lib/workflow/StatusLabelsContext'
 
 export default function LinemanDispatchedModal({ linemanName, ticketNumber, location, barangay, priority }) {
   const router = useRouter()
-  const { priorityLevels } = useStatusLabels()
+  const { priorityLabel } = useStatusLabels()
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[9999] p-4">
