@@ -55,6 +55,8 @@ const PASSWORD = 'Sample#2026'
 const COOP_NAME = 'Banahaw Electric Cooperative'
 const NOW = Date.now()
 const MIN = 60000
+const RESPONSE_TIME_THRESHOLD_MINUTES = 30
+const EXCEEDED_REPORT_AGE_MINUTES = 35
 const DAY = 1440 // minutes in a day
 // ---------------------------------------------------------------------------
 // Small helpers
@@ -369,7 +371,7 @@ async function seed() {
           cooperative_id: coopId,
           area_offices: AREA_OFFICES,
           area_office_hotlines: HOTLINES,
-          response_time_threshold_minutes: 30,
+          response_time_threshold_minutes: RESPONSE_TIME_THRESHOLD_MINUTES,
         },
         { onConflict: 'cooperative_id' }
       ),
@@ -594,7 +596,7 @@ async function seed() {
     { key: 'D2', kind: 'dispatched', area: 11, c: 0, minutesAgo: 70, priority: 'low', assignedAgo: 40, state: 'on_the_way' },
     { key: 'X1', kind: 'declined', area: 4, c: 0, minutesAgo: 2 * DAY, declineReason: 'Based on our check, the outage is limited to your household. Please check your main breaker and call the area office if it still has no power.' },
     { key: 'X2', kind: 'declined', area: 7, c: 1, minutesAgo: 6 * 60, declineReason: 'This outage was already reported by your neighbors and is being handled under an existing ticket.' },
-    { key: 'P1', kind: 'pending', area: 5, c: 0, minutesAgo: 5, priority: 'medium', details: 'No power in several homes near the area office; this is the single seeded report intended to exceed the response-time threshold.' },
+    { key: 'P1', kind: 'pending', area: 5, c: 0, minutesAgo: EXCEEDED_REPORT_AGE_MINUTES, priority: 'medium', details: 'No power in several homes near the area office; this is the single seeded report intended to exceed the response-time threshold.' },
     { key: 'P2', kind: 'pending', area: 10, c: 1, minutesAgo: 15 },
     { key: 'C1', kind: 'pending', area: 0, c: 0, minutesAgo: 17, homes: true, jitter: 0.0008 },
     { key: 'C2', kind: 'pending', area: 0, c: 1, minutesAgo: 14, homes: true, jitter: 0.0008 },
@@ -617,7 +619,7 @@ async function seed() {
     // Two alternate-feeder reports placed immediately beside the main Poblacion cluster
     // (roughly within 50â€“100 m). Only FAR1 has outage wording similar to the cluster;
     // FAR2 describes voltage fluctuation, so it should not look like another duplicate.
-    { key: 'FAR1', kind: 'pending', area: 2, c: 0, minutesAgo: 31, priority: 'medium', homes: true, jitter: 0.00008, centerLat: 14.07535, centerLng: 121.32035, details: 'Several homes just across the feeder boundary near Poblacion lost power around the same time as nearby streets.' },
+    { key: 'FAR1', kind: 'pending', area: 2, c: 0, minutesAgo: 26, priority: 'medium', homes: true, jitter: 0.00008, centerLat: 14.07535, centerLng: 121.32035, details: 'Several homes just across the feeder boundary near Poblacion lost power around the same time as nearby streets.' },
     { key: 'FAR2', kind: 'pending', area: 2, c: 1, minutesAgo: 24, priority: 'high', homes: true, jitter: 0.00008, centerLat: 14.07555, centerLng: 121.3205, details: 'Lights are flickering and voltage is low on the neighboring feeder near Poblacion; power has not fully gone out in every house.' },
     // Consumer walkthrough: Maria Santos (consumer01) has in-progress, resolved-unrated,
     // and resolved-rated outage reports.
@@ -974,7 +976,30 @@ async function refresh() {
     .eq('cooperative_id', coop.id)
     .like('title', 'Scheduled Maintenance: Feeder 1%')
   if (res.error) warn(`advisory: ${res.error.message}`)
-  console.log('Refreshed: linemen are online, on shift or on call as designed, and the active advisory is running now.')
+  const settingsRes = await sb
+    .from('cooperative_settings')
+    .update({ response_time_threshold_minutes: RESPONSE_TIME_THRESHOLD_MINUTES })
+    .eq('cooperative_id', coop.id)
+  if (settingsRes.error) warn(`response-time threshold: ${settingsRes.error.message}`)
+  const exceededReports = check(
+    await sb
+      .from('reports')
+      .select('report_id')
+      .eq('cooperative_id', coop.id)
+      .eq('status', 'pending')
+      .like('report_details', '%single seeded report intended to exceed the response-time threshold%'),
+    'find threshold demo report'
+  )
+  if (exceededReports.length !== 1) {
+    warn(`expected one threshold demo report, found ${exceededReports.length}`)
+  } else {
+    const reportRes = await sb
+      .from('reports')
+      .update({ created_at: ago(EXCEEDED_REPORT_AGE_MINUTES) })
+      .eq('report_id', exceededReports[0].report_id)
+    if (reportRes.error) warn(`threshold demo report: ${reportRes.error.message}`)
+  }
+  console.log(`Refreshed: linemen are online, on shift or on call as designed, the active advisory is running now, and the threshold demo report is ${EXCEEDED_REPORT_AGE_MINUTES} minutes old against a ${RESPONSE_TIME_THRESHOLD_MINUTES}-minute threshold.`)
 }
 // ---------------------------------------------------------------------------
 // CLEANUP: remove everything the script created
