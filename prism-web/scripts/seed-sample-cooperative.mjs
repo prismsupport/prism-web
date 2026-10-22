@@ -596,7 +596,7 @@ async function seed() {
     { key: 'D2', kind: 'dispatched', area: 11, c: 0, minutesAgo: 70, priority: 'low', assignedAgo: 40, state: 'on_the_way' },
     { key: 'X1', kind: 'declined', area: 4, c: 0, minutesAgo: 2 * DAY, declineReason: 'Based on our check, the outage is limited to your household. Please check your main breaker and call the area office if it still has no power.' },
     { key: 'X2', kind: 'declined', area: 7, c: 1, minutesAgo: 6 * 60, declineReason: 'This outage was already reported by your neighbors and is being handled under an existing ticket.' },
-    { key: 'P1', kind: 'pending', area: 5, c: 0, minutesAgo: EXCEEDED_REPORT_AGE_MINUTES, priority: 'medium', details: 'No power in several homes near the area office; this is the single seeded report intended to exceed the response-time threshold.' },
+    { key: 'P1', kind: 'pending', area: 5, c: 0, minutesAgo: EXCEEDED_REPORT_AGE_MINUTES, details: 'No power in several homes near the area office; this is the single seeded report intended to exceed the response-time threshold.' },
     { key: 'P2', kind: 'pending', area: 10, c: 1, minutesAgo: 15 },
     { key: 'C1', kind: 'pending', area: 0, c: 0, minutesAgo: 17, homes: true, jitter: 0.0008 },
     { key: 'C2', kind: 'pending', area: 0, c: 1, minutesAgo: 14, homes: true, jitter: 0.0008 },
@@ -606,7 +606,7 @@ async function seed() {
     ...Array.from({ length: 10 }, (_, i) => ({
       key: `DUP${String(i + 1).padStart(2, '0')}`,
       kind: 'pending', area: 0, c: i % 2,
-      minutesAgo: 2 + i * 2, priority: i < 3 ? 'high' : 'medium',
+      minutesAgo: 2 + i * 2,
       homes: true, jitter: 0.00012,
       details: [
         'No electricity along our street near the barangay hall. Several neighboring houses are affected.',
