@@ -5,9 +5,13 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import AuthLayout from '@/components/ui/AuthLayout'
 import { toast } from '@/lib/toast'
+import TermsModal from '@/components/ui/TermsModal'
+import PrivacyPolicyModal from '@/components/ui/PrivacyPolicyModal'
 
 export default function SupervisorRegisterPage() {
-  const router = useRouter()
+  const [agreed, setAgreed] = useState(false)
+  const [showTerms, setShowTerms] = useState(false)
+  const [showPrivacy, setShowPrivacy] = useState(false)
   const [form, setForm] = useState({
     cooperativeName: '',
     officeAddress: '',
@@ -30,6 +34,10 @@ export default function SupervisorRegisterPage() {
 
   async function handleSubmit(e) {
     e.preventDefault()
+    if (!agreed) {
+      setError('You must agree to the Terms and Conditions and the Privacy Policy to register.')
+      return
+    }
     setError('')
     setLoading(true)
 
@@ -229,6 +237,35 @@ export default function SupervisorRegisterPage() {
               </div>
             </div>
 
+            <label className="flex items-start gap-3 text-sm text-gray-600 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={agreed}
+                onChange={(e) => setAgreed(e.target.checked)}
+                className="w-4 h-4 mt-0.5"
+              />
+              <span>
+                I confirm that I am an authorized representative of this cooperative and I
+                agree to the{' '}
+                <button
+                  type="button"
+                  onClick={() => setShowTerms(true)}
+                  className="text-blue-700 font-medium underline"
+                >
+                  Terms and Conditions
+                </button>{' '}
+                and the{' '}
+                <button
+                  type="button"
+                  onClick={() => setShowPrivacy(true)}
+                  className="text-blue-700 font-medium underline"
+                >
+                  Privacy Policy
+                </button>
+                .
+              </span>
+            </label>
+
             {error && (
               <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
                 {error}
@@ -237,7 +274,7 @@ export default function SupervisorRegisterPage() {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || !agreed}
               className="w-full bg-blue-700 hover:bg-blue-800 disabled:opacity-60 text-white font-semibold text-sm py-3 rounded-lg transition-colors"
             >
               {loading ? 'Submitting…' : 'Register'}
@@ -250,6 +287,16 @@ export default function SupervisorRegisterPage() {
               </a>
             </p>
           </form>
+          {showTerms && (
+            <TermsModal
+              onClose={() => setShowTerms(false)}
+              onAccept={() => {
+                setAgreed(true)
+                setShowTerms(false)
+              }}
+            />
+          )}
+          {showPrivacy && <PrivacyPolicyModal onClose={() => setShowPrivacy(false)} />}
     </AuthLayout>
   )
 }

@@ -26,7 +26,7 @@ export default function AuthLayout({ children, logoSubtitle, variant = "supervis
 
   return (
     <div
-      className="relative grid min-h-screen overflow-hidden lg:grid-cols-[2fr_3fr]"
+      className="relative grid min-h-screen overflow-hidden lg:h-screen lg:grid-cols-[2fr_3fr]"
       style={{ background: "linear-gradient(135deg, #022b67 0%, #021940 100%)" }}
     >
       <div
@@ -80,16 +80,18 @@ export default function AuthLayout({ children, logoSubtitle, variant = "supervis
       </div>
 
       {/* Form panel */}
-      <div className="relative z-10 flex flex-col items-center justify-center px-4 py-8 sm:px-6 sm:py-10">
-        <div className="mb-8 lg:hidden">
-          <Logo hideMark subtitle={logoSubtitle} />
-        </div>
-        <div
-          className={`w-full rounded-3xl bg-white p-6 shadow-2xl shadow-blue-950/30 sm:p-8 ${
-            "max-w-xl"
-          }`}
-        >
-          {children}
+      <div className="relative z-10 flex flex-col px-4 py-8 sm:px-6 sm:py-10 lg:h-screen lg:overflow-y-auto">
+        <div className="my-auto flex w-full flex-col items-center">
+          <div className="mb-8 lg:hidden">
+            <Logo hideMark subtitle={logoSubtitle} />
+          </div>
+          <div
+            className={`w-full rounded-3xl bg-white p-6 shadow-2xl shadow-blue-950/30 sm:p-8 ${
+              "max-w-xl"
+            }`}
+          >
+            {children}
+          </div>
         </div>
       </div>
     </div>
