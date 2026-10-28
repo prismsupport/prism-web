@@ -1,3 +1,5 @@
+import Avatar from '@/components/ui/Avatar'
+
 export default function AssignedLinemanCard({
   name,
   assignedAt,
@@ -11,7 +13,7 @@ export default function AssignedLinemanCard({
       <p className="text-xs font-bold text-gray-500 uppercase mb-2">Assigned Lineman</p>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-gray-200 border border-gray-300" />
+        <Avatar name={name || ''} size={40} />
           <p className="text-sm font-semibold text-gray-900">{name || 'Assigned'}</p>
         </div>
         <div className="flex items-center gap-3">

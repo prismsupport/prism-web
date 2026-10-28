@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { formatLastSeen } from '@/lib/lineman/duty'
 import { useStatusLabels } from '@/lib/workflow/StatusLabelsContext'
+import Avatar from '@/components/ui/Avatar'
 
 const REASON_LABEL = {
   on_duty: 'On duty',
@@ -133,7 +134,7 @@ export default function LinemanRecommendationPanel({
             >
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full bg-gray-200" />
+                  <Avatar name={`${l.first_name} ${l.last_name}`} size={36} />
                   <div>
                     <p className="text-sm font-semibold text-gray-900">
                       {l.first_name} {l.last_name}

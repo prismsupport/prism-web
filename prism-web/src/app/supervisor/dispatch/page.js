@@ -23,6 +23,13 @@ import { toast } from "@/lib/toast"
 
 const PAGE_SIZE = 10;
 
+const REPORT_COLUMNS =
+  "report_id, ticket_number, master_id, consumer_id, cooperative_id, status, priority, zone, barangay, municipality, nearest_landmark, created_at, updated_at, reopened_at";
+const MASTER_COLUMNS =
+  "master_id, master_ticket, cooperative_id, status, priority, barangay, municipality, report_count, created_at, reopened_at";
+const ASSIGNMENT_COLUMNS =
+  "assignment_id, report_id, master_id, lineman_id, status, assigned_at, updated_at, completed_at";
+
 const VALID_STATUS_FILTERS = [
   'pending',
   'dispatched',
@@ -90,9 +97,18 @@ function DispatchContent() {
     setError("");
     const supabase = createClient();
 
+    // getSession reads the saved login locally (no network trip, unlike getUser).
+    // Row-level security still verifies the real token on every query below.
     const {
-      data: { user },
-    } = await supabase.auth.getUser();
+      data: { session },
+    } = await supabase.auth.getSession();
+    const user = session?.user;
+
+    if (!user) {
+      setError("Unable to load your cooperative.");
+      setLoading(false);
+      return;
+    }
 
     const { data: myRow, error: myRowError } = await supabase
       .from("users")
@@ -109,57 +125,72 @@ function DispatchContent() {
     const coopId = myRow.cooperative_id;
     setCooperativeId(coopId);
 
-    const { data: coop } = await supabase
-      .from("cooperative_settings")
-      .select("response_time_threshold_minutes")
-      .eq("cooperative_id", coopId)
-      .single();
+    // Everything below only needs coopId, so fetch it all at the same time.
+    const [settingsRes, reportsRes, mastersRes, clustersRes, joinsRes, reopenRes, overdueRes] =
+      await Promise.all([
+        supabase
+          .from("cooperative_settings")
+          .select("response_time_threshold_minutes")
+          .eq("cooperative_id", coopId)
+          .single(),
+        supabase
+          .from("reports")
+          .select(REPORT_COLUMNS)
+          .eq("cooperative_id", coopId)
+          .is("master_id", null)
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("master_tickets")
+          .select(MASTER_COLUMNS)
+          .eq("cooperative_id", coopId)
+          .order("created_at", { ascending: false }),
+        supabase.rpc("get_duplicate_clusters", { p_cooperative_id: coopId }),
+        supabase.rpc("get_join_suggestions", { p_cooperative_id: coopId }),
+        supabase
+          .from("reopen_requests")
+          .select(
+            "reopen_id, report_id, description, requested_at, reports(ticket_number, consumer_id)",
+          )
+          .eq("status", "pending"),
+        // Response Time Monitoring — checks + fires overdue notifications as a side effect
+        supabase.rpc("check_response_time_overdue", { p_cooperative_id: coopId }),
+      ]);
 
+    const coop = settingsRes.data;
     if (coop?.response_time_threshold_minutes != null) {
       setThreshold(coop.response_time_threshold_minutes);
       setThresholdInput(String(coop.response_time_threshold_minutes));
     }
 
-    const { data: reportData, error: reportError } = await supabase
-      .from("reports")
-      .select("*")
-      .eq("cooperative_id", coopId)
-      .order("created_at", { ascending: false });
-
-    if (reportError) setError(reportError.message);
-
-    const standaloneReports = (reportData || []).filter((r) => !r.master_id);
+    if (reportsRes.error) setError(reportsRes.error.message);
+    const standaloneReports = reportsRes.data || [];
     setReports(standaloneReports);
 
-    const { data: masterData, error: masterError } = await supabase
-      .from("master_tickets")
-      .select("*")
-      .eq("cooperative_id", coopId)
-      .order("created_at", { ascending: false });
+    if (mastersRes.error) setError((prev) => prev || mastersRes.error.message);
+    const masterData = mastersRes.data || [];
+    setMasterTickets(masterData);
 
-    if (masterError) setError((prev) => prev || masterError.message);
-    setMasterTickets(masterData || []);
-
+    // Assignments need the ticket ids, so they come next (both lookups together).
     const reportIds = standaloneReports.map((r) => r.report_id);
-    const masterIds = (masterData || []).map((m) => m.master_id);
+    const masterIds = masterData.map((m) => m.master_id);
 
-    let assignmentData = [];
-    if (reportIds.length > 0) {
-      const { data } = await supabase
-        .from("job_assignments")
-        .select("*")
-        .in("report_id", reportIds)
-        .order("assigned_at", { ascending: false });
-      assignmentData = [...assignmentData, ...(data || [])];
-    }
-    if (masterIds.length > 0) {
-      const { data } = await supabase
-        .from("job_assignments")
-        .select("*")
-        .in("master_id", masterIds)
-        .order("assigned_at", { ascending: false });
-      assignmentData = [...assignmentData, ...(data || [])];
-    }
+    const [byReport, byMaster] = await Promise.all([
+      reportIds.length > 0
+        ? supabase
+            .from("job_assignments")
+            .select(ASSIGNMENT_COLUMNS)
+            .in("report_id", reportIds)
+            .order("assigned_at", { ascending: false })
+        : Promise.resolve({ data: [] }),
+      masterIds.length > 0
+        ? supabase
+            .from("job_assignments")
+            .select(ASSIGNMENT_COLUMNS)
+            .in("master_id", masterIds)
+            .order("assigned_at", { ascending: false })
+        : Promise.resolve({ data: [] }),
+    ]);
+    const assignmentData = [...(byReport.data || []), ...(byMaster.data || [])];
     setAssignments(assignmentData);
 
     const linemanIds = Array.from(
@@ -177,37 +208,17 @@ function DispatchContent() {
     }
     setLinemenNames(namesMap);
 
-    const { data: clusterData, error: clusterError } = await supabase.rpc(
-      "get_duplicate_clusters",
-      { p_cooperative_id: coopId },
-    );
-    if (clusterError) setError((prev) => prev || clusterError.message);
-    setClusters(clusterData || []);
+    if (clustersRes.error) setError((prev) => prev || clustersRes.error.message);
+    setClusters(clustersRes.data || []);
 
-    const { data: joinData, error: joinError } = await supabase.rpc(
-      "get_join_suggestions",
-      { p_cooperative_id: coopId },
-    );
-    if (joinError) setError((prev) => prev || joinError.message);
-    setJoinSuggestions(joinData || []);
+    if (joinsRes.error) setError((prev) => prev || joinsRes.error.message);
+    setJoinSuggestions(joinsRes.data || []);
 
-    const { data: reopenData, error: reopenError } = await supabase
-      .from("reopen_requests")
-      .select(
-        "reopen_id, report_id, description, requested_at, reports(ticket_number, consumer_id)",
-      )
-      .eq("status", "pending");
+    if (reopenRes.error) setError((prev) => prev || reopenRes.error.message);
+    setReopenRequests(reopenRes.data || []);
 
-    if (reopenError) setError((prev) => prev || reopenError.message);
-    setReopenRequests(reopenData || []);
-
-    // Response Time Monitoring — checks + fires overdue notifications as a side effect
-    const { data: overdueData, error: overdueError } = await supabase.rpc(
-      "check_response_time_overdue",
-      { p_cooperative_id: coopId },
-    );
-    if (overdueError) setError((prev) => prev || overdueError.message);
-    setOverdueTickets(overdueData || []);
+    if (overdueRes.error) setError((prev) => prev || overdueRes.error.message);
+    setOverdueTickets(overdueRes.data || []);
 
     setLoading(false);
   }

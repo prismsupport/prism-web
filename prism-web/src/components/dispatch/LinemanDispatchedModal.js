@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { useStatusLabels } from '@/lib/workflow/StatusLabelsContext'
+import Avatar from '@/components/ui/Avatar'
 
 export default function LinemanDispatchedModal({ linemanName, ticketNumber, location, barangay, priority }) {
   const router = useRouter()
@@ -22,7 +23,7 @@ export default function LinemanDispatchedModal({ linemanName, ticketNumber, loca
           <p className="text-xs font-bold text-gray-500 uppercase mb-2">Dispatch Details</p>
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-gray-200 border border-gray-300" />
+              <Avatar name={linemanName || ''} size={32} />
               <p className="text-sm font-semibold text-gray-900">{linemanName}</p>
             </div>
             {priority && (
