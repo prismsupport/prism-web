@@ -99,12 +99,14 @@ function SupervisorSearchContent() {
         .from('advisories')
         .select('advisory_id, title, description, date')
         .eq('cooperative_id', profile.cooperative_id)
+        .is('archived_at', null)
         .or(`title.ilike.${pattern},description.ilike.${pattern}`)
         .limit(25),
       supabase
         .from('faq_entries')
         .select('faq_id, category, question, answer, keywords')
         .eq('cooperative_id', profile.cooperative_id)
+        .is('archived_at', null)
         .or(`question.ilike.${pattern},answer.ilike.${pattern},keywords.ilike.${pattern}${faqCategory}`)
         .limit(25),
     ])

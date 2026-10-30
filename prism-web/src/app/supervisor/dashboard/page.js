@@ -238,6 +238,7 @@ async function loadAdvisorySummary(supabase, coopId) {
     .from('advisories')
     .select('date, start_time, end_time')
     .eq('cooperative_id', coopId)
+    .is('archived_at', null)
 
   const now = new Date()
   let upcoming = 0

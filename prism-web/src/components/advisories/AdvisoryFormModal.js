@@ -52,6 +52,7 @@ export default function AdvisoryFormModal({ cooperativeId, advisory, onClose, on
         .from('service_areas')
         .select('feeder, municipality, barangay')
         .eq('cooperative_id', cooperativeId)
+        .is('archived_at', null)
       setServiceAreas(data || [])
     }
     if (cooperativeId) loadServiceAreas()

@@ -10,7 +10,7 @@ function formatTime(timeString) {
   return `${displayHour}:${m} ${period}`
 }
 
-export default function AdvisoryRow({ advisory, onEdit, onDelete }) {
+export default function AdvisoryRow({ advisory, archived = false, onEdit, onDelete, onRestore }) {
   return (
     <tr className="border-b border-gray-100 last:border-0">
       <td className="px-5 py-4">
@@ -52,22 +52,31 @@ export default function AdvisoryRow({ advisory, onEdit, onDelete }) {
         </div>
       </td>
       <td className="px-5 py-4">
-        <div className="flex items-center gap-3">
+        {archived ? (
           <button
-            onClick={() => onEdit(advisory)}
-            className="text-blue-600 hover:text-blue-800"
-            title="Edit"
+            onClick={() => onRestore(advisory)}
+            className="inline-flex justify-center items-center rounded-lg border border-gray-200 bg-white px-3.5 py-2 text-xs font-semibold text-gray-700 shadow-sm transition-colors hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 whitespace-nowrap"
           >
-            <PencilIcon />
+            Restore
           </button>
-          <button
-            onClick={() => onDelete(advisory)}
-            className="text-red-500 hover:text-red-700"
-            title="Delete"
-          >
-            <TrashIcon />
-          </button>
-        </div>
+        ) : (
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => onEdit(advisory)}
+              className="text-blue-600 hover:text-blue-800"
+              title="Edit"
+            >
+              <PencilIcon />
+            </button>
+            <button
+              onClick={() => onDelete(advisory)}
+              className="text-red-500 hover:text-red-700"
+              title="Archive"
+            >
+              <TrashIcon />
+            </button>
+          </div>
+        )}
       </td>
     </tr>
   )

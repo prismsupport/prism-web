@@ -35,6 +35,7 @@ export default function AdvisoriesPage() {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [editingAdvisory, setEditingAdvisory] = useState(null)
   const [deletingAdvisory, setDeletingAdvisory] = useState(null)
+  const [showArchived, setShowArchived] = useState(false)
 
   useEffect(() => {
     loadAdvisories()
@@ -105,43 +106,51 @@ export default function AdvisoriesPage() {
     setLoading(false)
   }
 
-  async function handleDeleteConfirmed() {
+  // Archive = hide it, but keep the data (and its photo) in the database.
+  async function handleArchiveConfirmed() {
     const supabase = createClient()
 
-    // Delete the advisory and check the database response.
-    const { data, error: deleteError } = await supabase
+    const { data, error: archiveError } = await supabase
       .from('advisories')
-      .delete()
+      .update({ archived_at: new Date().toISOString() })
       .eq('advisory_id', deletingAdvisory.advisory_id)
       .select('advisory_id')
 
-    // Show an error if the deletion failed or no row was deleted.
-    if (deleteError || !data?.length) {
-      toast.error(
-        deleteError?.message || "Couldn't delete this advisory."
-      )
+    if (archiveError || !data?.length) {
+      toast.error(archiveError?.message || "Couldn't archive this advisory.")
       return
     }
 
-    // Remove the attached photo after the advisory is deleted.
-    if (deletingAdvisory.photo_url) {
-      const { error: photoError } = await supabase.storage
-        .from('advisory-photos')
-        .remove([deletingAdvisory.photo_url])
-
-      if (photoError) {
-        console.error('Failed to remove advisory photo:', photoError)
-      }
-    }
-
-    toast.success('Advisory deleted')
+    toast.success('Advisory archived')
     setDeletingAdvisory(null)
     await loadAdvisories()
   }
 
+  async function handleRestore(advisory) {
+    const supabase = createClient()
+
+    const { error: restoreError } = await supabase
+      .from('advisories')
+      .update({ archived_at: null })
+      .eq('advisory_id', advisory.advisory_id)
+
+    if (restoreError) {
+      toast.error(restoreError.message)
+      return
+    }
+
+    toast.success('Advisory restored')
+    await loadAdvisories()
+  }
+
+  // Only show archived ones in the archive view, and only active ones otherwise
+  const visibleAdvisories = advisories.filter((a) =>
+    showArchived ? a.archived_at : !a.archived_at
+  )
+
   const allAreaValues = Array.from(
     new Set(
-      advisories.flatMap((a) =>
+      visibleAdvisories.flatMap((a) =>
         a.targets.map((t) =>
           t.scope_type === 'entire_cooperative' ? 'Entire Cooperative' : t.target_value
         )
@@ -150,13 +159,13 @@ export default function AdvisoriesPage() {
   ).filter(Boolean)
 
   const counts = {
-    all: advisories.length,
-    upcoming: advisories.filter((a) => a.computedStatus === 'upcoming').length,
-    active: advisories.filter((a) => a.computedStatus === 'active').length,
-    completed: advisories.filter((a) => a.computedStatus === 'completed').length,
+    all: visibleAdvisories.length,
+    upcoming: visibleAdvisories.filter((a) => a.computedStatus === 'upcoming').length,
+    active: visibleAdvisories.filter((a) => a.computedStatus === 'active').length,
+    completed: visibleAdvisories.filter((a) => a.computedStatus === 'completed').length,
   }
 
-  const filtered = advisories.filter((a) => {
+  const filtered = visibleAdvisories.filter((a) => {
     const statusMatch = statusFilter === 'all' || a.computedStatus === statusFilter
     const areaMatch =
       areaFilter === 'All Area' ||
@@ -173,9 +182,13 @@ export default function AdvisoriesPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-gray-900">Advisories Management</h1>
+      <h1 className="text-2xl font-bold text-gray-900">
+        {showArchived ? 'Archived Advisories' : 'Advisories Management'}
+      </h1>
       <p className="text-sm text-gray-500 mt-1 mb-6">
-        Manage and track service interruptions and maintenance schedules.
+        {showArchived
+          ? 'Archived advisories are hidden from consumers. Restore one to make it active again.'
+          : 'Manage and track service interruptions and maintenance schedules.'}
       </p>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
@@ -246,11 +259,24 @@ export default function AdvisoriesPage() {
             Manage Service Areas
           </Link>
           <button
-            onClick={() => setShowCreateModal(true)}
-            className="bg-blue-700 hover:bg-blue-800 text-white text-sm font-semibold px-4 py-2.5 rounded-lg transition-colors whitespace-nowrap"
+            onClick={() => {
+              setShowArchived(!showArchived)
+              setStatusFilter('all')
+              setAreaFilter('All Area')
+              setPage(1)
+            }}
+            className="bg-white hover:bg-gray-50 text-gray-700 text-sm font-semibold px-4 py-2.5 rounded-lg border border-gray-200 transition-colors whitespace-nowrap"
           >
-            + Create New Advisory
+            {showArchived ? 'Back to Advisories' : 'View Archive'}
           </button>
+          {!showArchived && (
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="bg-blue-700 hover:bg-blue-800 text-white text-sm font-semibold px-4 py-2.5 rounded-lg transition-colors whitespace-nowrap"
+            >
+              + Create New Advisory
+            </button>
+          )}
         </div>
       </div>
 
@@ -278,15 +304,26 @@ export default function AdvisoriesPage() {
               <tr>
                 <td colSpan={7}>
                   <EmptyState
-                    title="No advisories match this view"
-                    description="Try a different filter, or create a new advisory."
+                    title={showArchived ? 'No archived advisories' : 'No advisories match this view'}
+                    description={
+                      showArchived
+                        ? 'Advisories you archive will show up here.'
+                        : 'Try a different filter, or create a new advisory.'
+                    }
                   />
                 </td>
               </tr>
             )}
             {!loading &&
               paginated.map((a) => (
-                <AdvisoryRow key={a.advisory_id} advisory={a} onEdit={setEditingAdvisory} onDelete={setDeletingAdvisory} />
+                <AdvisoryRow
+                  key={a.advisory_id}
+                  advisory={a}
+                  archived={showArchived}
+                  onEdit={setEditingAdvisory}
+                  onDelete={setDeletingAdvisory}
+                  onRestore={handleRestore}
+                />
               ))}
           </tbody>
         </table>
@@ -318,11 +355,11 @@ export default function AdvisoriesPage() {
       )}
 
       {deletingAdvisory && (
-        <Modal title="Delete Advisory" onClose={() => setDeletingAdvisory(null)}>
+        <Modal title="Archive Advisory" onClose={() => setDeletingAdvisory(null)}>
           <p className="text-sm text-gray-700 mb-6">
-            Are you sure you want to delete "
-            <span className="font-semibold">{deletingAdvisory.title}</span>"? This
-            action cannot be undone.
+            Are you sure you want to archive "
+            <span className="font-semibold">{deletingAdvisory.title}</span>"? It will be hidden
+            from consumers, but you can restore it later from the archive.
           </p>
           <div className="flex justify-end gap-3">
             <button
@@ -332,10 +369,10 @@ export default function AdvisoriesPage() {
               Cancel
             </button>
             <button
-              onClick={handleDeleteConfirmed}
+              onClick={handleArchiveConfirmed}
               className="px-4 py-2.5 rounded-lg text-sm font-semibold text-white bg-red-600 hover:bg-red-700"
             >
-              Delete
+              Archive
             </button>
           </div>
         </Modal>

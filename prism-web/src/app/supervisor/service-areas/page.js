@@ -33,6 +33,7 @@ export default function ServiceAreasPage() {
   const [impactLoading, setImpactLoading] = useState(false)
   const [impactError, setImpactError] = useState('')
   const [showManageAreaOffices, setShowManageAreaOffices] = useState(false)
+  const [showArchived, setShowArchived] = useState(false)
 
   useEffect(() => {
     loadServiceAreas()
@@ -97,36 +98,59 @@ export default function ServiceAreasPage() {
     setImpactLoading(false)
   }
 
-  async function handleDeleteConfirmed() {
+  // Archive = hide it from use, but keep the data in the database.
+  async function handleArchiveConfirmed() {
     setDeleteLoading(true)
     const supabase = createClient()
-    const { error: deleteError } = await supabase
+    const { error: archiveError } = await supabase
       .from('service_areas')
-      .delete()
+      .update({ archived_at: new Date().toISOString() })
       .eq('id', deletingArea.id)
 
-    if (deleteError) {
-      toast.error(deleteError.message)
-      setError(deleteError.message)
+    if (archiveError) {
+      toast.error(archiveError.message)
+      setError(archiveError.message)
       setDeleteLoading(false)
       return
     }
 
     setDeleteLoading(false)
     setDeletingArea(null)
-    toast.success('Service area deleted')
+    toast.success('Service area archived')
     loadServiceAreas()
   }
 
+  async function handleRestore(area) {
+    const supabase = createClient()
+    const { error: restoreError } = await supabase
+      .from('service_areas')
+      .update({ archived_at: null })
+      .eq('id', area.id)
+
+    if (restoreError) {
+      toast.error(restoreError.message)
+      return
+    }
+
+    toast.success('Service area restored')
+    loadServiceAreas()
+  }
+
+  // Active ones for normal use, archived ones only in the archive view
+  const activeAreas = serviceAreas.filter((a) => !a.archived_at)
+  const visibleAreas = serviceAreas.filter((a) =>
+    showArchived ? a.archived_at : !a.archived_at
+  )
+
   const substationOptions = Array.from(
-    new Set(serviceAreas.map((a) => a.substation).filter(Boolean))
+    new Set(visibleAreas.map((a) => a.substation).filter(Boolean))
   ).sort()
 
   const feederOptions = Array.from(
-    new Set(serviceAreas.map((a) => a.feeder).filter(Boolean))
+    new Set(visibleAreas.map((a) => a.feeder).filter(Boolean))
   ).sort()
 
-  const filtered = serviceAreas.filter((a) => {
+  const filtered = visibleAreas.filter((a) => {
     const substationMatch =
       substationFilter === 'All Substations' || a.substation === substationFilter
     const feederMatch = feederFilter === 'All Feeders' || a.feeder === feederFilter
@@ -146,7 +170,7 @@ export default function ServiceAreasPage() {
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
-  const unassignedCount = serviceAreas.filter((a) => !a.area_office).length
+  const unassignedCount = visibleAreas.filter((a) => !a.area_office).length
 
   return (
     <div>
@@ -154,9 +178,13 @@ export default function ServiceAreasPage() {
 
       <div className="flex items-start justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Service Areas</h1>
+          <h1 className="text-2xl font-bold text-gray-900">
+            {showArchived ? 'Archived Service Areas' : 'Service Areas'}
+          </h1>
           <p className="text-sm text-gray-500 mt-1">
-            Manage the substations, feeders, barangays, and area offices covered by your cooperative.
+            {showArchived
+              ? 'Archived areas are no longer used for feeder matching, dispatch, or advisories. Restore one to use it again.'
+              : 'Manage the substations, feeders, barangays, and area offices covered by your cooperative.'}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -167,20 +195,37 @@ export default function ServiceAreasPage() {
             Manage Area Offices
           </button>
           <button
-            onClick={() => setShowCreateModal(true)}
-            className="bg-blue-700 hover:bg-blue-800 text-white text-sm font-semibold px-4 py-2.5 rounded-lg transition-colors whitespace-nowrap"
+            onClick={() => {
+              setShowArchived(!showArchived)
+              setSubstationFilter('All Substations')
+              setFeederFilter('All Feeders')
+              setAreaOfficeFilter('All Area Offices')
+              setSearchText('')
+              setPage(1)
+            }}
+            className="bg-white hover:bg-gray-50 text-gray-700 text-sm font-semibold px-4 py-2.5 rounded-lg border border-gray-200 transition-colors whitespace-nowrap"
           >
-            + Add Service Area
+            {showArchived ? 'Back to Service Areas' : 'View Archive'}
           </button>
+          {!showArchived && (
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="bg-blue-700 hover:bg-blue-800 text-white text-sm font-semibold px-4 py-2.5 rounded-lg transition-colors whitespace-nowrap"
+            >
+              + Add Service Area
+            </button>
+          )}
         </div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
         <div className="bg-white rounded-xl border border-gray-200 p-4">
           <p className="text-xs font-bold tracking-wide text-gray-400 uppercase mb-1">
-            Total Areas
+            {showArchived ? 'Archived Areas' : 'Total Areas'}
           </p>
-          <p className="text-2xl font-bold text-blue-700">{serviceAreas.length}</p>
+          <p className="text-2xl font-bold text-blue-700">
+            {showArchived ? visibleAreas.length : activeAreas.length}
+          </p>
         </div>
         <div className="bg-white rounded-xl border border-gray-200 p-4">
           <p className="text-xs font-bold tracking-wide text-gray-400 uppercase mb-1">
@@ -336,7 +381,9 @@ export default function ServiceAreasPage() {
             {!loading && paginated.length === 0 && (
               <tr>
                 <td colSpan={7} className="px-5 py-8 text-center text-gray-500">
-                  No service areas match this view.
+                  {showArchived
+                    ? 'No archived service areas.'
+                    : 'No service areas match this view.'}
                 </td>
               </tr>
             )}
@@ -346,8 +393,10 @@ export default function ServiceAreasPage() {
                 <ServiceAreaRow
                   key={area.id}
                   area={area}
+                  archived={showArchived}
                   onEdit={setEditingArea}
                   onDelete={openDelete}
+                  onRestore={handleRestore}
                 />
               ))}
           </tbody>
@@ -383,7 +432,7 @@ export default function ServiceAreasPage() {
       )}
 
       {deletingArea && (
-        <Modal title="Delete Service Area" onClose={() => setDeletingArea(null)}>
+        <Modal title="Archive Service Area" onClose={() => setDeletingArea(null)}>
           <p className="text-sm text-gray-700 mb-4">
             <span className="font-semibold">{deletingArea.barangay}</span>,{' '}
             {deletingArea.municipality}
@@ -395,7 +444,7 @@ export default function ServiceAreasPage() {
 
           {impactError && (
             <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-6">
-              Could not check what depends on this area, so it can't be deleted right now. (
+              Could not check what depends on this area, so it can't be archived right now. (
               {impactError})
             </p>
           )}
@@ -419,16 +468,16 @@ export default function ServiceAreasPage() {
 
               {!impact.can_delete ? (
                 <p className="text-sm text-red-700 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-6">
-                  This area can't be deleted while consumers or current/upcoming advisories depend
-                  on it. Deleting it would stop those consumers from saving an address change and
-                  leave the advisories pointing at an area that no longer exists.
+                  This area can't be archived while consumers or current/upcoming advisories depend
+                  on it. Archiving it would stop those consumers from saving an address change and
+                  leave the advisories pointing at an area that is no longer in use.
                 </p>
               ) : (
                 <p className="text-sm text-gray-700 mb-6">
                   {impact.open_report_count > 0
-                    ? `Deleting it removes the Area Office and feeder match for ${impact.open_report_count} open report(s), which changes how linemen and duplicates are ranked for them. `
+                    ? `Archiving it removes the Area Office and feeder match for ${impact.open_report_count} open report(s), which changes how linemen and duplicates are ranked for them. `
                     : 'Nothing depends on this area. '}
-                  This action cannot be undone.
+                  You can restore it later from the archive.
                 </p>
               )}
             </>
@@ -444,11 +493,11 @@ export default function ServiceAreasPage() {
             </button>
             {impact?.can_delete && (
               <button
-                onClick={handleDeleteConfirmed}
+                onClick={handleArchiveConfirmed}
                 disabled={deleteLoading}
                 className="px-4 py-2.5 rounded-lg text-sm font-semibold text-white bg-red-600 hover:bg-red-700 disabled:opacity-60"
               >
-                {deleteLoading ? 'Deleting…' : 'Delete'}
+                {deleteLoading ? 'Archiving…' : 'Archive'}
               </button>
             )}
           </div>

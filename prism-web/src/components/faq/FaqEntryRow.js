@@ -2,7 +2,7 @@ import PencilIcon from '@/components/ui/icons/PencilIcon'
 import TrashIcon from '@/components/ui/icons/TrashIcon'
 import { getCategoryColor } from '@/lib/faqCategoryColor'
 
-export default function FaqEntryRow({ entry, onEdit, onDelete }) {
+export default function FaqEntryRow({ entry, archived = false, onEdit, onDelete, onRestore }) {
   const keywordList = entry.keywords
     ? entry.keywords.split(',').map((k) => k.trim()).filter(Boolean)
     : []
@@ -57,20 +57,31 @@ export default function FaqEntryRow({ entry, onEdit, onDelete }) {
         )}
       </div>
       <div className="flex items-center gap-3 pt-1">
-        <button
-          onClick={() => onEdit(entry)}
-          className="text-blue-600 hover:text-blue-800"
-          title="Edit"
-        >
-          <PencilIcon />
-        </button>
-        <button
-          onClick={() => onDelete(entry)}
-          className="text-red-500 hover:text-red-700"
-          title="Delete"
-        >
-          <TrashIcon />
-        </button>
+        {archived ? (
+          <button
+            onClick={() => onRestore(entry)}
+            className="inline-flex justify-center items-center rounded-lg border border-gray-200 bg-white px-3.5 py-2 text-xs font-semibold text-gray-700 shadow-sm transition-colors hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 whitespace-nowrap"
+          >
+            Restore
+          </button>
+        ) : (
+          <>
+            <button
+              onClick={() => onEdit(entry)}
+              className="text-blue-600 hover:text-blue-800"
+              title="Edit"
+            >
+              <PencilIcon />
+            </button>
+            <button
+              onClick={() => onDelete(entry)}
+              className="text-red-500 hover:text-red-700"
+              title="Archive"
+            >
+              <TrashIcon />
+            </button>
+          </>
+        )}
       </div>
     </div>
   )
