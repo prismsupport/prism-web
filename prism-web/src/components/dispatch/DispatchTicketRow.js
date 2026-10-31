@@ -1,29 +1,7 @@
-import Link from "next/link";
 import StatusPill from "@/components/ui/StatusPill"
-
-function labelize(value) {
-  return value
-    .split("_")
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ");
-}
-
-function formatTime(dateString) {
-  return new Date(dateString).toLocaleTimeString("en-PH", {
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
-
-function formatDateTime(dateString) {
-  return new Date(dateString).toLocaleString("en-PH", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
+import Badge from "@/components/ui/Badge"
+import { ButtonLink } from "@/components/ui/Button"
+import { formatDateTime, formatTime, DATETIME_FULL } from "@/lib/format"
 
 export default function DispatchTicketRow({
   ticket,
@@ -51,14 +29,14 @@ export default function DispatchTicketRow({
           )}
           {isMaster ? ticket.master_ticket : ticket.ticket_number}
           {isMaster && (
-            <span className="ml-2 text-xs font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded">
+            <Badge size="sm" className="ml-2">
               MASTER · {ticket.report_count}
-            </span>
+            </Badge>
           )}
           {!isMaster && ticket.reopened_at && (
-            <span className="ml-2 text-xs font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded">
+            <Badge size="sm" tone="amber" className="ml-2">
               REOPENED
-            </span>
+            </Badge>
           )}
         </p>
         {isClustered && (
@@ -81,8 +59,7 @@ export default function DispatchTicketRow({
         <p className="font-medium text-gray-900">
           {isMaster
             ? `${ticket.barangay}, ${ticket.municipality}`
-            : ticket.nearest_landmark ||
-              `${ticket.barangay}, ${ticket.municipality}`}
+            : ticket.nearest_landmark || `${ticket.barangay}, ${ticket.municipality}`}
         </p>
         <p className="text-xs text-gray-400">
           {!isMaster && `Zone ${ticket.zone || "—"}, `}
@@ -102,24 +79,18 @@ export default function DispatchTicketRow({
             assignment?.assigned_at ||
             ticket.updated_at ||
             ticket.created_at,
+          DATETIME_FULL,
         )}
       </td>
       <td className="px-5 py-4 text-center">
-        {isReviewable
-          ? <Link
-              href={detailHref}
-              onClick={onOpen}
-              className="inline-flex min-w-28 justify-center items-center gap-2 rounded-lg bg-blue-700 px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-600 whitespace-nowrap"
-            >
-              Review
-            </Link>
-          : <Link
-              href={detailHref}
-              onClick={onOpen}
-              className="inline-flex min-w-28 justify-center items-center gap-2 rounded-lg border border-gray-200 bg-white px-3.5 py-2 text-xs font-semibold text-gray-700 shadow-sm transition-colors hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-600 whitespace-nowrap"
-            >
-              View Details
-            </Link>}
+        <ButtonLink
+          href={detailHref}
+          onClick={onOpen}
+          size="row"
+          variant={isReviewable ? "primary" : "neutral"}
+        >
+          {isReviewable ? "Review" : "View Details"}
+        </ButtonLink>
       </td>
     </tr>
   );

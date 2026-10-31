@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Modal from '@/components/ui/Modal'
+import Alert from '@/components/ui/Alert'
+import Button from '@/components/ui/Button'
 import StatusPill from '@/components/ui/StatusPill'
 import { toast } from '@/lib/toast'
 import {
@@ -137,11 +139,7 @@ export default function StatusNamesModal({ onClose }) {
         })}
       </div>
 
-      {error && (
-        <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-4">
-          {error}
-        </p>
-      )}
+      <Alert>{error}</Alert>
 
       <div className="flex items-center justify-between">
         <button
@@ -152,21 +150,12 @@ export default function StatusNamesModal({ onClose }) {
           Reset all to defaults
         </button>
         <div className="flex gap-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2.5 rounded-lg text-sm font-semibold text-gray-600 border border-gray-200 hover:bg-gray-50"
-          >
+          <Button type="button" variant="outline" dim={false} onClick={onClose}>
             Cancel
-          </button>
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={saving}
-            className="px-4 py-2.5 rounded-lg text-sm font-semibold text-white bg-blue-700 hover:bg-blue-800 disabled:opacity-60"
-          >
+          </Button>
+          <Button type="button" onClick={handleSave} disabled={saving}>
             {saving ? 'Saving…' : 'Save Names'}
-          </button>
+          </Button>
         </div>
       </div>
     </Modal>

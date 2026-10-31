@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import ModalBackdrop from '@/components/ui/ModalBackdrop'
 
 export default function DeclineReportModal({ reporterName, ticketNumber, onConfirm, onCancel, loading }) {
   const [reason, setReason] = useState('')
@@ -15,7 +16,7 @@ export default function DeclineReportModal({ reporterName, ticketNumber, onConfi
   }
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[9999] p-4">
+    <ModalBackdrop>
       <div className="bg-white rounded-xl w-full max-w-md">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
           <h2 className="text-base font-bold text-gray-900">Decline Outage Report</h2>
@@ -63,6 +64,6 @@ export default function DeclineReportModal({ reporterName, ticketNumber, onConfi
           </button>
         </div>
       </div>
-    </div>
+    </ModalBackdrop>
   )
 }

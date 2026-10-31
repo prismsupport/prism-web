@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Modal from '@/components/ui/Modal'
+import Alert from '@/components/ui/Alert'
+import Button from '@/components/ui/Button'
 import { toast } from '@/lib/toast'
 
 export default function ManageFaqCategoriesModal({ cooperativeId, categories, onClose, onUpdated }) {
@@ -67,11 +69,7 @@ export default function ManageFaqCategoriesModal({ cooperativeId, categories, on
         ))}
       </div>
 
-      {error && (
-        <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-4">
-          {error}
-        </p>
-      )}
+      <Alert>{error}</Alert>
 
       <div className="flex gap-2">
         <input
@@ -80,13 +78,9 @@ export default function ManageFaqCategoriesModal({ cooperativeId, categories, on
           placeholder="New category name"
           className="flex-1 px-3 py-2 rounded-lg border border-gray-200 bg-gray-50 text-sm"
         />
-        <button
-          onClick={handleAdd}
-          disabled={saving}
-          className="px-4 py-2 rounded-lg text-sm font-semibold text-white bg-blue-700 hover:bg-blue-800 disabled:opacity-60"
-        >
+        <Button size="compact" onClick={handleAdd} disabled={saving}>
           Add
-        </button>
+        </Button>
       </div>
     </Modal>
   )

@@ -3,10 +3,13 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Modal from '@/components/ui/Modal'
+import Alert from '@/components/ui/Alert'
+import Button from '@/components/ui/Button'
 import FormSection from '@/components/ui/FormSection'
 import FormField from '@/components/ui/FormField'
 import BillingStatusPill from '@/components/users/BillingStatusPill'
 import BillingVerificationPanel from '@/components/billing/BillingVerificationPanel'
+import { formatDate } from '@/lib/format'
 import { toast } from '@/lib/toast'
 
 export default function BillingRequestDetailsModal({ request, onClose, onDecided }) {
@@ -128,12 +131,9 @@ export default function BillingRequestDetailsModal({ request, onClose, onDecided
               </p>
             </div>
           </div>
-          <button
-            onClick={onDecided}
-            className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold text-sm py-3 rounded-lg transition-colors"
-          >
+          <Button variant="success" size="lg" dim={false} onClick={onDecided}>
             DONE
-          </button>
+          </Button>
         </div>
       </Modal>
     )
@@ -165,26 +165,15 @@ export default function BillingRequestDetailsModal({ request, onClose, onDecided
           className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 mb-4"
         />
 
-        {error && (
-          <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-4">
-            {error}
-          </p>
-        )}
+        <Alert>{error}</Alert>
 
         <div className="flex justify-end gap-3">
-          <button
-            onClick={() => setShowDecline(false)}
-            className="px-4 py-2.5 rounded-lg text-sm font-semibold text-gray-600 border border-gray-200 hover:bg-gray-50"
-          >
+          <Button variant="outline" dim={false} onClick={() => setShowDecline(false)}>
             Cancel
-          </button>
-          <button
-            onClick={handleConfirmDecline}
-            disabled={loading}
-            className="px-4 py-2.5 rounded-lg text-sm font-semibold text-white bg-red-600 hover:bg-red-700 disabled:opacity-60"
-          >
+          </Button>
+          <Button variant="danger" onClick={handleConfirmDecline} disabled={loading}>
             {loading ? 'Submitting…' : 'Confirm Decline'}
-          </button>
+          </Button>
         </div>
       </Modal>
     )
@@ -205,15 +194,7 @@ export default function BillingRequestDetailsModal({ request, onClose, onDecided
       <FormSection title="Requestor Information">
         <FormField label="Account Name" value={request.account_name} disabled />
         <FormField label="Account Type" value={request.account_type} disabled />
-        <FormField
-          label="Date Requested"
-          value={new Date(request.request_at).toLocaleDateString('en-PH', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-          })}
-          disabled
-        />
+        <FormField label="Date Requested" value={formatDate(request.request_at)} disabled />
         <FormField label="Account Number" value={request.account_number} disabled />
       </FormSection>
 
@@ -228,21 +209,13 @@ export default function BillingRequestDetailsModal({ request, onClose, onDecided
         </p>
       )}
 
-      {error && (
-        <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-4">
-          {error}
-        </p>
-      )}
+      <Alert>{error}</Alert>
 
       {request.status === 'pending' && (
         <div className="flex justify-end gap-3">
-          <button
-            onClick={openDecline}
-            disabled={loading}
-            className="px-4 py-2.5 rounded-lg text-sm font-semibold text-red-600 border border-red-200 hover:bg-red-50"
-          >
+          <Button variant="dangerOutline" dim={false} onClick={openDecline} disabled={loading}>
             Decline
-          </button>
+          </Button>
           <button
             onClick={handleApprove}
             disabled={loading}

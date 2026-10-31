@@ -1,13 +1,11 @@
 'use client'
 
 import ReportMap from '@/components/ui/ReportMap'
+import ModalBackdrop from '@/components/ui/ModalBackdrop'
 
 export default function MapModal({ lat, lng, label, markers, onClose }) {
   return (
-    <div
-      className="fixed inset-0 bg-black/40 flex items-center justify-center z-[9999] p-4"
-      onClick={onClose}
-    >
+    <ModalBackdrop onClick={onClose}>
       <div
         className="bg-white rounded-xl w-full max-w-2xl h-[70vh] overflow-hidden relative"
         onClick={(e) => e.stopPropagation()}
@@ -20,6 +18,6 @@ export default function MapModal({ lat, lng, label, markers, onClose }) {
         </button>
         <ReportMap lat={lat} lng={lng} label={label} markers={markers} />
       </div>
-    </div>
+    </ModalBackdrop>
   )
 }

@@ -3,16 +3,26 @@
 import { useEffect, useState, Fragment } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { getMyCooperativeId } from '@/lib/supabase/getCooperativeId'
+import { generateMasterTicketNumber } from '@/lib/dispatch/masterTicketNumber'
+import { formatDateTime } from '@/lib/format'
 import BackToDispatchLink from '@/components/dispatch/BackToDispatchLink'
 import MatchReviewCard from '@/components/dispatch/MatchReviewCard'
+import Alert from '@/components/ui/Alert'
+import Badge from '@/components/ui/Badge'
+import Button from '@/components/ui/Button'
+import DataTable from '@/components/ui/DataTable'
 import { getMatchTier, buildBreakdownFactors } from '@/lib/scoring/masterTicketScoringConfig'
 import { toast } from '@/lib/toast'
 
-function generateMasterTicketNumber() {
-  const date = new Date().toISOString().slice(0, 10).replace(/-/g, '')
-  const random = Math.random().toString(16).slice(2, 8).toUpperCase()
-  return `MT-${date}-${random}`
-}
+const COLUMNS = [
+  { label: '', className: 'w-12' },
+  'Ticket ID',
+  'Location',
+  'Reported',
+  'Match vs Anchor',
+  '',
+]
 
 export default function CreateMasterTicketPage() {
   const router = useRouter()
@@ -36,28 +46,20 @@ export default function CreateMasterTicketPage() {
     setError('')
     const supabase = createClient()
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    const coopId = await getMyCooperativeId(supabase)
 
-    const { data: myRow } = await supabase
-      .from('users')
-      .select('cooperative_id')
-      .eq('id', user.id)
-      .single()
-
-    if (!myRow) {
+    if (!coopId) {
       setError('Unable to load your cooperative.')
       setLoading(false)
       return
     }
 
-    setCooperativeId(myRow.cooperative_id)
+    setCooperativeId(coopId)
 
     const { data: reportData, error: reportError } = await supabase
       .from('reports')
       .select('*')
-      .eq('cooperative_id', myRow.cooperative_id)
+      .eq('cooperative_id', coopId)
       .is('master_id', null)
       .not('status', 'in', '(resolved,cancelled)')
       .order('created_at', { ascending: false })
@@ -211,171 +213,134 @@ export default function CreateMasterTicketPage() {
       )}
       {anchorId && <div className="mb-6" />}
 
-      {error && (
-        <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-4">
-          {error}
-        </p>
-      )}
+      <Alert>{error}</Alert>
 
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden mb-6">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="bg-gray-50 border-b border-gray-200 text-left text-xs text-gray-500 uppercase tracking-wide">
-              <th className="px-5 py-3 font-semibold w-12"></th>
-              <th className="px-5 py-3 font-semibold">Ticket ID</th>
-              <th className="px-5 py-3 font-semibold">Location</th>
-              <th className="px-5 py-3 font-semibold">Reported</th>
-              <th className="px-5 py-3 font-semibold">Match vs Anchor</th>
-              <th className="px-5 py-3 font-semibold"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading && (
-              <tr>
-                <td colSpan={6} className="px-5 py-8 text-center text-gray-500">
-                  Loading…
+      <DataTable
+        className="mb-6"
+        columns={COLUMNS}
+        loading={loading}
+        isEmpty={reports.length === 0}
+        empty="No standalone reports available to merge."
+      >
+        {sortedReports.map((r) => {
+          const isSelected = selectedIds.includes(r.report_id)
+          const isAnchor = r.report_id === anchorId
+          const breakdown = breakdowns[r.report_id]
+          const tier = breakdown ? getMatchTier(breakdown.total_score) : null
+          const isExpanded = expandedId === r.report_id
+
+          return (
+            <Fragment key={r.report_id}>
+              <tr
+                className={`border-b border-gray-100 last:border-0 ${
+                  isAnchor ? 'bg-blue-50/40' : ''
+                }`}
+              >
+                <td className="px-5 py-4">
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={() => toggleReport(r)}
+                    className="w-4 h-4"
+                  />
+                </td>
+                <td className="px-5 py-4 font-semibold text-gray-900">
+                  {r.ticket_number}
+                  {isAnchor && (
+                    <Badge tone="blueStrong" size="sm" className="ml-2">
+                      ANCHOR
+                    </Badge>
+                  )}
+                </td>
+                <td className="px-5 py-4">
+                  <p className="text-gray-900">
+                    {r.nearest_landmark || `${r.barangay}, ${r.municipality}`}
+                  </p>
+                  <p className="text-xs text-gray-400">
+                    {r.barangay}, {r.municipality}
+                  </p>
+                </td>
+                <td className="px-5 py-4 text-gray-600">{formatDateTime(r.created_at)}</td>
+                <td className="px-5 py-4">
+                  {isAnchor ? (
+                    <span className="text-xs text-gray-400">—</span>
+                  ) : !anchorId ? (
+                    <span className="text-xs text-gray-400">Select an anchor first</span>
+                  ) : breakdownLoading && !breakdown ? (
+                    <span className="text-xs text-gray-400">Scoring…</span>
+                  ) : breakdown ? (
+                    <div>
+                      <Badge colorClass={tier.badgeClass} className="inline-block uppercase">
+                        {breakdown.total_score}% · {tier.label}
+                      </Badge>
+                      {breakdown.feeder_match === false && (
+                        <p className="text-xs text-red-500 font-medium mt-1">Different feeder</p>
+                      )}
+                    </div>
+                  ) : (
+                    <span className="text-xs text-gray-400">—</span>
+                  )}
+                </td>
+                <td className="px-5 py-4">
+                  <Button
+                    variant="neutral"
+                    size="toggle"
+                    dim={false}
+                    onClick={() => setExpandedId(isExpanded ? null : r.report_id)}
+                  >
+                    {isExpanded ? 'Hide Details ▲' : 'View Details ▾'}
+                  </Button>
                 </td>
               </tr>
-            )}
-            {!loading && reports.length === 0 && (
-              <tr>
-                <td colSpan={6} className="px-5 py-8 text-center text-gray-500">
-                  No standalone reports available to merge.
-                </td>
-              </tr>
-            )}
-            {!loading &&
-              sortedReports.map((r) => {
-                const isSelected = selectedIds.includes(r.report_id)
-                const isAnchor = r.report_id === anchorId
-                const breakdown = breakdowns[r.report_id]
-                const tier = breakdown ? getMatchTier(breakdown.total_score) : null
-                const isExpanded = expandedId === r.report_id
-
-                return (
-                  <Fragment key={r.report_id}>
-                    <tr
-                      className={`border-b border-gray-100 last:border-0 ${
-                        isAnchor ? 'bg-blue-50/40' : ''
-                      }`}
-                    >
-                      <td className="px-5 py-4">
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={() => toggleReport(r)}
-                          className="w-4 h-4"
-                        />
-                      </td>
-                      <td className="px-5 py-4 font-semibold text-gray-900">
-                        {r.ticket_number}
-                        {isAnchor && (
-                          <span className="ml-2 text-xs font-bold text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded">
-                            ANCHOR
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-5 py-4">
-                        <p className="text-gray-900">
-                          {r.nearest_landmark || `${r.barangay}, ${r.municipality}`}
+              {isExpanded && (
+                <tr className="border-b border-gray-100 last:border-0">
+                  <td colSpan={6} className="px-5 py-4 bg-gray-50 space-y-3">
+                    <MatchReviewCard
+                      title="Report Details"
+                      ticketLabel={r.ticket_number}
+                      reportId={r.report_id}
+                      consumerId={r.consumer_id}
+                      barangay={r.barangay}
+                      municipality={r.municipality}
+                      zone={r.zone}
+                      nearestLandmark={r.nearest_landmark}
+                      description={r.report_details}
+                      photoUrl={r.photo_url}
+                      otherHomesAffected={r.other_homes_affected}
+                    />
+                    {!isAnchor && breakdown && (
+                      <div className="bg-white border border-gray-200 rounded-lg p-3 space-y-1">
+                        <p className="text-xs font-bold text-gray-400 uppercase">
+                          Match Breakdown vs Anchor
                         </p>
-                        <p className="text-xs text-gray-400">
-                          {r.barangay}, {r.municipality}
-                        </p>
-                      </td>
-                      <td className="px-5 py-4 text-gray-600">
-                        {new Date(r.created_at).toLocaleString('en-PH', {
-                          month: 'short',
-                          day: 'numeric',
-                          hour: 'numeric',
-                          minute: '2-digit',
-                        })}
-                      </td>
-                      <td className="px-5 py-4">
-                        {isAnchor ? (
-                          <span className="text-xs text-gray-400">—</span>
-                        ) : !anchorId ? (
-                          <span className="text-xs text-gray-400">Select an anchor first</span>
-                        ) : breakdownLoading && !breakdown ? (
-                          <span className="text-xs text-gray-400">Scoring…</span>
-                        ) : breakdown ? (
-                          <div>
-                            <span
-                              className={`inline-block text-xs font-bold px-2 py-0.5 rounded uppercase ${tier.badgeClass}`}
-                            >
-                              {breakdown.total_score}% · {tier.label}
+                        {buildBreakdownFactors(breakdown).map((f, i) => (
+                          <div key={i} className="flex items-center gap-2 text-xs">
+                            <span className={f.passed ? 'text-green-600' : 'text-gray-300'}>
+                              {f.passed ? '✓' : '✗'}
                             </span>
-                            {breakdown.feeder_match === false && (
-                              <p className="text-xs text-red-500 font-medium mt-1">
-                                Different feeder
-                              </p>
-                            )}
+                            <span className={f.passed ? 'text-gray-700' : 'text-gray-400'}>
+                              {f.label}
+                            </span>
                           </div>
-                        ) : (
-                          <span className="text-xs text-gray-400">—</span>
-                        )}
-                      </td>
-                      <td className="px-5 py-4">
-                        <button
-                          onClick={() => setExpandedId(isExpanded ? null : r.report_id)}
-                          className="group inline-flex w-fit items-center gap-2 rounded-lg border border-gray-200 bg-white px-3.5 py-2 text-xs font-semibold text-gray-700 shadow-sm transition-colors hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-600 whitespace-nowrap"
-                        >
-                          {isExpanded ? 'Hide Details ▲' : 'View Details ▾'}
-                        </button>
-                      </td>
-                    </tr>
-                    {isExpanded && (
-                      <tr className="border-b border-gray-100 last:border-0">
-                        <td colSpan={6} className="px-5 py-4 bg-gray-50 space-y-3">
-                          <MatchReviewCard
-                            title="Report Details"
-                            ticketLabel={r.ticket_number}
-                            reportId={r.report_id}
-                            consumerId={r.consumer_id}
-                            barangay={r.barangay}
-                            municipality={r.municipality}
-                            zone={r.zone}
-                            nearestLandmark={r.nearest_landmark}
-                            description={r.report_details}
-                            photoUrl={r.photo_url}
-                            otherHomesAffected={r.other_homes_affected}
-                          />
-                          {!isAnchor && breakdown && (
-                            <div className="bg-white border border-gray-200 rounded-lg p-3 space-y-1">
-                              <p className="text-xs font-bold text-gray-400 uppercase">
-                                Match Breakdown vs Anchor
-                              </p>
-                              {buildBreakdownFactors(breakdown).map((f, i) => (
-                                <div key={i} className="flex items-center gap-2 text-xs">
-                                  <span className={f.passed ? 'text-green-600' : 'text-gray-300'}>
-                                    {f.passed ? '✓' : '✗'}
-                                  </span>
-                                  <span className={f.passed ? 'text-gray-700' : 'text-gray-400'}>
-                                    {f.label}
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </td>
-                      </tr>
+                        ))}
+                      </div>
                     )}
-                  </Fragment>
-                )
-              })}
-          </tbody>
-        </table>
-      </div>
+                  </td>
+                </tr>
+              )}
+            </Fragment>
+          )
+        })}
+      </DataTable>
 
-      <button
+      <Button
+        size="wide"
+        dim={50}
         onClick={handleCreate}
         disabled={selectedIds.length < 2 || creating}
-        className="bg-blue-700 hover:bg-blue-800 disabled:opacity-50 text-white font-semibold text-sm px-6 py-3 rounded-lg transition-colors"
       >
-        {creating
-          ? 'Creating…'
-          : `Create Master Ticket (${selectedIds.length} selected)`}
-      </button>
+        {creating ? 'Creating…' : `Create Master Ticket (${selectedIds.length} selected)`}
+      </Button>
     </div>
   )
 }

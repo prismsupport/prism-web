@@ -2,9 +2,8 @@
 
 import { useState } from "react";
 import AuthLayout from "@/components/ui/AuthLayout";
-
-const inputClass =
-  "w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm placeholder-gray-400 transition focus:border-blue-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600/20";
+import AuthInput from "@/components/ui/AuthInput";
+import Alert from "@/components/ui/Alert";
 
 export default function LoginForm({
   logoSubtitle,
@@ -33,13 +32,13 @@ export default function LoginForm({
           <label className="mb-1.5 block text-xs font-bold tracking-wide text-gray-600">
             EMAIL ADDRESS
           </label>
-          <input
+          <AuthInput
+            variant="login"
             type="email"
             required
             value={email}
             onChange={(e) => onEmailChange(e.target.value)}
             placeholder={emailPlaceholder}
-            className={inputClass}
           />
         </div>
 
@@ -48,13 +47,14 @@ export default function LoginForm({
             PASSWORD
           </label>
           <div className="relative">
-            <input
+            <AuthInput
+              variant="login"
+              className="pr-12"
               type={showPassword ? "text" : "password"}
               required
               value={password}
               onChange={(e) => onPasswordChange(e.target.value)}
               placeholder="••••••••"
-              className={`${inputClass} pr-12`}
             />
             <button
               type="button"
@@ -90,11 +90,7 @@ export default function LoginForm({
           </div>
         </div>
 
-        {error && (
-          <p className="rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-600">
-            {error}
-          </p>
-        )}
+        <Alert className="">{error}</Alert>
 
         <button
           type="submit"

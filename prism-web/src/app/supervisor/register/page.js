@@ -3,14 +3,11 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import AuthLayout from '@/components/ui/AuthLayout'
+import AuthInput from '@/components/ui/AuthInput'
+import Alert from '@/components/ui/Alert'
 import { toast } from '@/lib/toast'
-import TermsModal from '@/components/ui/TermsModal'
-import PrivacyPolicyModal from '@/components/ui/PrivacyPolicyModal'
 
 export default function SupervisorRegisterPage() {
-  const [agreed, setAgreed] = useState(false)
-  const [showTerms, setShowTerms] = useState(false)
-  const [showPrivacy, setShowPrivacy] = useState(false)
   const [form, setForm] = useState({
     cooperativeName: '',
     officeAddress: '',
@@ -31,12 +28,20 @@ export default function SupervisorRegisterPage() {
     setForm({ ...form, [e.target.name]: e.target.value })
   }
 
+  // Shared props for every register-form input
+  function field(name, placeholder, extra = {}) {
+    return {
+      name,
+      required: true,
+      value: form[name],
+      onChange: handleChange,
+      placeholder,
+      ...extra,
+    }
+  }
+
   async function handleSubmit(e) {
     e.preventDefault()
-    if (!agreed) {
-      setError('You must agree to the Terms and Conditions and the Privacy Policy to register.')
-      return
-    }
     setError('')
     setLoading(true)
 
@@ -124,178 +129,59 @@ export default function SupervisorRegisterPage() {
 
   return (
     <AuthLayout logoSubtitle="SUPERVISOR PORTAL" wide>
-          <h1 className="text-3xl font-extrabold text-gray-900">
-            Register your cooperative
-          </h1>
-          <p className="mb-8 mt-2 text-sm text-gray-500">
-            Create your cooperative profile and administrator account.
-          </p>
+      <h1 className="text-3xl font-extrabold text-gray-900">Register your cooperative</h1>
+      <p className="mb-8 mt-2 text-sm text-gray-500">
+        Create your cooperative profile and administrator account.
+      </p>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div>
-              <h2 className="text-xs font-bold tracking-wide text-blue-700 mb-3">
-                COOPERATIVE INFORMATION
-              </h2>
-              <div className="space-y-3">
-                <input
-                  name="cooperativeName"
-                  required
-                  value={form.cooperativeName}
-                  onChange={handleChange}
-                  placeholder="Cooperative Name"
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600"
-                />
-                <input
-                  name="officeAddress"
-                  required
-                  value={form.officeAddress}
-                  onChange={handleChange}
-                  placeholder="Office Address"
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600"
-                />
-                <div className="grid grid-cols-2 gap-3">
-                  <input
-                    name="municipality"
-                    required
-                    value={form.municipality}
-                    onChange={handleChange}
-                    placeholder="Municipality"
-                    className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600"
-                  />
-                  <input
-                    name="province"
-                    required
-                    value={form.province}
-                    onChange={handleChange}
-                    placeholder="Province"
-                    className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600"
-                  />
-                </div>
-                <input
-                  name="contactNumber"
-                  required
-                  value={form.contactNumber}
-                  onChange={handleChange}
-                  placeholder="Contact Number"
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600"
-                />
-                <input
-                  name="officialEmail"
-                  type="email"
-                  required
-                  value={form.officialEmail}
-                  onChange={handleChange}
-                  placeholder="Official Cooperative Email"
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600"
-                />
-              </div>
+      <form onSubmit={handleSubmit} className="space-y-5">
+        <div>
+          <h2 className="text-xs font-bold tracking-wide text-blue-700 mb-3">
+            COOPERATIVE INFORMATION
+          </h2>
+          <div className="space-y-3">
+            <AuthInput {...field('cooperativeName', 'Cooperative Name')} />
+            <AuthInput {...field('officeAddress', 'Office Address')} />
+            <div className="grid grid-cols-2 gap-3">
+              <AuthInput {...field('municipality', 'Municipality')} />
+              <AuthInput {...field('province', 'Province')} />
             </div>
+            <AuthInput {...field('contactNumber', 'Contact Number')} />
+            <AuthInput {...field('officialEmail', 'Official Cooperative Email', { type: 'email' })} />
+          </div>
+        </div>
 
-            <div>
-              <h2 className="text-xs font-bold tracking-wide text-blue-700 mb-3">
-                ADMINISTRATOR ACCOUNT
-              </h2>
-              <div className="space-y-3">
-                <div className="grid grid-cols-2 gap-3">
-                  <input
-                    name="firstName"
-                    required
-                    value={form.firstName}
-                    onChange={handleChange}
-                    placeholder="First Name"
-                    className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600"
-                  />
-                  <input
-                    name="lastName"
-                    required
-                    value={form.lastName}
-                    onChange={handleChange}
-                    placeholder="Last Name"
-                    className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600"
-                  />
-                </div>
-                <input
-                  name="email"
-                  type="email"
-                  required
-                  value={form.email}
-                  onChange={handleChange}
-                  placeholder="Your Personal Email (for login)"
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600"
-                />
-                <input
-                  name="password"
-                  type="password"
-                  required
-                  minLength={6}
-                  value={form.password}
-                  onChange={handleChange}
-                  placeholder="Password"
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600"
-                />
-              </div>
+        <div>
+          <h2 className="text-xs font-bold tracking-wide text-blue-700 mb-3">
+            ADMINISTRATOR ACCOUNT
+          </h2>
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <AuthInput {...field('firstName', 'First Name')} />
+              <AuthInput {...field('lastName', 'Last Name')} />
             </div>
+            <AuthInput {...field('email', 'Your Personal Email (for login)', { type: 'email' })} />
+            <AuthInput {...field('password', 'Password', { type: 'password', minLength: 6 })} />
+          </div>
+        </div>
 
-            <label className="flex items-start gap-3 text-sm text-gray-600 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={agreed}
-                onChange={(e) => setAgreed(e.target.checked)}
-                className="w-4 h-4 mt-0.5"
-              />
-              <span>
-                I confirm that I am an authorized representative of this cooperative and I
-                agree to the{' '}
-                <button
-                  type="button"
-                  onClick={() => setShowTerms(true)}
-                  className="text-blue-700 font-medium underline"
-                >
-                  Terms and Conditions
-                </button>{' '}
-                and the{' '}
-                <button
-                  type="button"
-                  onClick={() => setShowPrivacy(true)}
-                  className="text-blue-700 font-medium underline"
-                >
-                  Privacy Policy
-                </button>
-                .
-              </span>
-            </label>
+        <Alert className="">{error}</Alert>
 
-            {error && (
-              <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
-                {error}
-              </p>
-            )}
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full bg-blue-700 hover:bg-blue-800 disabled:opacity-60 text-white font-semibold text-sm py-3 rounded-lg transition-colors"
+        >
+          {loading ? 'Submitting…' : 'Register'}
+        </button>
 
-            <button
-              type="submit"
-              disabled={loading || !agreed}
-              className="w-full bg-blue-700 hover:bg-blue-800 disabled:opacity-60 text-white font-semibold text-sm py-3 rounded-lg transition-colors"
-            >
-              {loading ? 'Submitting…' : 'Register'}
-            </button>
-
-            <p className="text-center text-sm text-gray-500">
-              Already registered?{' '}
-              <a href="/supervisor/login" className="text-blue-700 font-medium">
-                Log in
-              </a>
-            </p>
-          </form>
-          {showTerms && (
-            <TermsModal
-              onClose={() => setShowTerms(false)}
-              onAccept={() => {
-                setAgreed(true)
-                setShowTerms(false)
-              }}
-            />
-          )}
-          {showPrivacy && <PrivacyPolicyModal onClose={() => setShowPrivacy(false)} />}
+        <p className="text-center text-sm text-gray-500">
+          Already registered?{' '}
+          <a href="/supervisor/login" className="text-blue-700 font-medium">
+            Log in
+          </a>
+        </p>
+      </form>
     </AuthLayout>
   )
 }

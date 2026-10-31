@@ -1,18 +1,16 @@
+import Badge from '@/components/ui/Badge'
+import Button from '@/components/ui/Button'
+import { formatDateTime, DATETIME_FULL_LONG } from '@/lib/format'
+
 export default function FaqInquiryRow({ inquiry, onAnswer, isUnread, onOpen }) {
   return (
     <div className="flex items-center justify-between gap-4 px-5 py-4 border-b border-gray-100 last:border-0">
       <div>
-        <span className="inline-block bg-amber-50 text-amber-700 text-xs font-bold px-2 py-0.5 rounded mr-2">
+        <Badge tone="amber" className="inline-block mr-2">
           PENDING
-        </span>
+        </Badge>
         <span className="text-xs text-gray-400">
-          {new Date(inquiry.submitted_at).toLocaleString("en-PH", {
-            month: "long",
-            day: "numeric",
-            year: "numeric",
-            hour: "numeric",
-            minute: "2-digit",
-          })}
+          {formatDateTime(inquiry.submitted_at, DATETIME_FULL_LONG)}
         </span>
         <p className="text-sm text-gray-900 mt-1">
           {isUnread && (
@@ -24,15 +22,16 @@ export default function FaqInquiryRow({ inquiry, onAnswer, isUnread, onOpen }) {
           From: {inquiry.consumer?.first_name} {inquiry.consumer?.last_name}
         </p>
       </div>
-      <button
+      <Button
+        size="xs"
+        dim={false}
         onClick={() => {
-          onOpen?.();
-          onAnswer(inquiry);
+          onOpen?.()
+          onAnswer(inquiry)
         }}
-        className="bg-blue-700 hover:bg-blue-800 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-colors whitespace-nowrap"
       >
         Provide Answer
-      </button>
+      </Button>
     </div>
-  );
+  )
 }

@@ -3,6 +3,9 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Modal from '@/components/ui/Modal'
+import Alert from '@/components/ui/Alert'
+import Button from '@/components/ui/Button'
+import { FormInput, FormSelect } from '@/components/ui/FormControls'
 import { toast } from '@/lib/toast'
 
 export default function ServiceAreaFormModal({
@@ -84,85 +87,60 @@ export default function ServiceAreaFormModal({
       </p>
 
       <form onSubmit={handleSubmit}>
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-1.5">
-            Substation
-          </label>
-          <input
-            required
-            value={substation}
-            onChange={(e) => setSubstation(e.target.value)}
-            placeholder="e.g. 20 MVA Libmanan Substation"
-            className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm placeholder-gray-400"
-          />
-        </div>
+        <FormInput
+          label="Substation"
+          required
+          value={substation}
+          onChange={(e) => setSubstation(e.target.value)}
+          placeholder="e.g. 20 MVA Libmanan Substation"
+        />
 
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-1.5">
-            Feeder
-          </label>
-          <input
-            required
-            value={feeder}
-            onChange={(e) => setFeeder(e.target.value)}
-            placeholder="e.g. Feeder 9"
-            className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm placeholder-gray-400"
-          />
-        </div>
+        <FormInput
+          label="Feeder"
+          required
+          value={feeder}
+          onChange={(e) => setFeeder(e.target.value)}
+          placeholder="e.g. Feeder 9"
+        />
 
         <div className="grid grid-cols-2 gap-3 mb-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              Barangay
-            </label>
-            <input
-              required
-              value={barangay}
-              onChange={(e) => setBarangay(e.target.value)}
-              placeholder="e.g. San Isidro"
-              className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm placeholder-gray-400"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              Municipality
-            </label>
-            <input
-              required
-              value={municipality}
-              onChange={(e) => setMunicipality(e.target.value)}
-              placeholder="e.g. Libmanan"
-              className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm placeholder-gray-400"
-            />
-          </div>
-        </div>
-
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-1.5">
-            Province
-          </label>
-          <input
-            value={province}
-            onChange={(e) => setProvince(e.target.value)}
-            placeholder="e.g. Camarines Sur"
-            className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm placeholder-gray-400"
+          <FormInput
+            wrapperClassName=""
+            label="Barangay"
+            required
+            value={barangay}
+            onChange={(e) => setBarangay(e.target.value)}
+            placeholder="e.g. San Isidro"
+          />
+          <FormInput
+            wrapperClassName=""
+            label="Municipality"
+            required
+            value={municipality}
+            onChange={(e) => setMunicipality(e.target.value)}
+            placeholder="e.g. Libmanan"
           />
         </div>
 
+        <FormInput
+          label="Province"
+          value={province}
+          onChange={(e) => setProvince(e.target.value)}
+          placeholder="e.g. Camarines Sur"
+        />
+
         <div className="mb-5">
-          <label className="block text-sm font-medium text-gray-700 mb-1.5">
-            Area Office
-          </label>
-          <select
+          <FormSelect
+            wrapperClassName=""
+            label="Area Office"
             value={areaOffice}
             onChange={(e) => setAreaOffice(e.target.value)}
-            className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm"
           >
             <option value="">No area office assigned</option>
             {areaOffices.map((a) => (
               <option key={a}>{a}</option>
             ))}
-          </select>
+          </FormSelect>
           <button
             type="button"
             onClick={onManageAreaOffices}
@@ -172,27 +150,15 @@ export default function ServiceAreaFormModal({
           </button>
         </div>
 
-        {error && (
-          <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-4">
-            {error}
-          </p>
-        )}
+        <Alert>{error}</Alert>
 
         <div className="flex justify-end gap-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2.5 rounded-lg text-sm font-semibold text-gray-600 border border-gray-200 hover:bg-gray-50"
-          >
+          <Button type="button" variant="outline" dim={false} onClick={onClose}>
             Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={loading}
-            className="px-4 py-2.5 rounded-lg text-sm font-semibold text-white bg-blue-700 hover:bg-blue-800 disabled:opacity-60"
-          >
+          </Button>
+          <Button type="submit" disabled={loading}>
             {loading ? 'Saving…' : isEditing ? 'Save Changes' : 'Add Service Area'}
-          </button>
+          </Button>
         </div>
       </form>
     </Modal>

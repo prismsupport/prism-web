@@ -1,5 +1,7 @@
 import { summarizeSchedule } from '@/lib/lineman/schedule'
 import { formatLastSeen, DUTY_BADGES } from '@/lib/lineman/duty'
+import Button from '@/components/ui/Button'
+import Badge from '@/components/ui/Badge'
 
 export default function LinemanRow({ lineman, duty, onSelect }) {
   const shifts = summarizeSchedule(lineman.schedule)
@@ -10,9 +12,7 @@ export default function LinemanRow({ lineman, duty, onSelect }) {
       <td className="px-5 py-4 font-medium text-gray-900">
         {lineman.first_name} {lineman.last_name}
       </td>
-      <td className="px-5 py-4 text-gray-600">
-        {lineman.assigned_area_office || '—'}
-      </td>
+      <td className="px-5 py-4 text-gray-600">{lineman.assigned_area_office || '—'}</td>
       <td className="px-5 py-4 text-center">
         {shifts.length === 0 ? (
           <span className="text-xs text-gray-400">No schedule set</span>
@@ -34,19 +34,15 @@ export default function LinemanRow({ lineman, duty, onSelect }) {
           <span className="text-xs text-gray-400">Deactivated</span>
         ) : badge ? (
           <div>
-            <span
-              className={`inline-block text-xs font-bold px-2 py-0.5 rounded ${badge.cls}`}
-            >
+            <Badge colorClass={badge.cls} className="inline-block">
               {badge.label}
-            </span>
+            </Badge>
             {duty.on_call && (
-              <span className="ml-1 inline-block text-xs font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-700">
+              <Badge tone="amberStrong" className="ml-1 inline-block">
                 ON-CALL
-              </span>
+              </Badge>
             )}
-            <p className="text-xs text-gray-400 mt-1">
-              {formatLastSeen(duty.location_updated_at)}
-            </p>
+            <p className="text-xs text-gray-400 mt-1">{formatLastSeen(duty.location_updated_at)}</p>
           </div>
         ) : (
           <span className="text-xs text-gray-400">—</span>
@@ -54,13 +50,9 @@ export default function LinemanRow({ lineman, duty, onSelect }) {
       </td>
       <td className="px-5 py-4 text-gray-600">{lineman.phone_number}</td>
       <td className="px-5 py-4">
-        <button
-          type="button"
-          onClick={() => onSelect(lineman)}
-          className="inline-flex min-w-28 justify-center items-center gap-2 rounded-lg border border-gray-200 bg-white px-3.5 py-2 text-xs font-semibold text-gray-700 shadow-sm transition-colors hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-600 whitespace-nowrap"
-        >
+        <Button type="button" variant="neutral" size="row" dim={false} onClick={() => onSelect(lineman)}>
           View Details
-        </button>
+        </Button>
       </td>
     </tr>
   )

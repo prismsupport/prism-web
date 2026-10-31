@@ -5,6 +5,9 @@ import { createClient } from '@/lib/supabase/client'
 import { reopenAssignment } from '@/lib/dispatch/reopenAssignment'
 import { toast } from '@/lib/toast'
 import { useStatusLabels } from '@/lib/workflow/StatusLabelsContext'
+import Alert from '@/components/ui/Alert'
+import Button from '@/components/ui/Button'
+import ReasonBox from '@/components/ui/ReasonBox'
 
 export default function QAReviewSection({ assignment, reportId, masterId, onReviewed }) {
   const { statusLabel } = useStatusLabels()
@@ -17,27 +20,27 @@ export default function QAReviewSection({ assignment, reportId, masterId, onRevi
   const [actionLoading, setActionLoading] = useState(false)
 
   useEffect(() => {
-  async function loadMedia() {
-    const supabase = createClient()
+    async function loadMedia() {
+      const supabase = createClient()
 
-    if (assignment.photo_url) {
-      const { data } = await supabase.storage
-        .from('assignment-proofs')
-        .createSignedUrl(assignment.photo_url, 3600)
-      if (data) setPhotoUrl(data.signedUrl)
+      if (assignment.photo_url) {
+        const { data } = await supabase.storage
+          .from('assignment-proofs')
+          .createSignedUrl(assignment.photo_url, 3600)
+        if (data) setPhotoUrl(data.signedUrl)
+      }
+
+      if (assignment.voice_record) {
+        const { data } = await supabase.storage
+          .from('assignment-proofs')
+          .createSignedUrl(assignment.voice_record, 3600)
+        if (data) setVoiceUrl(data.signedUrl)
+      }
+
+      setLoading(false)
     }
-
-    if (assignment.voice_record) {
-      const { data } = await supabase.storage
-        .from('assignment-proofs')
-        .createSignedUrl(assignment.voice_record, 3600)
-      if (data) setVoiceUrl(data.signedUrl)
-    }
-
-    setLoading(false)
-  }
-  loadMedia()
-}, [assignment.photo_url, assignment.voice_record])
+    loadMedia()
+  }, [assignment.photo_url, assignment.voice_record])
 
   async function handleApprove() {
     setActionLoading(true)
@@ -171,11 +174,7 @@ export default function QAReviewSection({ assignment, reportId, masterId, onRevi
         )}
       </div>
 
-      {error && (
-        <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-4">
-          {error}
-        </p>
-      )}
+      <Alert>{error}</Alert>
 
       {assignment.status === 'resolved' ? (
         <p className="text-sm text-green-700 bg-green-50 border border-green-100 rounded-lg px-3 py-2 font-medium">
@@ -183,50 +182,29 @@ export default function QAReviewSection({ assignment, reportId, masterId, onRevi
         </p>
       ) : !showRejectBox ? (
         <div className="flex gap-3">
-          <button
-            onClick={handleApprove}
-            disabled={actionLoading}
-            className="flex-1 bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white font-semibold text-sm py-2.5 rounded-lg"
-          >
+          <Button variant="success" size="split" onClick={handleApprove} disabled={actionLoading}>
             {actionLoading ? 'Approving…' : 'Approve & Close Ticket'}
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="dangerSoft"
+            size="split"
+            dim={false}
             onClick={() => setShowRejectBox(true)}
             disabled={actionLoading}
-            className="flex-1 bg-red-50 hover:bg-red-100 text-red-700 font-semibold text-sm py-2.5 rounded-lg border border-red-200"
           >
             Reject
-          </button>
+          </Button>
         </div>
       ) : (
-        <div>
-          <label className="block text-xs font-bold tracking-wide text-gray-600 mb-1.5">
-            REASON FOR REJECTION
-          </label>
-          <textarea
-            value={remarks}
-            onChange={(e) => setRemarks(e.target.value)}
-            rows={3}
-            placeholder="Explain what needs to be corrected…"
-            className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm placeholder-gray-400 mb-3"
-          />
-          <div className="flex gap-3">
-            <button
-              onClick={handleReject}
-              disabled={actionLoading}
-              className="flex-1 bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white font-semibold text-sm py-2.5 rounded-lg"
-            >
-              {actionLoading ? 'Submitting…' : 'Confirm Rejection'}
-            </button>
-            <button
-              onClick={() => setShowRejectBox(false)}
-              disabled={actionLoading}
-              className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-sm py-2.5 rounded-lg"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
+        <ReasonBox
+          value={remarks}
+          onChange={setRemarks}
+          placeholder="Explain what needs to be corrected…"
+          confirmLabel={actionLoading ? 'Submitting…' : 'Confirm Rejection'}
+          onConfirm={handleReject}
+          onCancel={() => setShowRejectBox(false)}
+          loading={actionLoading}
+        />
       )}
     </div>
   )

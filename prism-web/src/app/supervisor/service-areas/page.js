@@ -2,15 +2,24 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { getMyCooperativeId } from '@/lib/supabase/getCooperativeId'
+import { toast } from '@/lib/toast'
+import usePagination from '@/lib/usePagination'
 import Pagination from '@/components/ui/Pagination'
 import Modal from '@/components/ui/Modal'
+import PageHeader from '@/components/ui/PageHeader'
+import Alert from '@/components/ui/Alert'
+import Button from '@/components/ui/Button'
+import DataTable from '@/components/ui/DataTable'
+import { FilterBar, FilterSelect } from '@/components/ui/FilterBar'
+import SearchInput from '@/components/ui/SearchInput'
+import StatCard, { StatCardGrid } from '@/components/ui/StatCard'
 import ServiceAreaFormModal from '@/components/service-areas/ServiceAreaFormModal'
 import ServiceAreaRow from '@/components/service-areas/ServiceAreaRow'
 import BackToAdvisoriesLink from '@/components/service-areas/BackToAdvisoriesLink'
 import ManageAreaOfficesModal from '@/components/users/ManageAreaOfficesModal'
-import { toast } from '@/lib/toast'
 
-const PAGE_SIZE = 10
+const COLUMNS = ['Barangay', 'Municipality', 'Province', 'Feeder', 'Substation', 'Area Office', 'Actions']
 
 export default function ServiceAreasPage() {
   const [cooperativeId, setCooperativeId] = useState(null)
@@ -23,7 +32,6 @@ export default function ServiceAreasPage() {
   const [feederFilter, setFeederFilter] = useState('All Feeders')
   const [areaOfficeFilter, setAreaOfficeFilter] = useState('All Area Offices')
   const [searchText, setSearchText] = useState('')
-  const [page, setPage] = useState(1)
 
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [editingArea, setEditingArea] = useState(null)
@@ -33,7 +41,6 @@ export default function ServiceAreasPage() {
   const [impactLoading, setImpactLoading] = useState(false)
   const [impactError, setImpactError] = useState('')
   const [showManageAreaOffices, setShowManageAreaOffices] = useState(false)
-  const [showArchived, setShowArchived] = useState(false)
 
   useEffect(() => {
     loadServiceAreas()
@@ -44,28 +51,20 @@ export default function ServiceAreasPage() {
     setError('')
     const supabase = createClient()
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    const coopId = await getMyCooperativeId(supabase)
 
-    const { data: myRow } = await supabase
-      .from('users')
-      .select('cooperative_id')
-      .eq('id', user.id)
-      .single()
-
-    if (!myRow) {
+    if (!coopId) {
       setError('Unable to load your cooperative.')
       setLoading(false)
       return
     }
 
-    setCooperativeId(myRow.cooperative_id)
+    setCooperativeId(coopId)
 
     const { data: coop } = await supabase
       .from('cooperative_settings')
       .select('area_offices')
-      .eq('cooperative_id', myRow.cooperative_id)
+      .eq('cooperative_id', coopId)
       .single()
 
     setAreaOffices(coop?.area_offices || [])
@@ -73,7 +72,7 @@ export default function ServiceAreasPage() {
     const { data, error: fetchError } = await supabase
       .from('service_areas')
       .select('*')
-      .eq('cooperative_id', myRow.cooperative_id)
+      .eq('cooperative_id', coopId)
       .order('municipality', { ascending: true })
       .order('barangay', { ascending: true })
 
@@ -98,59 +97,36 @@ export default function ServiceAreasPage() {
     setImpactLoading(false)
   }
 
-  // Archive = hide it from use, but keep the data in the database.
-  async function handleArchiveConfirmed() {
+  async function handleDeleteConfirmed() {
     setDeleteLoading(true)
     const supabase = createClient()
-    const { error: archiveError } = await supabase
+    const { error: deleteError } = await supabase
       .from('service_areas')
-      .update({ archived_at: new Date().toISOString() })
+      .delete()
       .eq('id', deletingArea.id)
 
-    if (archiveError) {
-      toast.error(archiveError.message)
-      setError(archiveError.message)
+    if (deleteError) {
+      toast.error(deleteError.message)
+      setError(deleteError.message)
       setDeleteLoading(false)
       return
     }
 
     setDeleteLoading(false)
     setDeletingArea(null)
-    toast.success('Service area archived')
+    toast.success('Service area deleted')
     loadServiceAreas()
   }
-
-  async function handleRestore(area) {
-    const supabase = createClient()
-    const { error: restoreError } = await supabase
-      .from('service_areas')
-      .update({ archived_at: null })
-      .eq('id', area.id)
-
-    if (restoreError) {
-      toast.error(restoreError.message)
-      return
-    }
-
-    toast.success('Service area restored')
-    loadServiceAreas()
-  }
-
-  // Active ones for normal use, archived ones only in the archive view
-  const activeAreas = serviceAreas.filter((a) => !a.archived_at)
-  const visibleAreas = serviceAreas.filter((a) =>
-    showArchived ? a.archived_at : !a.archived_at
-  )
 
   const substationOptions = Array.from(
-    new Set(visibleAreas.map((a) => a.substation).filter(Boolean))
+    new Set(serviceAreas.map((a) => a.substation).filter(Boolean))
   ).sort()
 
   const feederOptions = Array.from(
-    new Set(visibleAreas.map((a) => a.feeder).filter(Boolean))
+    new Set(serviceAreas.map((a) => a.feeder).filter(Boolean))
   ).sort()
 
-  const filtered = visibleAreas.filter((a) => {
+  const filtered = serviceAreas.filter((a) => {
     const substationMatch =
       substationFilter === 'All Substations' || a.substation === substationFilter
     const feederMatch = feederFilter === 'All Feeders' || a.feeder === feederFilter
@@ -167,169 +143,81 @@ export default function ServiceAreasPage() {
     return substationMatch && feederMatch && areaOfficeMatch && searchMatch
   })
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
-  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+  const pg = usePagination(filtered)
 
-  const unassignedCount = visibleAreas.filter((a) => !a.area_office).length
+  const unassignedCount = serviceAreas.filter((a) => !a.area_office).length
+
+  // Wraps a filter setter so changing a filter returns to page 1
+  const withReset = (setter) => (value) => {
+    setter(value)
+    pg.setPage(1)
+  }
 
   return (
     <div>
       <BackToAdvisoriesLink withMarginBottom />
 
-      <div className="flex items-start justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">
-            {showArchived ? 'Archived Service Areas' : 'Service Areas'}
-          </h1>
-          <p className="text-sm text-gray-500 mt-1">
-            {showArchived
-              ? 'Archived areas are no longer used for feeder matching, dispatch, or advisories. Restore one to use it again.'
-              : 'Manage the substations, feeders, barangays, and area offices covered by your cooperative.'}
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setShowManageAreaOffices(true)}
-            className="bg-white hover:bg-gray-50 text-gray-700 text-sm font-semibold px-4 py-2.5 rounded-lg border border-gray-200 transition-colors whitespace-nowrap"
-          >
-            Manage Area Offices
-          </button>
-          <button
-            onClick={() => {
-              setShowArchived(!showArchived)
-              setSubstationFilter('All Substations')
-              setFeederFilter('All Feeders')
-              setAreaOfficeFilter('All Area Offices')
-              setSearchText('')
-              setPage(1)
-            }}
-            className="bg-white hover:bg-gray-50 text-gray-700 text-sm font-semibold px-4 py-2.5 rounded-lg border border-gray-200 transition-colors whitespace-nowrap"
-          >
-            {showArchived ? 'Back to Service Areas' : 'View Archive'}
-          </button>
-          {!showArchived && (
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="bg-blue-700 hover:bg-blue-800 text-white text-sm font-semibold px-4 py-2.5 rounded-lg transition-colors whitespace-nowrap"
+      <PageHeader
+        title="Service Areas"
+        description="Manage the substations, feeders, barangays, and area offices covered by your cooperative."
+        actions={
+          <div className="flex items-center gap-3">
+            <Button
+              variant="plain"
+              dim={false}
+              className="whitespace-nowrap"
+              onClick={() => setShowManageAreaOffices(true)}
             >
+              Manage Area Offices
+            </Button>
+            <Button dim={false} className="whitespace-nowrap" onClick={() => setShowCreateModal(true)}>
               + Add Service Area
-            </button>
-          )}
-        </div>
-      </div>
+            </Button>
+          </div>
+        }
+      />
 
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <p className="text-xs font-bold tracking-wide text-gray-400 uppercase mb-1">
-            {showArchived ? 'Archived Areas' : 'Total Areas'}
-          </p>
-          <p className="text-2xl font-bold text-blue-700">
-            {showArchived ? visibleAreas.length : activeAreas.length}
-          </p>
-        </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <p className="text-xs font-bold tracking-wide text-gray-400 uppercase mb-1">
-            Substations
-          </p>
-          <p className="text-2xl font-bold text-gray-900">{substationOptions.length}</p>
-        </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <p className="text-xs font-bold tracking-wide text-gray-400 uppercase mb-1">
-            Feeders
-          </p>
-          <p className="text-2xl font-bold text-gray-900">{feederOptions.length}</p>
-        </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <p className="text-xs font-bold tracking-wide text-gray-400 uppercase mb-1">
-            Area Offices
-          </p>
-          <p className="text-2xl font-bold text-gray-900">{areaOffices.length}</p>
-        </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <p className="text-xs font-bold tracking-wide text-gray-400 uppercase mb-1">
-            Unassigned Office
-          </p>
-          <p className={`text-2xl font-bold ${unassignedCount > 0 ? 'text-amber-600' : 'text-gray-900'}`}>
-            {unassignedCount}
-          </p>
-        </div>
-      </div>
+      <StatCardGrid columns={5}>
+        <StatCard compact label="Total Areas" value={serviceAreas.length} color="text-blue-700" />
+        <StatCard compact label="Substations" value={substationOptions.length} />
+        <StatCard compact label="Feeders" value={feederOptions.length} />
+        <StatCard compact label="Area Offices" value={areaOffices.length} />
+        <StatCard
+          compact
+          label="Unassigned Office"
+          value={unassignedCount}
+          color={unassignedCount > 0 ? 'text-amber-600' : 'text-gray-900'}
+        />
+      </StatCardGrid>
 
-      <div className="flex flex-wrap items-center gap-3 bg-white rounded-xl border border-gray-200 p-4 mb-6">
-        <div className="relative flex-1 min-w-[220px]">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
-          >
-            <circle cx="11" cy="11" r="7" />
-            <path d="m21 21-4.3-4.3" />
-          </svg>
-          <input
-            type="text"
-            value={searchText}
-            onChange={(e) => {
-              setSearchText(e.target.value)
-              setPage(1)
-            }}
-            placeholder="Search barangay, municipality, substation, feeder, area office…"
-            className="w-full pl-10 pr-3.5 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
-          />
-        </div>
+      <FilterBar className="flex flex-wrap items-center gap-3">
+        <SearchInput
+          className="flex-1 min-w-[220px]"
+          value={searchText}
+          onChange={withReset(setSearchText)}
+          placeholder="Search barangay, municipality, substation, feeder, area office…"
+        />
 
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-bold text-gray-500 tracking-wide">AREA OFFICE</span>
-          <select
-            value={areaOfficeFilter}
-            onChange={(e) => {
-              setAreaOfficeFilter(e.target.value)
-              setPage(1)
-            }}
-            className="select-control text-sm border border-gray-200 rounded-lg px-3 py-1.5"
-          >
-            <option>All Area Offices</option>
-            {areaOffices.map((a) => (
-              <option key={a}>{a}</option>
-            ))}
-          </select>
-        </div>
+        <FilterSelect label="AREA OFFICE" value={areaOfficeFilter} onChange={withReset(setAreaOfficeFilter)}>
+          <option>All Area Offices</option>
+          {areaOffices.map((a) => (
+            <option key={a}>{a}</option>
+          ))}
+        </FilterSelect>
 
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-bold text-gray-500 tracking-wide">SUBSTATION</span>
-          <select
-            value={substationFilter}
-            onChange={(e) => {
-              setSubstationFilter(e.target.value)
-              setPage(1)
-            }}
-            className="select-control text-sm border border-gray-200 rounded-lg px-3 py-1.5"
-          >
-            <option>All Substations</option>
-            {substationOptions.map((s) => (
-              <option key={s}>{s}</option>
-            ))}
-          </select>
-        </div>
+        <FilterSelect label="SUBSTATION" value={substationFilter} onChange={withReset(setSubstationFilter)}>
+          <option>All Substations</option>
+          {substationOptions.map((s) => (
+            <option key={s}>{s}</option>
+          ))}
+        </FilterSelect>
 
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-bold text-gray-500 tracking-wide">FEEDER</span>
-          <select
-            value={feederFilter}
-            onChange={(e) => {
-              setFeederFilter(e.target.value)
-              setPage(1)
-            }}
-            className="select-control text-sm border border-gray-200 rounded-lg px-3 py-1.5"
-          >
-            <option>All Feeders</option>
-            {feederOptions.map((f) => (
-              <option key={f}>{f}</option>
-            ))}
-          </select>
-        </div>
+        <FilterSelect label="FEEDER" value={feederFilter} onChange={withReset(setFeederFilter)}>
+          <option>All Feeders</option>
+          {feederOptions.map((f) => (
+            <option key={f}>{f}</option>
+          ))}
+        </FilterSelect>
 
         {(substationFilter !== 'All Substations' ||
           feederFilter !== 'All Feeders' ||
@@ -341,77 +229,28 @@ export default function ServiceAreasPage() {
               setFeederFilter('All Feeders')
               setAreaOfficeFilter('All Area Offices')
               setSearchText('')
-              setPage(1)
+              pg.setPage(1)
             }}
             className="text-sm text-blue-700 font-medium whitespace-nowrap"
           >
             Clear filters
           </button>
         )}
-      </div>
+      </FilterBar>
 
-      {error && (
-        <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-4">
-          {error}
-        </p>
-      )}
+      <Alert>{error}</Alert>
 
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="bg-gray-50 border-b border-gray-200 text-left text-xs text-gray-500 uppercase tracking-wide">
-              <th className="px-5 py-3 font-semibold">Barangay</th>
-              <th className="px-5 py-3 font-semibold">Municipality</th>
-              <th className="px-5 py-3 font-semibold">Province</th>
-              <th className="px-5 py-3 font-semibold">Feeder</th>
-              <th className="px-5 py-3 font-semibold">Substation</th>
-              <th className="px-5 py-3 font-semibold">Area Office</th>
-              <th className="px-5 py-3 font-semibold">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading && (
-              <tr>
-                <td colSpan={7} className="px-5 py-8 text-center text-gray-500">
-                  Loading…
-                </td>
-              </tr>
-            )}
-
-            {!loading && paginated.length === 0 && (
-              <tr>
-                <td colSpan={7} className="px-5 py-8 text-center text-gray-500">
-                  {showArchived
-                    ? 'No archived service areas.'
-                    : 'No service areas match this view.'}
-                </td>
-              </tr>
-            )}
-
-            {!loading &&
-              paginated.map((area) => (
-                <ServiceAreaRow
-                  key={area.id}
-                  area={area}
-                  archived={showArchived}
-                  onEdit={setEditingArea}
-                  onDelete={openDelete}
-                  onRestore={handleRestore}
-                />
-              ))}
-          </tbody>
-        </table>
-
-        {!loading && (
-          <Pagination
-            page={page}
-            totalPages={totalPages}
-            totalCount={filtered.length}
-            pageSize={PAGE_SIZE}
-            onPageChange={setPage}
-          />
-        )}
-      </div>
+      <DataTable
+        columns={COLUMNS}
+        loading={loading}
+        isEmpty={pg.pageItems.length === 0}
+        empty="No service areas match this view."
+        footer={!loading && <Pagination {...pg.paginationProps} />}
+      >
+        {pg.pageItems.map((area) => (
+          <ServiceAreaRow key={area.id} area={area} onEdit={setEditingArea} onDelete={openDelete} />
+        ))}
+      </DataTable>
 
       {(showCreateModal || editingArea) && (
         <ServiceAreaFormModal
@@ -432,7 +271,7 @@ export default function ServiceAreasPage() {
       )}
 
       {deletingArea && (
-        <Modal title="Archive Service Area" onClose={() => setDeletingArea(null)}>
+        <Modal title="Delete Service Area" onClose={() => setDeletingArea(null)}>
           <p className="text-sm text-gray-700 mb-4">
             <span className="font-semibold">{deletingArea.barangay}</span>,{' '}
             {deletingArea.municipality}
@@ -443,10 +282,10 @@ export default function ServiceAreasPage() {
           )}
 
           {impactError && (
-            <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-6">
-              Could not check what depends on this area, so it can't be archived right now. (
+            <Alert className="mb-6">
+              Could not check what depends on this area, so it can't be deleted right now. (
               {impactError})
-            </p>
+            </Alert>
           )}
 
           {impact && (
@@ -468,37 +307,29 @@ export default function ServiceAreasPage() {
 
               {!impact.can_delete ? (
                 <p className="text-sm text-red-700 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-6">
-                  This area can't be archived while consumers or current/upcoming advisories depend
-                  on it. Archiving it would stop those consumers from saving an address change and
-                  leave the advisories pointing at an area that is no longer in use.
+                  This area can't be deleted while consumers or current/upcoming advisories depend
+                  on it. Deleting it would stop those consumers from saving an address change and
+                  leave the advisories pointing at an area that no longer exists.
                 </p>
               ) : (
                 <p className="text-sm text-gray-700 mb-6">
                   {impact.open_report_count > 0
-                    ? `Archiving it removes the Area Office and feeder match for ${impact.open_report_count} open report(s), which changes how linemen and duplicates are ranked for them. `
+                    ? `Deleting it removes the Area Office and feeder match for ${impact.open_report_count} open report(s), which changes how linemen and duplicates are ranked for them. `
                     : 'Nothing depends on this area. '}
-                  You can restore it later from the archive.
+                  This action cannot be undone.
                 </p>
               )}
             </>
           )}
 
           <div className="flex justify-end gap-3">
-            <button
-              onClick={() => setDeletingArea(null)}
-              disabled={deleteLoading}
-              className="px-4 py-2.5 rounded-lg text-sm font-semibold text-gray-600 border border-gray-200 hover:bg-gray-50"
-            >
+            <Button variant="outline" dim={false} onClick={() => setDeletingArea(null)} disabled={deleteLoading}>
               {impact && !impact.can_delete ? 'Close' : 'Cancel'}
-            </button>
+            </Button>
             {impact?.can_delete && (
-              <button
-                onClick={handleArchiveConfirmed}
-                disabled={deleteLoading}
-                className="px-4 py-2.5 rounded-lg text-sm font-semibold text-white bg-red-600 hover:bg-red-700 disabled:opacity-60"
-              >
-                {deleteLoading ? 'Archiving…' : 'Archive'}
-              </button>
+              <Button variant="danger" onClick={handleDeleteConfirmed} disabled={deleteLoading}>
+                {deleteLoading ? 'Deleting…' : 'Delete'}
+              </Button>
             )}
           </div>
         </Modal>

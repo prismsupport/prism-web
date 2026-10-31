@@ -1,3 +1,6 @@
+import Button from '@/components/ui/Button'
+import ReasonBox from '@/components/ui/ReasonBox'
+
 export default function CooperativeStatusActions({
   isPending,
   isActive,
@@ -20,63 +23,48 @@ export default function CooperativeStatusActions({
     <>
       {isPending && !showRejectBox && (
         <div className="flex gap-3 mt-6">
-          <button
-            onClick={onApprove}
-            disabled={actionLoading}
-            className="flex-1 bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white font-semibold text-sm py-2.5 rounded-lg transition-colors"
-          >
+          <Button variant="success" size="split" onClick={onApprove} disabled={actionLoading}>
             {actionLoading ? 'Processing…' : 'Approve'}
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="dangerSoft"
+            size="split"
+            dim={false}
             onClick={onShowRejectBox}
             disabled={actionLoading}
-            className="flex-1 bg-red-50 hover:bg-red-100 text-red-700 font-semibold text-sm py-2.5 rounded-lg transition-colors border border-red-200"
           >
             Reject
-          </button>
+          </Button>
         </div>
       )}
 
       {isPending && showRejectBox && (
-        <div className="mt-6">
-          <label className="block text-xs font-bold tracking-wide text-gray-600 mb-1.5">
-            REJECTION REASON
-          </label>
-          <textarea
-            value={rejectReason}
-            onChange={(e) => onRejectReasonChange(e.target.value)}
-            rows={3}
-            placeholder="Explain why this registration is being rejected…"
-            className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
-          />
-          <div className="flex gap-3 mt-3">
-            <button
-              onClick={onConfirmReject}
-              disabled={actionLoading}
-              className="flex-1 bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white font-semibold text-sm py-2.5 rounded-lg transition-colors"
-            >
-              {actionLoading ? 'Submitting…' : 'Confirm Rejection'}
-            </button>
-            <button
-              onClick={onCancelReject}
-              disabled={actionLoading}
-              className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-sm py-2.5 rounded-lg transition-colors"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
+        <ReasonBox
+          className="mt-6"
+          label="REJECTION REASON"
+          value={rejectReason}
+          onChange={onRejectReasonChange}
+          placeholder="Explain why this registration is being rejected…"
+          focusRing="focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+          confirmLabel={actionLoading ? 'Submitting…' : 'Confirm Rejection'}
+          onConfirm={onConfirmReject}
+          onCancel={onCancelReject}
+          loading={actionLoading}
+        />
       )}
 
       {isActive && !showDeactivateConfirm && (
         <div className="mt-6">
-          <button
+          <Button
+            variant="soft"
+            size="split"
+            dim={false}
+            className="w-full"
             onClick={onShowDeactivateConfirm}
             disabled={actionLoading}
-            className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-sm py-2.5 rounded-lg transition-colors"
           >
             Deactivate Cooperative
-          </button>
+          </Button>
         </div>
       )}
 
@@ -108,13 +96,9 @@ export default function CooperativeStatusActions({
 
       {isDeactivated && (
         <div className="mt-6">
-          <button
-            onClick={onReactivate}
-            disabled={actionLoading}
-            className="w-full bg-blue-700 hover:bg-blue-800 disabled:opacity-60 text-white font-semibold text-sm py-2.5 rounded-lg transition-colors"
-          >
+          <Button size="split" className="w-full" onClick={onReactivate} disabled={actionLoading}>
             {actionLoading ? 'Reactivating…' : 'Reactivate Cooperative'}
-          </button>
+          </Button>
         </div>
       )}
     </>

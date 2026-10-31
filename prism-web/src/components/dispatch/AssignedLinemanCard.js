@@ -1,4 +1,6 @@
 import Avatar from '@/components/ui/Avatar'
+import Button from '@/components/ui/Button'
+import { formatTime } from '@/lib/format'
 
 export default function AssignedLinemanCard({
   name,
@@ -13,27 +15,17 @@ export default function AssignedLinemanCard({
       <p className="text-xs font-bold text-gray-500 uppercase mb-2">Assigned Lineman</p>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-        <Avatar name={name || ''} size={40} />
+          <Avatar name={name || ''} size={40} />
           <p className="text-sm font-semibold text-gray-900">{name || 'Assigned'}</p>
         </div>
         <div className="flex items-center gap-3">
           {assignedAt && (
-            <span className="text-xs text-gray-400">
-              Assigned:{' '}
-              {new Date(assignedAt).toLocaleTimeString('en-PH', {
-                hour: 'numeric',
-                minute: '2-digit',
-              })}
-            </span>
+            <span className="text-xs text-gray-400">Assigned: {formatTime(assignedAt)}</span>
           )}
           {expandable && (
-            <button
-              type="button"
-              onClick={onToggleExpand}
-              className="group inline-flex w-fit items-center gap-2 rounded-lg border border-gray-200 bg-white px-3.5 py-2 text-xs font-semibold text-gray-700 shadow-sm transition-colors hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-600 whitespace-nowrap"
-            >
+            <Button type="button" variant="neutral" size="toggle" dim={false} onClick={onToggleExpand}>
               {expanded ? 'Hide Details ▲' : 'View Details ▾'}
-            </button>
+            </Button>
           )}
         </div>
       </div>

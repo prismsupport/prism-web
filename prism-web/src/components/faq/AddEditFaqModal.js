@@ -3,6 +3,9 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Modal from '@/components/ui/Modal'
+import Alert from '@/components/ui/Alert'
+import Button from '@/components/ui/Button'
+import { FormInput, FormSelect } from '@/components/ui/FormControls'
 import FaqBilingualFields from '@/components/faq/FaqBilingualFields'
 import { toast } from '@/lib/toast'
 
@@ -74,20 +77,13 @@ export default function AddEditFaqModal({ cooperativeId, entry, categories, onCl
   return (
     <Modal title={isEditing ? 'Edit FAQ' : 'Add New FAQ'} onClose={onClose} size="xl">
       <form onSubmit={handleSubmit}>
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-1.5">Category</label>
-          <select
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-            className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm"
-          >
-            {categories.map((cat) => (
-              <option key={cat} value={cat}>
-                {cat.charAt(0).toUpperCase() + cat.slice(1)}
-              </option>
-            ))}
-          </select>
-        </div>
+        <FormSelect label="Category" value={category} onChange={(e) => setCategory(e.target.value)}>
+          {categories.map((cat) => (
+            <option key={cat} value={cat}>
+              {cat.charAt(0).toUpperCase() + cat.slice(1)}
+            </option>
+          ))}
+        </FormSelect>
 
         <FaqBilingualFields
           question={question}
@@ -100,43 +96,24 @@ export default function AddEditFaqModal({ cooperativeId, entry, categories, onCl
           onAnswerTlChange={setAnswerTl}
         />
 
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-1.5">
-            Keywords <span className="text-gray-400 font-normal">(optional)</span>
-          </label>
-          <input
-            value={keywords}
-            onChange={(e) => setKeywords(e.target.value)}
-            placeholder="e.g. walang kuryente, no power, blackout, brownout"
-            className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm placeholder-gray-400"
-          />
-          <p className="text-xs text-gray-400 mt-1">
-            Comma-separated synonyms or alternate phrasings (including Filipino terms) the
-            chatbot should also match to this question.
-          </p>
-        </div>
+        <FormInput
+          label="Keywords"
+          optional
+          value={keywords}
+          onChange={(e) => setKeywords(e.target.value)}
+          placeholder="e.g. walang kuryente, no power, blackout, brownout"
+          hint="Comma-separated synonyms or alternate phrasings (including Filipino terms) the chatbot should also match to this question."
+        />
 
-        {error && (
-          <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-4">
-            {error}
-          </p>
-        )}
+        <Alert>{error}</Alert>
 
         <div className="flex justify-end gap-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2.5 rounded-lg text-sm font-semibold text-gray-600 border border-gray-200 hover:bg-gray-50"
-          >
+          <Button type="button" variant="outline" dim={false} onClick={onClose}>
             Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={loading}
-            className="px-4 py-2.5 rounded-lg text-sm font-semibold text-white bg-blue-700 hover:bg-blue-800 disabled:opacity-60"
-          >
+          </Button>
+          <Button type="submit" disabled={loading}>
             {loading ? 'Saving…' : isEditing ? 'Save Changes' : 'Save FAQ'}
-          </button>
+          </Button>
         </div>
       </form>
     </Modal>

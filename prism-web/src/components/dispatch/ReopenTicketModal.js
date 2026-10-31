@@ -2,6 +2,8 @@
 
 import { useState } from 'react'
 import Modal from '@/components/ui/Modal'
+import Alert from '@/components/ui/Alert'
+import Button from '@/components/ui/Button'
 
 // onConfirm(reason) must return an error message, or null when it worked.
 export default function ReopenTicketModal({ ticketLabel, onConfirm, onClose }) {
@@ -44,29 +46,15 @@ export default function ReopenTicketModal({ ticketLabel, onConfirm, onClose }) {
       />
       <p className="text-xs text-gray-400 mb-4 text-right">{reason.length}/500</p>
 
-      {error && (
-        <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-4">
-          {error}
-        </p>
-      )}
+      <Alert>{error}</Alert>
 
       <div className="flex justify-end gap-3">
-        <button
-          type="button"
-          onClick={onClose}
-          disabled={saving}
-          className="px-4 py-2.5 rounded-lg text-sm font-semibold text-gray-600 border border-gray-200 hover:bg-gray-50"
-        >
+        <Button type="button" variant="outline" dim={false} onClick={onClose} disabled={saving}>
           Cancel
-        </button>
-        <button
-          type="button"
-          onClick={handleConfirm}
-          disabled={saving}
-          className="px-4 py-2.5 rounded-lg text-sm font-semibold text-white bg-blue-700 hover:bg-blue-800 disabled:opacity-60"
-        >
+        </Button>
+        <Button type="button" onClick={handleConfirm} disabled={saving}>
           {saving ? 'Reopening…' : 'Re-open Ticket'}
-        </button>
+        </Button>
       </div>
     </Modal>
   )

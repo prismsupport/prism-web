@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Modal from '@/components/ui/Modal'
+import Alert from '@/components/ui/Alert'
+import Button from '@/components/ui/Button'
 import { PriorityPill } from '@/components/ui/StatusPill'
 import { toast } from '@/lib/toast'
 import { DEFAULT_PRIORITY_LEVELS, useStatusLabels } from '@/lib/workflow/StatusLabelsContext'
@@ -190,32 +192,24 @@ export default function ManagePriorityLevelsModal({ onClose, onSaved }) {
           ))}
         </div>
 
-        {error && (
-          <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-4">
-            {error}
-          </p>
-        )}
+        <Alert>{error}</Alert>
 
         <div className="flex justify-end gap-3">
-          <button
+          <Button
             type="button"
+            variant="outline"
+            dim={false}
             onClick={() => {
               setMoveNeeded(null)
               setError('')
             }}
             disabled={saving}
-            className="px-4 py-2.5 rounded-lg text-sm font-semibold text-gray-600 border border-gray-200 hover:bg-gray-50"
           >
             Back
-          </button>
-          <button
-            type="button"
-            onClick={() => persist(moves)}
-            disabled={saving}
-            className="px-4 py-2.5 rounded-lg text-sm font-semibold text-white bg-blue-700 hover:bg-blue-800 disabled:opacity-60"
-          >
+          </Button>
+          <Button type="button" onClick={() => persist(moves)} disabled={saving}>
             {saving ? 'Saving…' : 'Move Tickets and Save'}
-          </button>
+          </Button>
         </div>
       </Modal>
     )
@@ -289,21 +283,18 @@ export default function ManagePriorityLevelsModal({ onClose, onSaved }) {
           placeholder="New priority level name"
           className="flex-1 px-3 py-2 rounded-lg border border-gray-200 bg-gray-50 text-sm"
         />
-        <button
+        <Button
           type="button"
+          size="compact"
+          dim={50}
           onClick={addLevel}
           disabled={levels.length >= MAX_LEVELS}
-          className="px-4 py-2 rounded-lg text-sm font-semibold text-white bg-blue-700 hover:bg-blue-800 disabled:opacity-50"
         >
           Add
-        </button>
+        </Button>
       </div>
 
-      {error && (
-        <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-4">
-          {error}
-        </p>
-      )}
+      <Alert>{error}</Alert>
 
       <div className="flex items-center justify-between">
         <button
@@ -317,21 +308,12 @@ export default function ManagePriorityLevelsModal({ onClose, onSaved }) {
           Reset to defaults
         </button>
         <div className="flex gap-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2.5 rounded-lg text-sm font-semibold text-gray-600 border border-gray-200 hover:bg-gray-50"
-          >
+          <Button type="button" variant="outline" dim={false} onClick={onClose}>
             Cancel
-          </button>
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={saving}
-            className="px-4 py-2.5 rounded-lg text-sm font-semibold text-white bg-blue-700 hover:bg-blue-800 disabled:opacity-60"
-          >
+          </Button>
+          <Button type="button" onClick={handleSave} disabled={saving}>
             {saving ? 'Saving…' : 'Save Levels'}
-          </button>
+          </Button>
         </div>
       </div>
     </Modal>

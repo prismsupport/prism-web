@@ -1,6 +1,8 @@
 'use client'
 
 import { useState } from 'react'
+import Button from '@/components/ui/Button'
+import ModalBackdrop from '@/components/ui/ModalBackdrop'
 
 export default function PhotoDropdown({ label = 'Attached Photo', photoUrl }) {
   const [open, setOpen] = useState(false)
@@ -31,17 +33,12 @@ export default function PhotoDropdown({ label = 'Attached Photo', photoUrl }) {
     <div>
       <div className="flex items-center justify-between gap-3 mb-1">
         <p className="text-xs font-bold text-gray-500 uppercase">{label}</p>
-        <button
-          type="button"
-          onClick={togglePhoto}
-          className="group inline-flex w-fit items-center gap-2 rounded-lg border border-gray-200 bg-white px-3.5 py-2 text-xs font-semibold text-gray-700 shadow-sm transition-colors hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-600 whitespace-nowrap"
-        >
+        <Button type="button" variant="neutral" size="toggle" dim={false} onClick={togglePhoto}>
           {open ? 'Hide Photo' : 'View Photo'}
-        </button>
+        </Button>
       </div>
       {open && (
-        <div
-          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 p-4"
+        <ModalBackdrop
           onClick={() => setOpen(false)}
           role="dialog"
           aria-modal="true"
@@ -84,7 +81,7 @@ export default function PhotoDropdown({ label = 'Attached Photo', photoUrl }) {
               />
             )}
           </div>
-        </div>
+        </ModalBackdrop>
       )}
     </div>
   )

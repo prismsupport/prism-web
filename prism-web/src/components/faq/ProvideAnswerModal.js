@@ -3,7 +3,11 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Modal from '@/components/ui/Modal'
+import Alert from '@/components/ui/Alert'
+import Button from '@/components/ui/Button'
+import { FormInput, FormSelect } from '@/components/ui/FormControls'
 import FaqBilingualFields from '@/components/faq/FaqBilingualFields'
+import { formatDateTime, DATETIME_FULL_LONG } from '@/lib/format'
 import { toast } from '@/lib/toast'
 
 export default function ProvideAnswerModal({ inquiry, cooperativeId, categories, onClose, onAnswered }) {
@@ -125,13 +129,7 @@ export default function ProvideAnswerModal({ inquiry, cooperativeId, categories,
             </p>
           </div>
           <p className="text-xs text-gray-400">
-            {new Date(inquiry.submitted_at).toLocaleString('en-PH', {
-              month: 'long',
-              day: 'numeric',
-              year: 'numeric',
-              hour: 'numeric',
-              minute: '2-digit',
-            })}
+            {formatDateTime(inquiry.submitted_at, DATETIME_FULL_LONG)}
           </p>
         </div>
         <div className="border-t border-blue-100 my-2" />
@@ -174,20 +172,13 @@ export default function ProvideAnswerModal({ inquiry, cooperativeId, categories,
           <div className="border border-gray-200 rounded-lg p-4 mb-4">
             <p className="text-xs font-bold text-gray-500 uppercase mb-3">FAQ entry</p>
 
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Category</label>
-              <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm"
-              >
-                {categories.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {cat.charAt(0).toUpperCase() + cat.slice(1)}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <FormSelect label="Category" value={category} onChange={(e) => setCategory(e.target.value)}>
+              {categories.map((cat) => (
+                <option key={cat} value={cat}>
+                  {cat.charAt(0).toUpperCase() + cat.slice(1)}
+                </option>
+              ))}
+            </FormSelect>
 
             <FaqBilingualFields
               question={faqQuestion}
@@ -219,41 +210,26 @@ export default function ProvideAnswerModal({ inquiry, cooperativeId, categories,
               }
             />
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                Keywords <span className="text-gray-400 font-normal">(optional)</span>
-              </label>
-              <input
-                value={keywords}
-                onChange={(e) => setKeywords(e.target.value)}
-                placeholder="e.g. walang kuryente, no power, blackout, brownout"
-                className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm placeholder-gray-400"
-              />
-            </div>
+            <FormInput
+              wrapperClassName=""
+              label="Keywords"
+              optional
+              value={keywords}
+              onChange={(e) => setKeywords(e.target.value)}
+              placeholder="e.g. walang kuryente, no power, blackout, brownout"
+            />
           </div>
         )}
 
-        {error && (
-          <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-4">
-            {error}
-          </p>
-        )}
+        <Alert>{error}</Alert>
 
         <div className="flex justify-end gap-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2.5 rounded-lg text-sm font-semibold text-gray-600 border border-gray-200 hover:bg-gray-50"
-          >
+          <Button type="button" variant="outline" dim={false} onClick={onClose}>
             Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={loading}
-            className="px-4 py-2.5 rounded-lg text-sm font-semibold text-white bg-blue-700 hover:bg-blue-800 disabled:opacity-60"
-          >
+          </Button>
+          <Button type="submit" disabled={loading}>
             {loading ? 'Sending…' : addToFaq ? 'Send reply and add to FAQ' : 'Send reply'}
-          </button>
+          </Button>
         </div>
       </form>
     </Modal>

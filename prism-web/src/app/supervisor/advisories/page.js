@@ -1,17 +1,31 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { getMyCooperativeId } from '@/lib/supabase/getCooperativeId'
 import { toast } from "@/lib/toast";
-import Modal from '@/components/ui/Modal'
+import usePagination from '@/lib/usePagination'
+import PageHeader from '@/components/ui/PageHeader'
+import Alert from '@/components/ui/Alert'
+import Button, { ButtonLink } from '@/components/ui/Button'
+import ConfirmDialog from '@/components/ui/ConfirmDialog'
+import DataTable from '@/components/ui/DataTable'
+import { FilterBar, FilterSelect } from '@/components/ui/FilterBar'
 import Pagination from '@/components/ui/Pagination'
-import StatCard from '@/components/ui/StatCard'
+import StatCard, { StatCardGrid } from '@/components/ui/StatCard'
 import AdvisoryRow from '@/components/advisories/AdvisoryRow'
 import AdvisoryFormModal from '@/components/advisories/AdvisoryFormModal'
 import EmptyState from '@/components/ui/EmptyState'
 
-const PAGE_SIZE = 10
+const COLUMNS = [
+  'Advisory Title',
+  'Date',
+  'Start Time',
+  'End Time',
+  'Status',
+  'Affected Scope',
+  'Actions',
+]
 
 function computeStatus(advisory) {
   const now = new Date()
@@ -31,11 +45,9 @@ export default function AdvisoriesPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
-  const [page, setPage] = useState(1)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [editingAdvisory, setEditingAdvisory] = useState(null)
   const [deletingAdvisory, setDeletingAdvisory] = useState(null)
-  const [showArchived, setShowArchived] = useState(false)
 
   useEffect(() => {
     loadAdvisories()
@@ -46,28 +58,20 @@ export default function AdvisoriesPage() {
     setError('')
     const supabase = createClient()
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    const coopId = await getMyCooperativeId(supabase)
 
-    const { data: myRow } = await supabase
-      .from('users')
-      .select('cooperative_id')
-      .eq('id', user.id)
-      .single()
-
-    if (!myRow) {
+    if (!coopId) {
       setError('Unable to load your cooperative.')
       setLoading(false)
       return
     }
 
-    setCooperativeId(myRow.cooperative_id)
+    setCooperativeId(coopId)
 
     const { data: advisoryData, error: advisoryError } = await supabase
       .from('advisories')
       .select('*')
-      .eq('cooperative_id', myRow.cooperative_id)
+      .eq('cooperative_id', coopId)
       .order('date', { ascending: false })
 
     if (advisoryError) setError(advisoryError.message)
@@ -106,51 +110,43 @@ export default function AdvisoriesPage() {
     setLoading(false)
   }
 
-  // Archive = hide it, but keep the data (and its photo) in the database.
-  async function handleArchiveConfirmed() {
+  async function handleDeleteConfirmed() {
     const supabase = createClient()
 
-    const { data, error: archiveError } = await supabase
+    // Delete the advisory and check the database response.
+    const { data, error: deleteError } = await supabase
       .from('advisories')
-      .update({ archived_at: new Date().toISOString() })
+      .delete()
       .eq('advisory_id', deletingAdvisory.advisory_id)
       .select('advisory_id')
 
-    if (archiveError || !data?.length) {
-      toast.error(archiveError?.message || "Couldn't archive this advisory.")
+    // Show an error if the deletion failed or no row was deleted.
+    if (deleteError || !data?.length) {
+      toast.error(
+        deleteError?.message || "Couldn't delete this advisory."
+      )
       return
     }
 
-    toast.success('Advisory archived')
+    // Remove the attached photo after the advisory is deleted.
+    if (deletingAdvisory.photo_url) {
+      const { error: photoError } = await supabase.storage
+        .from('advisory-photos')
+        .remove([deletingAdvisory.photo_url])
+
+      if (photoError) {
+        console.error('Failed to remove advisory photo:', photoError)
+      }
+    }
+
+    toast.success('Advisory deleted')
     setDeletingAdvisory(null)
     await loadAdvisories()
   }
 
-  async function handleRestore(advisory) {
-    const supabase = createClient()
-
-    const { error: restoreError } = await supabase
-      .from('advisories')
-      .update({ archived_at: null })
-      .eq('advisory_id', advisory.advisory_id)
-
-    if (restoreError) {
-      toast.error(restoreError.message)
-      return
-    }
-
-    toast.success('Advisory restored')
-    await loadAdvisories()
-  }
-
-  // Only show archived ones in the archive view, and only active ones otherwise
-  const visibleAdvisories = advisories.filter((a) =>
-    showArchived ? a.archived_at : !a.archived_at
-  )
-
   const allAreaValues = Array.from(
     new Set(
-      visibleAdvisories.flatMap((a) =>
+      advisories.flatMap((a) =>
         a.targets.map((t) =>
           t.scope_type === 'entire_cooperative' ? 'Entire Cooperative' : t.target_value
         )
@@ -159,13 +155,13 @@ export default function AdvisoriesPage() {
   ).filter(Boolean)
 
   const counts = {
-    all: visibleAdvisories.length,
-    upcoming: visibleAdvisories.filter((a) => a.computedStatus === 'upcoming').length,
-    active: visibleAdvisories.filter((a) => a.computedStatus === 'active').length,
-    completed: visibleAdvisories.filter((a) => a.computedStatus === 'completed').length,
+    all: advisories.length,
+    upcoming: advisories.filter((a) => a.computedStatus === 'upcoming').length,
+    active: advisories.filter((a) => a.computedStatus === 'active').length,
+    completed: advisories.filter((a) => a.computedStatus === 'completed').length,
   }
 
-  const filtered = visibleAdvisories.filter((a) => {
+  const filtered = advisories.filter((a) => {
     const statusMatch = statusFilter === 'all' || a.computedStatus === statusFilter
     const areaMatch =
       areaFilter === 'All Area' ||
@@ -177,166 +173,95 @@ export default function AdvisoriesPage() {
     return statusMatch && areaMatch
   })
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
-  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+  const pg = usePagination(filtered)
+
+  const statusCards = [
+    { key: 'all', label: 'All Advisories', color: 'text-blue-700' },
+    { key: 'upcoming', label: 'Upcoming', color: 'text-amber-600' },
+    { key: 'active', label: 'Active', color: 'text-green-600' },
+    { key: 'completed', label: 'Completed', color: 'text-gray-900' },
+  ]
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-gray-900">
-        {showArchived ? 'Archived Advisories' : 'Advisories Management'}
-      </h1>
-      <p className="text-sm text-gray-500 mt-1 mb-6">
-        {showArchived
-          ? 'Archived advisories are hidden from consumers. Restore one to make it active again.'
-          : 'Manage and track service interruptions and maintenance schedules.'}
-      </p>
+      <PageHeader
+        title="Advisories Management"
+        description="Manage and track service interruptions and maintenance schedules."
+      />
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <StatCard
-          label="All Advisories"
-          value={counts.all}
-          color="text-blue-700"
-          active={statusFilter === 'all'}
-          onClick={() => {
-            setStatusFilter('all')
-            setPage(1)
-          }}
-        />
-        <StatCard
-          label="Upcoming"
-          value={counts.upcoming}
-          color="text-amber-600"
-          active={statusFilter === 'upcoming'}
-          onClick={() => {
-            setStatusFilter('upcoming')
-            setPage(1)
-          }}
-        />
-        <StatCard
-          label="Active"
-          value={counts.active}
-          color="text-green-600"
-          active={statusFilter === 'active'}
-          onClick={() => {
-            setStatusFilter('active')
-            setPage(1)
-          }}
-        />
-        <StatCard
-          label="Completed"
-          value={counts.completed}
-          color="text-gray-900"
-          active={statusFilter === 'completed'}
-          onClick={() => {
-            setStatusFilter('completed')
-            setPage(1)
-          }}
-        />
-      </div>
-
-      <div className="flex items-center justify-between bg-white rounded-xl border border-gray-200 p-4 mb-6">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-bold text-gray-500 tracking-wide">AREA</span>
-          <select
-            value={areaFilter}
-            onChange={(e) => {
-              setAreaFilter(e.target.value)
-              setPage(1)
+      <StatCardGrid>
+        {statusCards.map((c) => (
+          <StatCard
+            key={c.key}
+            label={c.label}
+            value={counts[c.key]}
+            color={c.color}
+            active={statusFilter === c.key}
+            onClick={() => {
+              setStatusFilter(c.key)
+              pg.setPage(1)
             }}
-            className="select-control text-sm border border-gray-200 rounded-lg px-3 py-1.5"
-          >
-            <option>All Area</option>
-            {allAreaValues.map((a) => (
-              <option key={a}>{a}</option>
-            ))}
-          </select>
-        </div>
+          />
+        ))}
+      </StatCardGrid>
+
+      <FilterBar>
+        <FilterSelect
+          label="AREA"
+          value={areaFilter}
+          onChange={(value) => {
+            setAreaFilter(value)
+            pg.setPage(1)
+          }}
+        >
+          <option>All Area</option>
+          {allAreaValues.map((a) => (
+            <option key={a}>{a}</option>
+          ))}
+        </FilterSelect>
         <div className="flex items-center gap-3">
-          <Link
+          <ButtonLink
             href="/supervisor/service-areas"
-            className="bg-white hover:bg-gray-50 text-gray-700 text-sm font-semibold px-4 py-2.5 rounded-lg border border-gray-200 transition-colors whitespace-nowrap"
+            variant="plain"
+            dim={false}
+            className="whitespace-nowrap"
           >
             Manage Service Areas
-          </Link>
-          <button
-            onClick={() => {
-              setShowArchived(!showArchived)
-              setStatusFilter('all')
-              setAreaFilter('All Area')
-              setPage(1)
-            }}
-            className="bg-white hover:bg-gray-50 text-gray-700 text-sm font-semibold px-4 py-2.5 rounded-lg border border-gray-200 transition-colors whitespace-nowrap"
+          </ButtonLink>
+          <Button
+            dim={false}
+            className="whitespace-nowrap"
+            onClick={() => setShowCreateModal(true)}
           >
-            {showArchived ? 'Back to Advisories' : 'View Archive'}
-          </button>
-          {!showArchived && (
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="bg-blue-700 hover:bg-blue-800 text-white text-sm font-semibold px-4 py-2.5 rounded-lg transition-colors whitespace-nowrap"
-            >
-              + Create New Advisory
-            </button>
-          )}
+            + Create New Advisory
+          </Button>
         </div>
-      </div>
+      </FilterBar>
 
-      {error && (
-        <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-4">
-          {error}
-        </p>
-      )}
+      <Alert>{error}</Alert>
 
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="bg-gray-50 border-b border-gray-200 text-left text-xs text-gray-500 uppercase tracking-wide">
-              <th className="px-5 py-3 font-semibold">Advisory Title</th>
-              <th className="px-5 py-3 font-semibold">Date</th>
-              <th className="px-5 py-3 font-semibold">Start Time</th>
-              <th className="px-5 py-3 font-semibold">End Time</th>
-              <th className="px-5 py-3 font-semibold">Status</th>
-              <th className="px-5 py-3 font-semibold">Affected Scope</th>
-              <th className="px-5 py-3 font-semibold">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {!loading && filtered.length === 0 && (
-              <tr>
-                <td colSpan={7}>
-                  <EmptyState
-                    title={showArchived ? 'No archived advisories' : 'No advisories match this view'}
-                    description={
-                      showArchived
-                        ? 'Advisories you archive will show up here.'
-                        : 'Try a different filter, or create a new advisory.'
-                    }
-                  />
-                </td>
-              </tr>
-            )}
-            {!loading &&
-              paginated.map((a) => (
-                <AdvisoryRow
-                  key={a.advisory_id}
-                  advisory={a}
-                  archived={showArchived}
-                  onEdit={setEditingAdvisory}
-                  onDelete={setDeletingAdvisory}
-                  onRestore={handleRestore}
-                />
-              ))}
-          </tbody>
-        </table>
-        {!loading && (
-          <Pagination
-            page={page}
-            totalPages={totalPages}
-            totalCount={filtered.length}
-            pageSize={PAGE_SIZE}
-            onPageChange={setPage}
+      <DataTable
+        columns={COLUMNS}
+        loading={loading}
+        loadingRow={null}
+        isEmpty={filtered.length === 0}
+        empty={
+          <EmptyState
+            title="No advisories match this view"
+            description="Try a different filter, or create a new advisory."
           />
-        )}
-      </div>
+        }
+        footer={!loading && <Pagination {...pg.paginationProps} />}
+      >
+        {pg.pageItems.map((a) => (
+          <AdvisoryRow
+            key={a.advisory_id}
+            advisory={a}
+            onEdit={setEditingAdvisory}
+            onDelete={setDeletingAdvisory}
+          />
+        ))}
+      </DataTable>
 
       {(showCreateModal || editingAdvisory) && (
         <AdvisoryFormModal
@@ -355,27 +280,15 @@ export default function AdvisoriesPage() {
       )}
 
       {deletingAdvisory && (
-        <Modal title="Archive Advisory" onClose={() => setDeletingAdvisory(null)}>
-          <p className="text-sm text-gray-700 mb-6">
-            Are you sure you want to archive "
-            <span className="font-semibold">{deletingAdvisory.title}</span>"? It will be hidden
-            from consumers, but you can restore it later from the archive.
-          </p>
-          <div className="flex justify-end gap-3">
-            <button
-              onClick={() => setDeletingAdvisory(null)}
-              className="px-4 py-2.5 rounded-lg text-sm font-semibold text-gray-600 border border-gray-200 hover:bg-gray-50"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleArchiveConfirmed}
-              className="px-4 py-2.5 rounded-lg text-sm font-semibold text-white bg-red-600 hover:bg-red-700"
-            >
-              Archive
-            </button>
-          </div>
-        </Modal>
+        <ConfirmDialog
+          title="Delete Advisory"
+          onConfirm={handleDeleteConfirmed}
+          onClose={() => setDeletingAdvisory(null)}
+        >
+          Are you sure you want to delete "
+          <span className="font-semibold">{deletingAdvisory.title}</span>"? This
+          action cannot be undone.
+        </ConfirmDialog>
       )}
     </div>
   )

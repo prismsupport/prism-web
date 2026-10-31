@@ -1,7 +1,6 @@
 'use client'
 
-const INPUT_CLS =
-  'w-full px-3.5 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm placeholder-gray-400'
+import { CONTROL_CLASS } from '@/components/ui/FormControls'
 
 export default function FaqBilingualFields({
   question,
@@ -26,7 +25,7 @@ export default function FaqBilingualFields({
           value={question}
           onChange={(e) => onQuestionChange(e.target.value)}
           placeholder="e.g. How do I report a power outage?"
-          className={`${INPUT_CLS} mb-1`}
+          className={`${CONTROL_CLASS} mb-1`}
         />
         {questionHint && <div className="h-10 leading-5">{questionHint}</div>}
 
@@ -37,7 +36,7 @@ export default function FaqBilingualFields({
           value={answer}
           onChange={(e) => onAnswerChange(e.target.value)}
           placeholder="Provide a clear answer with any necessary steps..."
-          className={INPUT_CLS}
+          className={CONTROL_CLASS}
         />
       </div>
 
@@ -51,7 +50,7 @@ export default function FaqBilingualFields({
           value={questionTl}
           onChange={(e) => onQuestionTlChange(e.target.value)}
           placeholder="hal. Paano mag-ulat ng brownout?"
-          className={`${INPUT_CLS} mb-1`}
+          className={`${CONTROL_CLASS} mb-1`}
         />
         {questionHint && <div aria-hidden="true" className="h-10" />}
 
@@ -61,7 +60,7 @@ export default function FaqBilingualFields({
           value={answerTl}
           onChange={(e) => onAnswerTlChange(e.target.value)}
           placeholder="Isulat ang malinaw na sagot at mga hakbang..."
-          className={INPUT_CLS}
+          className={CONTROL_CLASS}
         />
       </div>
     </div>

@@ -3,13 +3,15 @@
 import { useRouter } from 'next/navigation'
 import { useStatusLabels } from '@/lib/workflow/StatusLabelsContext'
 import Avatar from '@/components/ui/Avatar'
+import ModalBackdrop from '@/components/ui/ModalBackdrop'
+import Badge from '@/components/ui/Badge'
 
 export default function LinemanDispatchedModal({ linemanName, ticketNumber, location, barangay, priority }) {
   const router = useRouter()
   const { priorityLabel } = useStatusLabels()
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[9999] p-4">
+    <ModalBackdrop>
       <div className="bg-white rounded-xl w-full max-w-md p-6 text-center">
         <div className="w-14 h-14 rounded-full bg-blue-600 text-white flex items-center justify-center text-2xl mx-auto mb-4">
           ✓
@@ -27,9 +29,7 @@ export default function LinemanDispatchedModal({ linemanName, ticketNumber, loca
               <p className="text-sm font-semibold text-gray-900">{linemanName}</p>
             </div>
             {priority && (
-              <span className="text-xs font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded">
-                {priorityLabel(priority).toUpperCase()}
-              </span>
+              <Badge tone="blueStrong">{priorityLabel(priority).toUpperCase()}</Badge>
             )}
           </div>
           <p className="text-xs text-gray-400 uppercase mb-0.5">Primary Location</p>
@@ -44,6 +44,6 @@ export default function LinemanDispatchedModal({ linemanName, ticketNumber, loca
           ↩ Return to Dispatch Board
         </button>
       </div>
-    </div>
+    </ModalBackdrop>
   )
 }

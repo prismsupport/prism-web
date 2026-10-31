@@ -1,3 +1,6 @@
+import Button from '@/components/ui/Button'
+import Badge from '@/components/ui/Badge'
+
 export default function SupervisorRow({ supervisor, currentUserId, onSelect }) {
   const isSelf = supervisor.id === currentUserId
 
@@ -10,19 +13,14 @@ export default function SupervisorRow({ supervisor, currentUserId, onSelect }) {
       <td className="px-5 py-4 text-center align-middle">
         {supervisor.is_owner ? (
           <div className="flex justify-center">
-            <span className="text-xs font-bold bg-blue-100 text-blue-700 px-2 py-0.5 rounded">
-              OWNER
-            </span>
+            <Badge tone="blueStrong">OWNER</Badge>
           </div>
         ) : supervisor.feature_access?.length > 0 ? (
           <div className="flex flex-wrap justify-center gap-1">
             {supervisor.feature_access.map((f) => (
-              <span
-                key={f}
-                className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded capitalize"
-              >
+              <Badge key={f} tone="gray" bold={false} className="capitalize">
                 {f}
-              </span>
+              </Badge>
             ))}
           </div>
         ) : (
@@ -31,13 +29,9 @@ export default function SupervisorRow({ supervisor, currentUserId, onSelect }) {
       </td>
       <td className="px-5 py-4 text-gray-600">{supervisor.phone_number}</td>
       <td className="px-5 py-4">
-        <button
-          type="button"
-          onClick={() => onSelect(supervisor)}
-          className="inline-flex min-w-28 justify-center items-center gap-2 rounded-lg border border-gray-200 bg-white px-3.5 py-2 text-xs font-semibold text-gray-700 shadow-sm transition-colors hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-600 whitespace-nowrap"
-        >
+        <Button type="button" variant="neutral" size="row" dim={false} onClick={() => onSelect(supervisor)}>
           View Details
-        </button>
+        </Button>
       </td>
     </tr>
   )

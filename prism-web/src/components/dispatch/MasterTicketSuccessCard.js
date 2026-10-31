@@ -1,3 +1,5 @@
+import Button from '@/components/ui/Button'
+
 export default function MasterTicketSuccessCard({ masterTicketNumber, areaLabel, reportCount, onAssignLineman }) {
   return (
     <div className="max-w-lg mx-auto">
@@ -31,12 +33,9 @@ export default function MasterTicketSuccessCard({ masterTicketNumber, areaLabel,
       </div>
 
       <div className="border-t border-gray-100 mt-0 bg-white rounded-b-xl border-x border-b border-gray-200 p-6">
-        <button
-          onClick={onAssignLineman}
-          className="w-full bg-blue-700 hover:bg-blue-800 text-white font-semibold text-sm py-3 rounded-lg transition-colors"
-        >
+        <Button size="lg" dim={false} onClick={onAssignLineman}>
           Assign Lineman
-        </button>
+        </Button>
       </div>
     </div>
   )

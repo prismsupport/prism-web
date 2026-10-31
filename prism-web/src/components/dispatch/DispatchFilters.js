@@ -1,11 +1,6 @@
+import { FilterBar, FilterSelect } from '@/components/ui/FilterBar'
+import { buttonClasses } from '@/components/ui/Button'
 import { useStatusLabels } from '@/lib/workflow/StatusLabelsContext'
-
-function labelize(value) {
-  return value
-    .split('_')
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(' ')
-}
 
 export default function DispatchFilters({
   priorityFilter,
@@ -16,48 +11,32 @@ export default function DispatchFilters({
 }) {
   const { statusLabel, priorityLevels } = useStatusLabels()
   return (
-    <div className="flex items-center justify-between bg-white rounded-xl border border-gray-200 p-4 mb-6">
+    <FilterBar>
       <div className="flex items-center gap-6">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-bold text-gray-500 tracking-wide">PRIORITY</span>
-          <select
-            value={priorityFilter}
-            onChange={(e) => onPriorityChange(e.target.value)}
-            className="select-control text-sm border border-gray-200 rounded-lg px-3 py-1.5"
-          >
-            <option value="all">All Priorities</option>
-            {priorityLevels.map((p) => (
-              <option key={p.key} value={p.key}>
-                {p.label}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-bold text-gray-500 tracking-wide">
-            JOB ORDER STATUS
-          </span>
-          <select
-            value={statusFilter}
-            onChange={(e) => onStatusChange(e.target.value)}
-            className="select-control text-sm border border-gray-200 rounded-lg px-3 py-1.5"
-          >
-            <option value="all">All Statuses</option>
-            {statusOptions.map((s) => (
-              <option key={s} value={s}>
-                {statusLabel(s)}
-              </option>
-            ))}
-            <option value="cancelled">{statusLabel('cancelled')}</option>
-          </select>
-        </div>
+        <FilterSelect label="PRIORITY" value={priorityFilter} onChange={onPriorityChange}>
+          <option value="all">All Priorities</option>
+          {priorityLevels.map((p) => (
+            <option key={p.key} value={p.key}>
+              {p.label}
+            </option>
+          ))}
+        </FilterSelect>
+        <FilterSelect label="JOB ORDER STATUS" value={statusFilter} onChange={onStatusChange}>
+          <option value="all">All Statuses</option>
+          {statusOptions.map((s) => (
+            <option key={s} value={s}>
+              {statusLabel(s)}
+            </option>
+          ))}
+          <option value="cancelled">{statusLabel('cancelled')}</option>
+        </FilterSelect>
       </div>
       <a
         href="/supervisor/dispatch/create-master-ticket"
-        className="bg-blue-700 hover:bg-blue-800 text-white text-sm font-semibold px-4 py-2.5 rounded-lg transition-colors inline-block"
+        className={buttonClasses({ dim: false, className: 'inline-block' })}
       >
         + Create Master Ticket
       </a>
-    </div>
+    </FilterBar>
   )
 }

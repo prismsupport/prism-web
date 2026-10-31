@@ -2,9 +2,16 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { getMyCooperativeId } from "@/lib/supabase/getCooperativeId";
 import { toast } from "@/lib/toast";
+import usePagination from "@/lib/usePagination";
+import PageHeader from "@/components/ui/PageHeader";
+import Alert from "@/components/ui/Alert";
+import Button from "@/components/ui/Button";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import EmptyState from "@/components/ui/EmptyState";
-import Modal from "@/components/ui/Modal";
+import InlineLoading from "@/components/ui/InlineLoading";
+import Tabs from "@/components/ui/Tabs";
 import FaqEntryRow from "@/components/faq/FaqEntryRow";
 import FaqInquiryRow from "@/components/faq/FaqInquiryRow";
 import ManageFaqCategoriesModal from "@/components/faq/ManageFaqCategoriesModal";
@@ -15,8 +22,6 @@ import {
   useSupervisorNotificationRefresh,
   useUnreadSupervisorNotifications,
 } from "@/lib/supervisor/useSupervisorLiveUpdates";
-
-const PAGE_SIZE = 10;
 
 export default function FaqManagementPage() {
   const [activeTab, setActiveTab] = useState("all");
@@ -29,9 +34,6 @@ export default function FaqManagementPage() {
   const [inquiries, setInquiries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-
-  const [entriesPage, setEntriesPage] = useState(1);
-  const [inquiriesPage, setInquiriesPage] = useState(1);
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingEntry, setEditingEntry] = useState(null);
@@ -51,28 +53,20 @@ export default function FaqManagementPage() {
     setError("");
     const supabase = createClient();
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const coopId = await getMyCooperativeId(supabase);
 
-    const { data: myRow, error: myRowError } = await supabase
-      .from("users")
-      .select("cooperative_id")
-      .eq("id", user.id)
-      .single();
-
-    if (myRowError || !myRow) {
+    if (!coopId) {
       setError("Unable to load your cooperative.");
       setLoading(false);
       return;
     }
 
-    setCooperativeId(myRow.cooperative_id);
+    setCooperativeId(coopId);
 
     const { data: coop } = await supabase
       .from("cooperative_settings")
       .select("faq_categories")
-      .eq("cooperative_id", myRow.cooperative_id)
+      .eq("cooperative_id", coopId)
       .single();
 
     setCategories(coop?.faq_categories || []);
@@ -80,7 +74,7 @@ export default function FaqManagementPage() {
     const { data: entryData, error: entryError } = await supabase
       .from("faq_entries")
       .select("*")
-      .eq("cooperative_id", myRow.cooperative_id)
+      .eq("cooperative_id", coopId)
       .order("updated_at", { ascending: false });
 
     if (entryError) setError(entryError.message);
@@ -110,118 +104,78 @@ export default function FaqManagementPage() {
         ...i,
         consumer: consumerNames.find((c) => c.id === i.consumer_id),
       }))
-      .filter((i) => i.consumer?.cooperative_id === myRow.cooperative_id);
+      .filter((i) => i.consumer?.cooperative_id === coopId);
 
     setInquiries(relevantInquiries);
     setLoading(false);
   }
 
-  // Archive = hide it from consumers, but keep the data in the database.
-  async function handleArchiveConfirmed() {
+  async function handleDeleteConfirmed() {
     const supabase = createClient();
-    const { data, error: archiveError } = await supabase
-      .from("faq_entries")
-      .update({ archived_at: new Date().toISOString() })
-      .eq("faq_id", deletingEntry.faq_id)
-      .select();
-    if (archiveError || !data?.length) {
-      toast.error(archiveError?.message || "Couldn't archive this entry.");
+    const { data, error: deleteError } = await supabase
+      .from('faq_entries')
+      .delete()
+      .eq('faq_id', deletingEntry.faq_id)
+      .select()
+    if (deleteError || !data?.length) {
+      toast.error(deleteError?.message || "Couldn't delete this entry.")
     } else {
-      toast.success("FAQ entry archived");
+      toast.success("FAQ entry deleted")
     }
-    setDeletingEntry(null);
+    setDeletingEntry(null)
     loadEverything();
   }
-
-  async function handleRestore(entry) {
-    const supabase = createClient();
-    const { error: restoreError } = await supabase
-      .from("faq_entries")
-      .update({ archived_at: null })
-      .eq("faq_id", entry.faq_id);
-    if (restoreError) {
-      toast.error(restoreError.message);
-      return;
-    }
-    toast.success("FAQ entry restored");
-    loadEverything();
-  }
-
-  const activeEntries = entries.filter((e) => !e.archived_at);
-  const archivedEntries = entries.filter((e) => e.archived_at);
 
   const filteredEntries =
-    activeTab === "archived"
-      ? archivedEntries
-      : activeTab === "all" || activeTab === "unanswered"
-        ? activeEntries
-        : activeEntries.filter((e) => e.category === activeTab);
+    activeTab === "all" || activeTab === "unanswered"
+      ? entries
+      : entries.filter((e) => e.category === activeTab);
+
+  const entriesPg = usePagination(filteredEntries);
+  const inquiriesPg = usePagination(inquiries);
+
+  const tabs = [
+    { key: "all", label: "All Categories" },
+    {
+      key: "unanswered",
+      label: (
+        <>
+          Unanswered{" "}
+          {inquiries.length > 0 && (
+            <span className="ml-1 bg-red-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full">
+              {inquiries.length}
+            </span>
+          )}
+        </>
+      ),
+    },
+    ...categories.map((cat) => ({
+      key: cat,
+      label: cat.charAt(0).toUpperCase() + cat.slice(1),
+    })),
+  ];
+
+  function handleTabChange(key) {
+    setActiveTab(key);
+    if (key === "unanswered") inquiriesPg.setPage(1);
+    else entriesPg.setPage(1);
+  }
 
   return (
     <div>
-      <div className="flex items-start justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">FAQ Management</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Manage frequently asked questions for the consumer portal.
-          </p>
-        </div>
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="bg-blue-700 hover:bg-blue-800 text-white text-sm font-semibold px-4 py-2.5 rounded-lg transition-colors"
-        >
-          + Add New FAQ
-        </button>
-      </div>
+      <PageHeader
+        title="FAQ Management"
+        description="Manage frequently asked questions for the consumer portal."
+        actions={
+          <Button dim={false} onClick={() => setShowAddModal(true)}>
+            + Add New FAQ
+          </Button>
+        }
+      />
 
       <div className="bg-white rounded-xl border border-gray-200">
         <div className="flex items-center justify-between px-5 pt-4">
-          <div className="flex gap-2">
-            <TabButton
-              active={activeTab === "all"}
-              onClick={() => {
-                setActiveTab("all");
-                setEntriesPage(1);
-              }}
-            >
-              All Categories
-            </TabButton>
-            <TabButton
-              active={activeTab === "unanswered"}
-              onClick={() => {
-                setActiveTab("unanswered");
-                setInquiriesPage(1);
-              }}
-            >
-              Unanswered{" "}
-              {inquiries.length > 0 && (
-                <span className="ml-1 bg-red-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full">
-                  {inquiries.length}
-                </span>
-              )}
-            </TabButton>
-            {categories.map((cat) => (
-              <TabButton
-                key={cat}
-                active={activeTab === cat}
-                onClick={() => {
-                  setActiveTab(cat);
-                  setEntriesPage(1);
-                }}
-              >
-                {cat.charAt(0).toUpperCase() + cat.slice(1)}
-              </TabButton>
-            ))}
-            <TabButton
-              active={activeTab === "archived"}
-              onClick={() => {
-                setActiveTab("archived");
-                setEntriesPage(1);
-              }}
-            >
-              Archived
-            </TabButton>
-          </div>
+          <Tabs tabs={tabs} value={activeTab} onChange={handleTabChange} />
           <button
             onClick={() => setShowManageCategories(true)}
             className="text-xs text-blue-700 font-medium whitespace-nowrap"
@@ -232,39 +186,27 @@ export default function FaqManagementPage() {
 
         <div className="border-b border-gray-200 mt-3" />
 
-        {error && (
-          <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2 m-5">
-            {error}
-          </p>
-        )}
+        <Alert className="m-5">{error}</Alert>
 
-        {loading && <p className="text-sm text-gray-500 p-5">Loading…</p>}
+        {loading && <InlineLoading className="p-5" />}
 
         {!loading && activeTab === "unanswered" && (
           <div>
             {inquiries.length === 0 && (
               <p className="text-sm text-gray-500 p-5">No pending inquiries.</p>
             )}
-            {inquiries
-              .slice((inquiriesPage - 1) * PAGE_SIZE, inquiriesPage * PAGE_SIZE)
-              .map((inq) => (
-                <FaqInquiryRow
-                  key={inq.faq_inquiries_id}
-                  inquiry={inq}
-                  isUnread={isUnread("faq_inquiries", inq.faq_inquiries_id)}
-                  onOpen={() =>
-                    markNotificationRead("faq_inquiries", inq.faq_inquiries_id)
-                  }
-                  onAnswer={setAnsweringInquiry}
-                />
-              ))}
-            <Pagination
-              page={inquiriesPage}
-              totalPages={Math.max(1, Math.ceil(inquiries.length / PAGE_SIZE))}
-              totalCount={inquiries.length}
-              pageSize={PAGE_SIZE}
-              onPageChange={setInquiriesPage}
-            />
+            {inquiriesPg.pageItems.map((inq) => (
+              <FaqInquiryRow
+                key={inq.faq_inquiries_id}
+                inquiry={inq}
+                isUnread={isUnread("faq_inquiries", inq.faq_inquiries_id)}
+                onOpen={() =>
+                  markNotificationRead("faq_inquiries", inq.faq_inquiries_id)
+                }
+                onAnswer={setAnsweringInquiry}
+              />
+            ))}
+            <Pagination {...inquiriesPg.paginationProps} />
           </div>
         )}
 
@@ -272,40 +214,19 @@ export default function FaqManagementPage() {
           <div>
             {filteredEntries.length === 0 && (
               <EmptyState
-                title={
-                  activeTab === "archived"
-                    ? "No archived FAQ entries"
-                    : "No FAQ entries yet"
-                }
-                description={
-                  activeTab === "archived"
-                    ? "FAQ entries you archive will show up here."
-                    : "Add a question and answer for your consumers, or answer a pending inquiry."
-                }
+                title="No FAQ entries yet"
+                description="Add a question and answer for your consumers, or answer a pending inquiry."
               />
             )}
-            {filteredEntries
-              .slice((entriesPage - 1) * PAGE_SIZE, entriesPage * PAGE_SIZE)
-              .map((entry) => (
-                <FaqEntryRow
-                  key={entry.faq_id}
-                  entry={entry}
-                  archived={activeTab === "archived"}
-                  onEdit={setEditingEntry}
-                  onDelete={setDeletingEntry}
-                  onRestore={handleRestore}
-                />
-              ))}
-            <Pagination
-              page={entriesPage}
-              totalPages={Math.max(
-                1,
-                Math.ceil(filteredEntries.length / PAGE_SIZE),
-              )}
-              totalCount={filteredEntries.length}
-              pageSize={PAGE_SIZE}
-              onPageChange={setEntriesPage}
-            />
+            {entriesPg.pageItems.map((entry) => (
+              <FaqEntryRow
+                key={entry.faq_id}
+                entry={entry}
+                onEdit={setEditingEntry}
+                onDelete={setDeletingEntry}
+              />
+            ))}
+            <Pagination {...entriesPg.paginationProps} />
           </div>
         )}
       </div>
@@ -328,28 +249,15 @@ export default function FaqManagementPage() {
       )}
 
       {deletingEntry && (
-        <Modal title="Archive FAQ Entry" onClose={() => setDeletingEntry(null)}>
-          <p className="text-sm text-gray-700 mb-6">
-            Are you sure you want to archive "
-            <span className="font-semibold">{deletingEntry.question}</span>"?
-            The chatbot will stop using it, but you can restore it later from
-            the Archived tab.
-          </p>
-          <div className="flex justify-end gap-3">
-            <button
-              onClick={() => setDeletingEntry(null)}
-              className="px-4 py-2.5 rounded-lg text-sm font-semibold text-gray-600 border border-gray-200 hover:bg-gray-50"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleArchiveConfirmed}
-              className="px-4 py-2.5 rounded-lg text-sm font-semibold text-white bg-red-600 hover:bg-red-700"
-            >
-              Archive
-            </button>
-          </div>
-        </Modal>
+        <ConfirmDialog
+          title="Delete FAQ Entry"
+          onConfirm={handleDeleteConfirmed}
+          onClose={() => setDeletingEntry(null)}
+        >
+          Are you sure you want to delete "
+          <span className="font-semibold">{deletingEntry.question}</span>"?
+          This action cannot be undone.
+        </ConfirmDialog>
       )}
 
       {answeringInquiry && (
@@ -374,18 +282,5 @@ export default function FaqManagementPage() {
         />
       )}
     </div>
-  );
-}
-
-function TabButton({ active, onClick, children }) {
-  return (
-    <button
-      onClick={onClick}
-      className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
-        active ? "bg-blue-700 text-white" : "text-gray-600 hover:bg-gray-100"
-      }`}
-    >
-      {children}
-    </button>
   );
 }

@@ -1,11 +1,16 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { getMyCooperativeId } from '@/lib/supabase/getCooperativeId'
 import { formatMinutes, periodStartIso, summarizeRatings } from '@/lib/performance'
 import LinemanRatingsModal from '@/components/performance/LinemanRatingsModal'
 import BackButton from '@/components/ui/BackButton'
+import PageHeader from '@/components/ui/PageHeader'
+import Alert from '@/components/ui/Alert'
+import DataTable from '@/components/ui/DataTable'
+import { FilterSelect } from '@/components/ui/FilterBar'
+import StatCard, { StatCardGrid } from '@/components/ui/StatCard'
 
 const PERIODS = [
   { label: 'Last 30 days', days: 30 },
@@ -18,6 +23,16 @@ const SORTS = [
   { key: 'jobs', label: 'Most jobs completed' },
   { key: 'repair', label: 'Fastest average repair' },
   { key: 'name', label: 'Name (A-Z)' },
+]
+
+const COLUMNS = [
+  'Lineman',
+  'Area Office',
+  'Jobs Completed',
+  'Avg. Repair Time',
+  'Avg. Rating',
+  'Ratings',
+  'Actions',
 ]
 
 function compareNullable(a, b, descending) {
@@ -65,17 +80,9 @@ export default function LinemanPerformancePage() {
     setError('')
     const supabase = createClient()
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    const coopId = await getMyCooperativeId(supabase)
 
-    const { data: myRow } = await supabase
-      .from('users')
-      .select('cooperative_id')
-      .eq('id', user.id)
-      .single()
-
-    if (!myRow) {
+    if (!coopId) {
       setError('Unable to load your cooperative.')
       setLoading(false)
       return
@@ -84,7 +91,7 @@ export default function LinemanPerformancePage() {
     const { data: linemenUsers, error: usersError } = await supabase
       .from('users')
       .select('id, first_name, last_name, is_active')
-      .eq('cooperative_id', myRow.cooperative_id)
+      .eq('cooperative_id', coopId)
       .eq('user_type', 'lineman')
 
     if (usersError) {
@@ -176,144 +183,108 @@ export default function LinemanPerformancePage() {
     <div>
       <BackButton href="/supervisor/dashboard" label="Back to Dashboard" withMarginBottom />
 
-      <div className="flex items-start justify-between mt-4 mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Lineman Performance</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Jobs completed, repair time, and consumer satisfaction ratings for each lineman.
-          </p>
-        </div>
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-gray-500 tracking-wide">PERIOD</span>
-            <select
+      <PageHeader
+        className="mt-4"
+        title="Lineman Performance"
+        description="Jobs completed, repair time, and consumer satisfaction ratings for each lineman."
+        actions={
+          <div className="flex items-center gap-4">
+            <FilterSelect
+              label="PERIOD"
               value={periodIndex}
-              onChange={(e) => setPeriodIndex(Number(e.target.value))}
-              className="select-control text-sm border border-gray-200 rounded-lg px-3 py-1.5"
+              onChange={(value) => setPeriodIndex(Number(value))}
             >
               {PERIODS.map((p, i) => (
                 <option key={p.label} value={i}>
                   {p.label}
                 </option>
               ))}
-            </select>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-gray-500 tracking-wide">SORT</span>
-            <select
-              value={sortKey}
-              onChange={(e) => setSortKey(e.target.value)}
-              className="select-control text-sm border border-gray-200 rounded-lg px-3 py-1.5"
-            >
+            </FilterSelect>
+            <FilterSelect label="SORT" value={sortKey} onChange={setSortKey}>
               {SORTS.map((s) => (
                 <option key={s.key} value={s.key}>
                   {s.label}
                 </option>
               ))}
-            </select>
+            </FilterSelect>
           </div>
-        </div>
-      </div>
+        }
+      />
 
-      {error && (
-        <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-4">
-          {error}
-        </p>
-      )}
+      <Alert>{error}</Alert>
 
       {overall && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <p className="text-xs font-bold text-gray-400 uppercase mb-1">Average Rating</p>
-            <p className="text-2xl font-bold text-gray-900">
-              {overall.ratingCount > 0 ? (
+        <StatCardGrid>
+          <StatCard
+            compact
+            labelTracking=""
+            label="Average Rating"
+            value={
+              overall.ratingCount > 0 ? (
                 <>
                   <span className="text-amber-500">★</span> {overall.ratingAverage.toFixed(1)}
                 </>
               ) : (
                 '—'
-              )}
-            </p>
-          </div>
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <p className="text-xs font-bold text-gray-400 uppercase mb-1">Ratings Received</p>
-            <p className="text-2xl font-bold text-gray-900">{overall.ratingCount}</p>
-          </div>
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <p className="text-xs font-bold text-gray-400 uppercase mb-1">Jobs Completed</p>
-            <p className="text-2xl font-bold text-green-600">{overall.jobsCompleted}</p>
-          </div>
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <p className="text-xs font-bold text-gray-400 uppercase mb-1">Avg. Repair Time</p>
-            <p className="text-2xl font-bold text-gray-900">{formatMinutes(overall.avgRepair)}</p>
-            <p className="text-xs text-gray-400 mt-0.5">Dispatch to completion</p>
-          </div>
-        </div>
+              )
+            }
+          />
+          <StatCard compact labelTracking="" label="Ratings Received" value={overall.ratingCount} />
+          <StatCard
+            compact
+            labelTracking=""
+            label="Jobs Completed"
+            value={overall.jobsCompleted}
+            color="text-green-600"
+          />
+          <StatCard
+            compact
+            labelTracking=""
+            label="Avg. Repair Time"
+            value={formatMinutes(overall.avgRepair)}
+            hint="Dispatch to completion"
+          />
+        </StatCardGrid>
       )}
 
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="bg-gray-50 border-b border-gray-200 text-left text-xs text-gray-500 uppercase tracking-wide">
-              <th className="px-5 py-3 font-semibold">Lineman</th>
-              <th className="px-5 py-3 font-semibold">Area Office</th>
-              <th className="px-5 py-3 font-semibold">Jobs Completed</th>
-              <th className="px-5 py-3 font-semibold">Avg. Repair Time</th>
-              <th className="px-5 py-3 font-semibold">Avg. Rating</th>
-              <th className="px-5 py-3 font-semibold">Ratings</th>
-              <th className="px-5 py-3 font-semibold">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading && (
-              <tr>
-                <td colSpan={7} className="px-5 py-8 text-center text-gray-500">
-                  Loading…
-                </td>
-              </tr>
-            )}
-            {!loading && sorted.length === 0 && (
-              <tr>
-                <td colSpan={7} className="px-5 py-8 text-center text-gray-500">
-                  No lineman accounts yet.
-                </td>
-              </tr>
-            )}
-            {!loading &&
-              sorted.map((l) => (
-                <tr key={l.id} className="border-b border-gray-100 last:border-0">
-                  <td className="px-5 py-4 font-medium text-gray-900">
-                    {l.first_name} {l.last_name}
-                    {!l.is_active && (
-                      <span className="ml-2 text-xs font-semibold text-gray-400">Inactive</span>
-                    )}
-                  </td>
-                  <td className="px-5 py-4 text-gray-600">{l.areaOffice || '—'}</td>
-                  <td className="px-5 py-4 text-gray-600">{l.jobsCompleted}</td>
-                  <td className="px-5 py-4 text-gray-600">{formatMinutes(l.avgRepair)}</td>
-                  <td className="px-5 py-4">
-                    {l.ratingCount > 0 ? (
-                      <span className="font-semibold text-gray-900">
-                        <span className="text-amber-500">★</span> {l.ratingAverage.toFixed(1)}
-                      </span>
-                    ) : (
-                      <span className="text-xs text-gray-400">No ratings</span>
-                    )}
-                  </td>
-                  <td className="px-5 py-4 text-gray-600">{l.ratingCount}</td>
-                  <td className="px-5 py-4">
-                    <button
-                      onClick={() => setSelected(l)}
-                      className="bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
-                    >
-                      View
-                    </button>
-                  </td>
-                </tr>
-              ))}
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        columns={COLUMNS}
+        loading={loading}
+        isEmpty={sorted.length === 0}
+        empty="No lineman accounts yet."
+      >
+        {sorted.map((l) => (
+          <tr key={l.id} className="border-b border-gray-100 last:border-0">
+            <td className="px-5 py-4 font-medium text-gray-900">
+              {l.first_name} {l.last_name}
+              {!l.is_active && (
+                <span className="ml-2 text-xs font-semibold text-gray-400">Inactive</span>
+              )}
+            </td>
+            <td className="px-5 py-4 text-gray-600">{l.areaOffice || '—'}</td>
+            <td className="px-5 py-4 text-gray-600">{l.jobsCompleted}</td>
+            <td className="px-5 py-4 text-gray-600">{formatMinutes(l.avgRepair)}</td>
+            <td className="px-5 py-4">
+              {l.ratingCount > 0 ? (
+                <span className="font-semibold text-gray-900">
+                  <span className="text-amber-500">★</span> {l.ratingAverage.toFixed(1)}
+                </span>
+              ) : (
+                <span className="text-xs text-gray-400">No ratings</span>
+              )}
+            </td>
+            <td className="px-5 py-4 text-gray-600">{l.ratingCount}</td>
+            <td className="px-5 py-4">
+              <button
+                onClick={() => setSelected(l)}
+                className="bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
+              >
+                View
+              </button>
+            </td>
+          </tr>
+        ))}
+      </DataTable>
 
       <p className="text-xs text-gray-400 mt-3">
         Read each average together with its rating count, since an average based on one or two
