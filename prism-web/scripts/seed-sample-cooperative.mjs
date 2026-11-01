@@ -13,8 +13,8 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import zlib from 'node:zlib'
-import { randomUUID } from 'node:crypto'
 import { createClient } from '@supabase/supabase-js'
+import { randomUUID, createHash } from 'node:crypto'
 // ---------------------------------------------------------------------------
 // Setup
 // ---------------------------------------------------------------------------
@@ -396,45 +396,108 @@ async function seed() {
   // ---- 4. People --------------------------------------------------------
   console.log('4/12  Accounts (supervisors, linemen, consumers)')
   let phoneCounter = 0
-    async function createUser({ email, first, last, type }) {
-    const res = await sb.auth.admin.createUser({
-    email,
-    password: PASSWORD,
-    email_confirm: true,
-    user_metadata: {
-        cooperative_id: coopId,
-        first_name: first,
-        last_name: last,
-        user_type: type,
-        phone_number: `0999${pad(phoneCounter + 1, 7)}`,
-    },
-    })
-    if (res.error) {
-    console.error('Auth error details:', {
-        name: res.error.name,
-        message: res.error.message,
-        status: res.error.status,
-        code: res.error.code,
-        details: res.error,
-    })
-    throw new Error(`create login ${email}: ${res.error.message}`)
-    }
-        const user = check(res, `create login ${email}`).user
-        phoneCounter += 1
+    async function createUser({
+      email,
+      first,
+      last,
+      type,
+      area = AREAS[0],
+      zone = 'Zone 1',
+      accountNumber = null,
+    }) {
+      phoneCounter += 1
+
+      const phoneNumber = `0999${pad(phoneCounter, 7)}`
+      const claimToken = randomUUID() + randomUUID()
+      const claimAccountNumber = accountNumber || `STAFF-${pad(phoneCounter, 4)}`
+      const normalizedAccountNumber = claimAccountNumber
+        .replace(/[^a-zA-Z0-9]/g, '')
+        .toUpperCase()
+
+      const claimCreatedAt = new Date().toISOString()
+      const claimExpiresAt = new Date(Date.now() + 10 * MIN).toISOString()
+
+      // Create a registration claim for the existing consumer signup trigger.
+      check(
+        await sb.from('consumer_registration_claims').insert({
+          token_hash: createHash('sha256').update(claimToken).digest('hex'),
+          cooperative_id: coopId,
+          normalized_account_number: normalizedAccountNumber,
+          account_number: claimAccountNumber,
+          account_id: randomUUID(),
+          meter_number: `MTR-${pad(phoneCounter, 5)}`,
+          first_name: first,
+          last_name: last,
+          municipality: area.municipality,
+          barangay: area.barangay,
+          zone,
+          account_type: 'residential',
+          created_at: claimCreatedAt,
+          expires_at: claimExpiresAt,
+        }),
+        `create registration claim ${email}`
+      )
+
+      const res = await sb.auth.admin.createUser({
+        email,
+        password: PASSWORD,
+        email_confirm: true,
+        user_metadata: {
+          cooperative_id: coopId,
+          first_name: first,
+          last_name: last,
+          phone_number: phoneNumber,
+          user_type: 'consumer',
+          registration_claim_token: claimToken,
+        },
+      })
+
+      if (res.error) {
+        console.error('Auth error details:', {
+          name: res.error.name,
+          message: res.error.message,
+          status: res.error.status,
+          code: res.error.code,
+          details: res.error,
+        })
+
+        throw new Error(`create login ${email}: ${res.error.message}`)
+      }
+
+      const user = check(res, `create login ${email}`).user
+
+      // Staff accounts are promoted after the consumer trigger creates
+      // their initial profile.
+      if (type !== 'consumer') {
         check(
-        await sb.from('users').upsert({
-            id: user.id,
-            cooperative_id: coopId,
-            first_name: first,
-            last_name: last,
-            phone_number: `0999${pad(phoneCounter, 7)}`,
-            email,
-            user_type: type,
-            is_active: true,
-        }, { onConflict: 'id' }),
-        `create profile ${email}`
+          await sb
+            .from('consumer_bill_links')
+            .delete()
+            .eq('consumer_id', user.id),
+          `remove temporary consumer bill link ${email}`
         )
-        return user.id
+
+        check(
+          await sb
+            .from('consumer')
+            .delete()
+            .eq('profile_id', user.id),
+          `remove temporary consumer role ${email}`
+        )
+
+        check(
+          await sb
+            .from('users')
+            .update({
+              user_type: type,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', user.id),
+          `promote profile ${email} to ${type}`
+        )
+      }
+
+      return user.id
     }
   const ownerId = await createUser({ email: `owner${MARKER}`, first: 'Marissa', last: 'Villanueva', type: 'supervisor' })
   check(await sb.from('supervisor').insert({ profile_id: ownerId, is_owner: true, feature_access: [] }), 'owner role')
@@ -458,34 +521,180 @@ async function seed() {
     )
     linemen.push({ id, office: L.office, first: L.first, last: L.last })
   }
+
   const consumers = []
   const consumersByArea = AREAS.map(() => [])
+
   for (let i = 0; i < 24; i++) {
     const areaIdx = Math.floor(i / 2)
     const area = AREAS[areaIdx]
     const first = FIRST[i]
     const last = LAST[i]
-    const id = await createUser({
-    email: `consumer${pad(i + 1, 2)}${MARKER}`,
-    first,
-    last,
-    type: 'consumer',
-    })
     const zone = `Zone ${1 + (i % 5)}`
+    const account = `01-${1000 + i * 7}-${100 + i}`
+
+    const id = await createUser({
+      email: `consumer${pad(i + 1, 2)}${MARKER}`,
+      first,
+      last,
+      type: 'consumer',
+      accountNumber: account,
+      area,
+      zone,
+    })
+
     check(
-    await sb.from('consumer').update({
+      await sb.from('consumer').update({
         zone,
         barangay: area.barangay,
         municipality: area.municipality,
         feeder: area.feeder,
-    }).eq('profile_id', id),
-    `update consumer role ${first} ${last}`
+      }).eq('profile_id', id),
+      `update consumer role ${first} ${last}`
     )
-    const consumer = { id, first, last, areaIdx, zone, account: `01-${1000 + i * 7}-${100 + i}` }
+
+    const consumer = {
+      id,
+      first,
+      last,
+      areaIdx,
+      zone,
+      account,
+    }
+
     consumers.push(consumer)
     consumersByArea[areaIdx].push(consumer)
-    if ((i + 1) % 8 === 0) console.log(`      ${i + 1}/24 consumers`)
+
+    if ((i + 1) % 8 === 0) {
+      console.log(`      ${i + 1}/24 consumers`)
+    }
   }
+
+  // ---- Additional consumers for the duplicate-suggestion cluster --------
+  // Each active report must have a distinct service account because the
+  // database prevents multiple active reports for the same account number.
+  const duplicateClusterConsumers = []
+
+  const DUPLICATE_CLUSTER_RESIDENTS = [
+    ['Andres', 'Reyes'],
+    ['Beatriz', 'Cruz'],
+    ['Carlo', 'Mendoza'],
+    ['Daniela', 'Garcia'],
+    ['Emilio', 'Bautista'],
+    ['Faith', 'Ramos'],
+    ['Gabriel', 'Torres'],
+    ['Hannah', 'Flores'],
+    ['Ivan', 'Castillo'],
+    ['Julia', 'Santos'],
+  ]
+
+  for (let i = 0; i < DUPLICATE_CLUSTER_RESIDENTS.length; i++) {
+    const [first, last] = DUPLICATE_CLUSTER_RESIDENTS[i]
+    const area = AREAS[0]
+    const zone = `Zone ${1 + (i % 5)}`
+    const account = `01-2000-${201 + i}`
+
+    const id = await createUser({
+      email: `clusterconsumer${pad(i + 1, 2)}${MARKER}`,
+      first,
+      last,
+      type: 'consumer',
+      accountNumber: account,
+      area,
+      zone,
+    })
+
+    check(
+      await sb.from('consumer').update({
+        zone,
+        barangay: area.barangay,
+        municipality: area.municipality,
+        feeder: area.feeder,
+      }).eq('profile_id', id),
+      `update duplicate-cluster consumer ${first} ${last}`
+    )
+
+    const consumer = {
+      id,
+      first,
+      last,
+      areaIdx: 0,
+      zone,
+      account,
+    }
+
+    duplicateClusterConsumers.push(consumer)
+    consumers.push(consumer)
+    consumersByArea[0].push(consumer)
+  }
+
+  console.log(
+    `      Created ${duplicateClusterConsumers.length} additional Poblacion consumers for duplicate-suggestion testing`
+  )
+
+  
+  // ---- Additional consumers for the Master Ticket -----------------------
+  // Each Master Ticket report needs a distinct service account because
+  // the database prevents multiple active reports for the same account.
+
+  const masterTicketConsumers = []
+
+  const MASTER_TICKET_RESIDENTS = [
+    ['Kevin', 'Navarro'],
+    ['Laura', 'Aquino'],
+    ['Miguel', 'Rivera'],
+    ['Nicole', 'Dizon'],
+    ['Oscar', 'Villanueva'],
+    ['Patricia', 'Morales'],
+    ['Rafael', 'Santiago'],
+    ['Sofia', 'Mercado'],
+  ]
+
+  for (let i = 0; i < MASTER_TICKET_RESIDENTS.length; i++) {
+    const [first, last] = MASTER_TICKET_RESIDENTS[i]
+    const area = AREAS[5]
+    const zone = `Zone ${1 + (i % 5)}`
+    const account = `01-3000-${301 + i}`
+
+    const id = await createUser({
+      email: `masterconsumer${pad(i + 1, 2)}${MARKER}`,
+      first,
+      last,
+      type: 'consumer',
+      accountNumber: account,
+      area,
+      zone,
+    })
+
+    check(
+      await sb.from('consumer').update({
+        zone,
+        barangay: area.barangay,
+        municipality: area.municipality,
+        feeder: area.feeder,
+      }).eq('profile_id', id),
+      `update Master Ticket consumer ${first} ${last}`
+    )
+
+    const consumer = {
+      id,
+      first,
+      last,
+      areaIdx: 5,
+      zone,
+      account,
+    }
+
+    masterTicketConsumers.push(consumer)
+    consumers.push(consumer)
+    consumersByArea[5].push(consumer)
+  }
+
+  console.log(
+    `      Created ${masterTicketConsumers.length} additional consumers for Master Ticket testing`
+  )
+
+
   const linemanForArea = (areaIdx, n = 0) => {
     const pool = linemen.filter((l) => l.office === AREAS[areaIdx].office)
     return pool[n % pool.length]
@@ -575,6 +784,60 @@ async function seed() {
   // ---- 5. Reports and job orders -----------------------------------------
   console.log('5/12  Reports and job orders (this is the long step)')
   const year = new Date(NOW).getUTCFullYear()
+  const specialReportConsumers = []
+
+  const SPECIAL_REPORT_RESIDENTS = [
+    { first: 'Adrian', last: 'Lopez', areaIdx: 5 },
+    { first: 'Bianca', last: 'Domingo', areaIdx: 0 },
+    { first: 'Christian', last: 'Lim', areaIdx: 0 },
+    { first: 'Denise', last: 'Alvarez', areaIdx: 0 },
+    { first: 'Theresa', last: 'Ramos', areaIdx: 2 },
+  ]
+
+  for (let i = 0; i < SPECIAL_REPORT_RESIDENTS.length; i++) {
+    const resident = SPECIAL_REPORT_RESIDENTS[i]
+    const area = AREAS[resident.areaIdx]
+    const zone = `Zone ${1 + i}`
+    const account = `01-4000-${401 + i}`
+
+    const id = await createUser({
+      email: `specialreportconsumer${pad(i + 1, 2)}${MARKER}`,
+      first: resident.first,
+      last: resident.last,
+      type: 'consumer',
+      accountNumber: account,
+      area,
+      zone,
+    })
+
+    check(
+      await sb.from('consumer').update({
+        zone,
+        barangay: area.barangay,
+        municipality: area.municipality,
+        feeder: area.feeder,
+      }).eq('profile_id', id),
+      `update special report consumer ${resident.first} ${resident.last}`
+    )
+
+    const consumer = {
+      id,
+      first: resident.first,
+      last: resident.last,
+      areaIdx: resident.areaIdx,
+      zone,
+      account,
+    }
+
+    specialReportConsumers.push(consumer)
+    consumers.push(consumer)
+    consumersByArea[resident.areaIdx].push(consumer)
+  }
+
+  console.log(
+    `      Created ${specialReportConsumers.length} dedicated consumers for report testing`
+  )
+
   const SPECS = [
     { key: 'R1', kind: 'resolved', area: 0, c: 0, minutesAgo: 27 * DAY, priority: 'medium', assignedAgo: 27 * DAY - 12, repairMin: 95, rating: 5, comment: 'Mabilis ang response ng crew. Salamat po!' },
     { key: 'R2', kind: 'resolved', area: 5, c: 1, minutesAgo: 24 * DAY, priority: 'high', assignedAgo: 24 * DAY - 9, repairMin: 140, rating: 4, comment: 'Okay naman, medyo natagalan lang.' },
@@ -596,18 +859,21 @@ async function seed() {
     { key: 'D2', kind: 'dispatched', area: 11, c: 0, minutesAgo: 70, priority: 'low', assignedAgo: 40, state: 'on_the_way' },
     { key: 'X1', kind: 'declined', area: 4, c: 0, minutesAgo: 2 * DAY, declineReason: 'Based on our check, the outage is limited to your household. Please check your main breaker and call the area office if it still has no power.' },
     { key: 'X2', kind: 'declined', area: 7, c: 1, minutesAgo: 6 * 60, declineReason: 'This outage was already reported by your neighbors and is being handled under an existing ticket.' },
-    { key: 'P1', kind: 'pending', area: 5, c: 0, minutesAgo: EXCEEDED_REPORT_AGE_MINUTES, details: 'No power in several homes near the area office; this is the single seeded report intended to exceed the response-time threshold.' },
+    { key: 'P1', kind: 'pending', area: 5, c: 0, consumer: specialReportConsumers[0], minutesAgo: EXCEEDED_REPORT_AGE_MINUTES, details: 'No power in several homes near the area office; this is the single seeded report intended to exceed the response-time threshold.' },
     { key: 'P2', kind: 'pending', area: 10, c: 1, minutesAgo: 15 },
-    { key: 'C1', kind: 'pending', area: 0, c: 0, minutesAgo: 17, homes: true, jitter: 0.0008 },
-    { key: 'C2', kind: 'pending', area: 0, c: 1, minutesAgo: 14, homes: true, jitter: 0.0008 },
-    { key: 'C3', kind: 'pending', area: 0, c: 0, minutesAgo: 12, jitter: 0.0008 },
-    { key: 'PM', kind: 'pending', area: 1, c: 0, minutesAgo: 6, homes: true, jitter: 0.0006 },
+    { key: 'C1', kind: 'pending', area: 0, c: 0, consumer: specialReportConsumers[1], minutesAgo: 17, homes: true, jitter: 0.0008 },
+    { key: 'C2', kind: 'pending', area: 0, c: 0, consumer: specialReportConsumers[2], minutesAgo: 14, homes: true, jitter: 0.0008 },
+    { key: 'C3', kind: 'pending', area: 0, c: 0, consumer: specialReportConsumers[3], minutesAgo: 12, homes: true, jitter: 0.0008 },
     // Duplicate-suggestion cluster: ten reports within roughly 25 metres in Poblacion.
     ...Array.from({ length: 10 }, (_, i) => ({
       key: `DUP${String(i + 1).padStart(2, '0')}`,
-      kind: 'pending', area: 0, c: i % 2,
+      kind: 'pending',
+      area: 0,
+      c: 0,
+      consumer: duplicateClusterConsumers[i],
       minutesAgo: 2 + i * 2,
-      homes: true, jitter: 0.00012,
+      homes: true,
+      jitter: 0.00012,
       details: [
         'No electricity along our street near the barangay hall. Several neighboring houses are affected.',
         'Walang kuryente sa Poblacion since a loud pop was heard near the distribution line.',
@@ -619,7 +885,7 @@ async function seed() {
     // Two alternate-feeder reports placed immediately beside the main Poblacion cluster
     // (roughly within 50â€“100 m). Only FAR1 has outage wording similar to the cluster;
     // FAR2 describes voltage fluctuation, so it should not look like another duplicate.
-    { key: 'FAR1', kind: 'pending', area: 2, c: 0, minutesAgo: 26, priority: 'medium', homes: true, jitter: 0.00008, centerLat: 14.07535, centerLng: 121.32035, details: 'Several homes just across the feeder boundary near Poblacion lost power around the same time as nearby streets.' },
+    { key: 'FAR1', kind: 'pending', area: 2, c: 0, consumer: specialReportConsumers[4], minutesAgo: 26, priority: 'medium', homes: true, jitter: 0.00008, centerLat: 14.07535, centerLng: 121.32035, details: 'Several homes just across the feeder boundary near Poblacion lost power around the same time as nearby streets.' },
     { key: 'FAR2', kind: 'pending', area: 2, c: 1, minutesAgo: 24, priority: 'high', homes: true, jitter: 0.00008, centerLat: 14.07555, centerLng: 121.3205, details: 'Lights are flickering and voltage is low on the neighboring feeder near Poblacion; power has not fully gone out in every house.' },
     // Consumer walkthrough: Maria Santos (consumer01) has in-progress, resolved-unrated,
     // and resolved-rated outage reports.
@@ -633,10 +899,18 @@ async function seed() {
     { key: 'LINEHIST1', kind: 'resolved', area: 5, c: 0, minutesAgo: 9 * DAY, priority: 'high', assignedAgo: 9 * DAY - 12, repairMin: 80, rating: 5, comment: 'Mabilis dumating ang crew at maayos ang trabaho. Salamat po!', forceLineman: true },
     { key: 'LINEHIST2', kind: 'resolved', area: 5, c: 1, minutesAgo: 6 * DAY, priority: 'medium', assignedAgo: 6 * DAY - 18, repairMin: 105, rating: 4, comment: 'Maayos ang pagkukumpuni, pero medyo matagal bago dumating.', forceLineman: true },
     { key: 'LINEHIST3', kind: 'resolved', area: 5, c: 0, minutesAgo: 3 * DAY, priority: 'high', assignedAgo: 3 * DAY - 9, repairMin: 70, rating: 5, comment: 'Power was restored quickly and the lineman explained what happened.', forceLineman: true },
+
     // The master ticket must contain exactly eight individual reports.
+    // Each report uses its own consumer account.
     ...Array.from({ length: 8 }, (_, i) => ({
-      key: `M${i + 1}`, kind: 'master_member', area: 5, c: i % 2,
-      minutesAgo: 130 - i * 4, homes: true, jitter: 0.0008,
+      key: `M${i + 1}`,
+      kind: 'master_member',
+      area: 5,
+      c: i % 2,
+      consumer: masterTicketConsumers[i],
+      minutesAgo: 130 - i * 4,
+      homes: true,
+      jitter: 0.0008,
       priority: i < 3 ? 'high' : 'medium',
       details: [
         'Several houses near the Santa Lucia barangay hall lost power at the same time.',
@@ -659,7 +933,7 @@ async function seed() {
     s.ticket = `RPT-${year}-${pad(i + 1, 4)}`
   })
   async function createReport(spec) {
-    const consumer = consumersByArea[spec.area][spec.c % 2]
+    const consumer = spec.consumer || consumersByArea[spec.area][spec.c % 2]
     const area = AREAS[spec.area]
     const jitter = spec.jitter ?? 0.0012
     const centerLat = spec.centerLat ?? area.lat
@@ -867,7 +1141,10 @@ async function seed() {
     )
   }
   // ---- 8. Billing requests ------------------------------------------------
+
+  // ---- 8. Billing requests ------------------------------------------------
   console.log('8/12  Billing requests')
+
   const links = [
     [consumers[0], 'pending', 'residential', 90],
     [consumers[5], 'pending', 'commercial', 600],
@@ -876,48 +1153,75 @@ async function seed() {
     [consumers[19], 'approved', 'commercial', 7 * DAY],
     [consumers[22], 'rejected', 'residential', 5 * DAY],
   ]
+
   for (const [consumer, status, type, minutesAgo] of links) {
     const accountName = `${consumer.last}, ${consumer.first}`.toUpperCase()
-    const link = check(
+    const normalizedAccountNumber = consumer.account
+      .replace(/[^a-zA-Z0-9]/g, '')
+      .toUpperCase()
+
+    const existing = check(
       await sb
         .from('consumer_bill_links')
-        .insert({ consumer_id: consumer.id, account_number: consumer.account, account_name: accountName, account_type: type, status: 'pending', approved_by: null, request_at: ago(minutesAgo) })
-        .select()
-        .single(),
-      'bill link request'
+        .select('link_id')
+        .eq('cooperative_id', coopId)
+        .eq('normalized_account_number', normalizedAccountNumber),
+      'check existing bill link'
     )
-    if (status === 'approved') {
-      check(await sb.from('consumer_bill_links').update({ status: 'approved', approved_by: ownerId, approved_at: ago(minutesAgo - 240) }).eq('link_id', link.link_id), 'approve bill link')
-    } else if (status === 'rejected') {
+
+    if (existing.length > 0) {
       check(
         await sb
           .from('consumer_bill_links')
-          .update({ status: 'rejected', rejection_reason: 'The account name does not match the name on the billing record. Please check the details and try again.', approved_by: ownerId, approved_at: ago(minutesAgo - 240) })
-          .eq('link_id', link.link_id),
-        'reject bill link'
+          .update({
+            consumer_id: consumer.id,
+            account_number: consumer.account,
+            normalized_account_number: normalizedAccountNumber,
+            account_name: accountName,
+            account_type: type,
+            status,
+            approved_by: status === 'pending' ? null : ownerId,
+            rejection_reason:
+              status === 'rejected'
+                ? 'The account name does not match the name on the billing record. Please check the details and try again.'
+                : null,
+            request_at: ago(minutesAgo),
+            approved_at:
+              status === 'pending'
+                ? null
+                : ago(minutesAgo - 240),
+          })
+          .eq('link_id', existing[0].link_id),
+        'update existing bill link'
+      )
+    } else {
+      check(
+        await sb
+          .from('consumer_bill_links')
+          .insert({
+            cooperative_id: coopId,
+            consumer_id: consumer.id,
+            account_number: consumer.account,
+            normalized_account_number: normalizedAccountNumber,
+            account_name: accountName,
+            account_type: type,
+            status,
+            approved_by: status === 'pending' ? null : ownerId,
+            rejection_reason:
+              status === 'rejected'
+                ? 'The account name does not match the name on the billing record. Please check the details and try again.'
+                : null,
+            request_at: ago(minutesAgo),
+            approved_at:
+              status === 'pending'
+                ? null
+                : ago(minutesAgo - 240),
+          }),
+        'create bill link request'
       )
     }
   }
-  // Maria's second request uses the same PRISM account number but a non-matching name.
-  // This lets the consumer and supervisor screens demonstrate a name mismatch.
-  const maria = consumers[0]
-  // Insert the mismatched request directly as rejected. The database enforces
-  // one pending billing-link request per account, so inserting this as pending
-  // first would conflict with Maria's matched request, which is intentionally pending.
-  check(
-    await sb.from('consumer_bill_links').insert({
-      consumer_id: maria.id,
-      account_number: maria.account,
-      account_name: 'MARIA A. SANTOS',
-      account_type: 'residential',
-      status: 'rejected',
-      rejection_reason: 'The name entered does not match the PRISM account name SANTOS, MARIA. Please use the exact name shown on your bill.',
-      approved_by: ownerId,
-      request_at: ago(45),
-      approved_at: ago(30),
-    }),
-    'Maria mismatched bill link request'
-  )
+
   // ---- 9. Make the notification bell look natural -------------------------
   console.log('9/12  Notifications')
   for (const userId of [ownerId, subId]) {
