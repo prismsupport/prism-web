@@ -11,6 +11,7 @@ import Alert from '@/components/ui/Alert'
 import DataTable from '@/components/ui/DataTable'
 import { FilterSelect } from '@/components/ui/FilterBar'
 import StatCard, { StatCardGrid } from '@/components/ui/StatCard'
+import { computeStageTimes, averageStages, formatDuration } from '@/lib/stageTimes'
 
 const PERIODS = [
   { label: 'Last 30 days', days: 30 },
@@ -30,6 +31,8 @@ const COLUMNS = [
   'Area Office',
   'Jobs Completed',
   'Avg. Repair Time',
+  'Avg. Travel',
+  'Avg. On-site',
   'Avg. Rating',
   'Ratings',
   'Actions',
@@ -112,7 +115,7 @@ export default function LinemanPerformancePage() {
 
     let assignmentsQuery = supabase
       .from('job_assignments')
-      .select('lineman_id, assigned_at, completed_at')
+      .select('lineman_id, assigned_at, completed_at, job_assignment_status_logs(new_status, changed_at)')
       .in('lineman_id', ids)
       .eq('status', 'resolved')
 
@@ -146,6 +149,10 @@ export default function LinemanPerformancePage() {
         .filter((m) => m >= 0)
       const myRatings = ratings.filter((r) => r.lineman_id === l.id)
 
+      const stageAverages = averageStages(
+        done.map((a) => computeStageTimes(a, a.job_assignment_status_logs))
+      )
+
       return {
         ...l,
         areaOffice:
@@ -155,6 +162,8 @@ export default function LinemanPerformancePage() {
           repairTimes.length > 0
             ? repairTimes.reduce((s, v) => s + v, 0) / repairTimes.length
             : null,
+        avgTravel: stageAverages.travel,
+        avgOnSite: stageAverages.onSite,
         ratings: myRatings,
         ...summarizeRatings(myRatings),
       }
@@ -264,6 +273,8 @@ export default function LinemanPerformancePage() {
             <td className="px-5 py-4 text-gray-600">{l.areaOffice || '—'}</td>
             <td className="px-5 py-4 text-gray-600">{l.jobsCompleted}</td>
             <td className="px-5 py-4 text-gray-600">{formatMinutes(l.avgRepair)}</td>
+            <td className="px-5 py-4 text-gray-600">{formatDuration(l.avgTravel)}</td>
+            <td className="px-5 py-4 text-gray-600">{formatDuration(l.avgOnSite)}</td>
             <td className="px-5 py-4">
               {l.ratingCount > 0 ? (
                 <span className="font-semibold text-gray-900">
@@ -287,6 +298,7 @@ export default function LinemanPerformancePage() {
       </DataTable>
 
       <p className="text-xs text-gray-400 mt-3">
+        Avg. Travel runs from Start Task to arrival and Avg. On-site from arrival to Fixed; a dash means those steps were not recorded.{' '}
         Read each average together with its rating count, since an average based on one or two
         ratings says very little. Ratings also reflect the consumer's overall experience, which can
         be affected by things outside a lineman's control, such as the cause of the outage,

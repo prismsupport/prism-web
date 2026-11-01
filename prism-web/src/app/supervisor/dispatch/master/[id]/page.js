@@ -461,6 +461,8 @@ export default function MasterTicketDetailPage() {
               <JobOrderStatusLog logs={statusLogs} />
             </AssignedLinemanCard>
           )}
+          
+          <StageTimesCard masterId={id} key={assignment?.status || 'none'} />
 
           {pastAttempts.length > 0 && (
             <div>

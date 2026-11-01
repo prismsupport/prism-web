@@ -21,6 +21,7 @@ import { PageLoading } from "@/components/ui/Skeleton";
 import { toast } from '@/lib/toast'
 import ReopenTicketModal from '@/components/dispatch/ReopenTicketModal'
 import ReopenReasonNote from '@/components/dispatch/ReopenReasonNote'
+import StageTimesCard from '@/components/dispatch/StageTimesCard'
 
 export default function ReportReviewPage() {
   const { id } = useParams()
@@ -441,6 +442,8 @@ export default function ReportReviewPage() {
               <JobOrderStatusLog logs={statusLogs} />
             </AssignedLinemanCard>
           )}
+          
+          <StageTimesCard reportId={id} key={assignment?.status || 'none'} />
 
           {pastAttempts.length > 0 && (
             <div>

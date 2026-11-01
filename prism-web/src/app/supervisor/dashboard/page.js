@@ -14,6 +14,8 @@ import StatusBreakdown from '@/components/dashboard/StatusBreakdown'
 import Avatar from '@/components/ui/Avatar'
 import StatusPill from '@/components/ui/StatusPill'
 import EmptyState from '@/components/ui/EmptyState'
+import StageBreakdown from '@/components/dashboard/StageBreakdown'
+import { computeStageTimes, averageStages } from '@/lib/stageTimes'
 
 const MAX_ROWS = 1000 // Supabase returns at most 1000 rows per request
 
@@ -95,7 +97,7 @@ async function loadDispatchData(supabase, coopId, sinceIso) {
   // of older tickets are ignored below.
   let assignmentQuery = supabase
     .from('job_assignments')
-    .select('assignment_id, report_id, master_id, status, assigned_at, completed_at')
+    .select('assignment_id, report_id, master_id, status, assigned_at, completed_at, job_assignment_status_logs(new_status, changed_at)')
     .order('assigned_at', { ascending: false })
     .limit(MAX_ROWS)
   if (sinceIso) assignmentQuery = assignmentQuery.gte('assigned_at', sinceIso)
@@ -126,6 +128,16 @@ async function loadDispatchData(supabase, coopId, sinceIso) {
       if (repair >= 0) repairTimes.push(repair)
     }
   })
+
+  // Average time per stage. Waiting for dispatch reuses the response times above.
+  const stageRows = []
+  Object.values(assignmentsByTicket).forEach((list) => {
+    list.forEach((a) => {
+      stageRows.push(computeStageTimes(a, a.job_assignment_status_logs))
+    })
+  })
+  const stageAverages = averageStages(stageRows)
+  stageAverages.waiting = average(responseTimes)
 
   // ---- By barangay (top 5) ----
   const barangayMap = {}
@@ -229,6 +241,7 @@ async function loadDispatchData(supabase, coopId, sinceIso) {
     dailyTrend,
     statusCounts,
     linemenPerformance,
+    stageAverages,
     truncated: reports.length >= MAX_ROWS || assignments.length >= MAX_ROWS,
   }
 }
@@ -390,7 +403,7 @@ export default function SupervisorDashboardPage() {
     )
   }
 
-  const { stats, barangayData, dailyTrend, statusCounts, linemenPerformance, advisoryCounts, attention } = data
+  const { stats, barangayData, dailyTrend, statusCounts, linemenPerformance, advisoryCounts, attention, stageAverages } = data
   const maxBarangayCount = Math.max(...(barangayData || []).map(([, c]) => c), 1)
   const maxTrendCount = Math.max(...(dailyTrend || []).map((d) => d.count), 1)
 
@@ -571,6 +584,8 @@ export default function SupervisorDashboardPage() {
             </div>
           </div>
 
+          <StageBreakdown averages={stageAverages} />
+          
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
             {/* Dispatch status overview */}
             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
