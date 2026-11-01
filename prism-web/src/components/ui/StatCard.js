@@ -7,13 +7,23 @@ export default function StatCard({
   compact = false,
   hint,
   labelTracking = 'tracking-wide',
+  labelIndicator = false,
 }) {
   const clickable = typeof onClick === 'function'
   const padding = compact ? 'p-4' : 'p-5'
 
   const content = (
     <>
-      <p className={`text-xs font-bold ${labelTracking} text-gray-400 uppercase mb-1`}>{label}</p>
+      <p className={`text-xs font-bold ${labelTracking} text-gray-400 uppercase mb-1`}>
+        {labelIndicator && (
+          <span
+            className="mr-1.5 inline-block h-2 w-2 rounded-full bg-red-500 align-middle"
+            aria-label={`${label} has reports`}
+          >
+          </span>
+        )}
+        {label}
+      </p>
       <p className={`text-2xl font-bold ${color}`}>{value}</p>
       {hint && <p className="text-xs text-gray-400 mt-0.5">{hint}</p>}
     </>

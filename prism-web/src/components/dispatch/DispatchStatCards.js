@@ -17,6 +17,11 @@ export default function DispatchStatCards({ counts, statusFilter, onFilterChange
         <StatCard
           key={c.key}
           label={statusLabel(c.key)}
+          labelIndicator={
+            c.key === 'pending' || c.key === 'qa_review'
+              ? counts[c.key] > 0
+              : false
+          }
           value={counts[c.key]}
           color={c.color}
           active={statusFilter === c.key}

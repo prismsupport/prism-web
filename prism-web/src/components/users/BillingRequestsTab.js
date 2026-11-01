@@ -61,6 +61,7 @@ export default function BillingRequestsTab({
             key={c.key}
             compact
             label={c.label}
+            labelIndicator={c.key === "pending" && counts[c.key] > 0}
             value={counts[c.key]}
             color={c.color}
             active={statusFilter === c.key}

@@ -15,7 +15,7 @@ export default function useNavCounts() {
 
     async function load() {
       const supabase = createClient();
-      const [reports, masters, faq] = await Promise.all([
+      const [reports, masters, faq, billing] = await Promise.all([
         supabase
           .from("reports")
           .select("report_id", { count: "exact", head: true })
@@ -29,12 +29,17 @@ export default function useNavCounts() {
           .from("faq_inquiries")
           .select("faq_inquiries_id", { count: "exact", head: true })
           .eq("status", "pending"),
+        supabase
+          .from("consumer_bill_links")
+          .select("link_id", { count: "exact", head: true })
+          .eq("status", "pending"),
       ]);
 
       if (!active) return;
       setCounts({
         "/supervisor/dispatch": (reports.count || 0) + (masters.count || 0),
         "/supervisor/faq": faq.count || 0,
+        "/supervisor/billing": billing.count || 0,
       });
     }
 
