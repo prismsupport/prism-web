@@ -1,7 +1,8 @@
 import RowActions from '@/components/ui/RowActions'
 import Badge from '@/components/ui/Badge'
+import Button from '@/components/ui/Button'
 
-export default function ServiceAreaRow({ area, onEdit, onDelete }) {
+export default function ServiceAreaRow({ area, archived = false, onEdit, onDelete, onRestore }) {
   return (
     <tr className="border-b border-gray-100 last:border-0">
       <td className="px-5 py-4 font-semibold text-gray-900">{area.barangay}</td>
@@ -19,7 +20,17 @@ export default function ServiceAreaRow({ area, onEdit, onDelete }) {
         )}
       </td>
       <td className="px-5 py-4">
-        <RowActions onEdit={() => onEdit(area)} onDelete={() => onDelete(area)} />
+        {archived ? (
+          <Button type="button" variant="neutral" size="row" dim={false} onClick={() => onRestore(area)}>
+            Restore
+          </Button>
+        ) : (
+          <RowActions
+            archive
+            onEdit={() => onEdit(area)}
+            onDelete={() => onDelete(area)}
+          />
+        )}
       </td>
     </tr>
   )

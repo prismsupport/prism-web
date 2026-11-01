@@ -41,6 +41,7 @@ export default function ServiceAreasPage() {
   const [impactLoading, setImpactLoading] = useState(false)
   const [impactError, setImpactError] = useState('')
   const [showManageAreaOffices, setShowManageAreaOffices] = useState(false)
+  const [showArchived, setShowArchived] = useState(false)
 
   useEffect(() => {
     loadServiceAreas()
@@ -97,36 +98,59 @@ export default function ServiceAreasPage() {
     setImpactLoading(false)
   }
 
-  async function handleDeleteConfirmed() {
+  // Archive = hide it from use, but keep the area in the database.
+  async function handleArchiveConfirmed() {
     setDeleteLoading(true)
     const supabase = createClient()
-    const { error: deleteError } = await supabase
+    const { error: archiveError } = await supabase
       .from('service_areas')
-      .delete()
+      .update({ archived_at: new Date().toISOString() })
       .eq('id', deletingArea.id)
 
-    if (deleteError) {
-      toast.error(deleteError.message)
-      setError(deleteError.message)
+    if (archiveError) {
+      toast.error(archiveError.message)
+      setError(archiveError.message)
       setDeleteLoading(false)
       return
     }
 
     setDeleteLoading(false)
     setDeletingArea(null)
-    toast.success('Service area deleted')
+    toast.success('Service area archived')
     loadServiceAreas()
   }
 
+  async function handleRestore(area) {
+    const supabase = createClient()
+    const { error: restoreError } = await supabase
+      .from('service_areas')
+      .update({ archived_at: null })
+      .eq('id', area.id)
+
+    if (restoreError) {
+      toast.error(restoreError.message)
+      return
+    }
+
+    toast.success('Service area restored')
+    loadServiceAreas()
+  }
+
+  // Normal view shows only active areas, the archive view only archived ones
+  const activeAreas = serviceAreas.filter((a) => !a.archived_at)
+  const visibleAreas = serviceAreas.filter((a) =>
+    showArchived ? a.archived_at : !a.archived_at
+  )
+
   const substationOptions = Array.from(
-    new Set(serviceAreas.map((a) => a.substation).filter(Boolean))
+    new Set(visibleAreas.map((a) => a.substation).filter(Boolean))
   ).sort()
 
   const feederOptions = Array.from(
-    new Set(serviceAreas.map((a) => a.feeder).filter(Boolean))
+    new Set(visibleAreas.map((a) => a.feeder).filter(Boolean))
   ).sort()
 
-  const filtered = serviceAreas.filter((a) => {
+  const filtered = visibleAreas.filter((a) => {
     const substationMatch =
       substationFilter === 'All Substations' || a.substation === substationFilter
     const feederMatch = feederFilter === 'All Feeders' || a.feeder === feederFilter
@@ -145,7 +169,7 @@ export default function ServiceAreasPage() {
 
   const pg = usePagination(filtered)
 
-  const unassignedCount = serviceAreas.filter((a) => !a.area_office).length
+  const unassignedCount = visibleAreas.filter((a) => !a.area_office).length
 
   // Wraps a filter setter so changing a filter returns to page 1
   const withReset = (setter) => (value) => {
@@ -158,8 +182,12 @@ export default function ServiceAreasPage() {
       <BackToAdvisoriesLink withMarginBottom />
 
       <PageHeader
-        title="Service Areas"
-        description="Manage the substations, feeders, barangays, and area offices covered by your cooperative."
+        title={showArchived ? 'Archived Service Areas' : 'Service Areas'}
+        description={
+          showArchived
+            ? 'Archived areas are no longer used for feeder matching, dispatch, or advisories. Restore one to use it again.'
+            : 'Manage the substations, feeders, barangays, and area offices covered by your cooperative.'
+        }
         actions={
           <div className="flex items-center gap-3">
             <Button
@@ -170,15 +198,37 @@ export default function ServiceAreasPage() {
             >
               Manage Area Offices
             </Button>
-            <Button dim={false} className="whitespace-nowrap" onClick={() => setShowCreateModal(true)}>
-              + Add Service Area
+            <Button
+              variant="plain"
+              dim={false}
+              className="whitespace-nowrap"
+              onClick={() => {
+                setShowArchived(!showArchived)
+                setSubstationFilter('All Substations')
+                setFeederFilter('All Feeders')
+                setAreaOfficeFilter('All Area Offices')
+                setSearchText('')
+                pg.setPage(1)
+              }}
+            >
+              {showArchived ? 'Back to Service Areas' : 'View Archive'}
             </Button>
+            {!showArchived && (
+              <Button dim={false} className="whitespace-nowrap" onClick={() => setShowCreateModal(true)}>
+                + Add Service Area
+              </Button>
+            )}
           </div>
         }
       />
 
       <StatCardGrid columns={5}>
-        <StatCard compact label="Total Areas" value={serviceAreas.length} color="text-blue-700" />
+        <StatCard
+          compact
+          label={showArchived ? 'Archived Areas' : 'Total Areas'}
+          value={showArchived ? visibleAreas.length : activeAreas.length}
+          color="text-blue-700"
+        />
         <StatCard compact label="Substations" value={substationOptions.length} />
         <StatCard compact label="Feeders" value={feederOptions.length} />
         <StatCard compact label="Area Offices" value={areaOffices.length} />
@@ -244,11 +294,18 @@ export default function ServiceAreasPage() {
         columns={COLUMNS}
         loading={loading}
         isEmpty={pg.pageItems.length === 0}
-        empty="No service areas match this view."
+        empty={showArchived ? 'No archived service areas.' : 'No service areas match this view.'}
         footer={!loading && <Pagination {...pg.paginationProps} />}
       >
         {pg.pageItems.map((area) => (
-          <ServiceAreaRow key={area.id} area={area} onEdit={setEditingArea} onDelete={openDelete} />
+          <ServiceAreaRow
+            key={area.id}
+            area={area}
+            archived={showArchived}
+            onEdit={setEditingArea}
+            onDelete={openDelete}
+            onRestore={handleRestore}
+          />
         ))}
       </DataTable>
 
@@ -271,7 +328,7 @@ export default function ServiceAreasPage() {
       )}
 
       {deletingArea && (
-        <Modal title="Delete Service Area" onClose={() => setDeletingArea(null)}>
+        <Modal title="Archive Service Area" onClose={() => setDeletingArea(null)}>
           <p className="text-sm text-gray-700 mb-4">
             <span className="font-semibold">{deletingArea.barangay}</span>,{' '}
             {deletingArea.municipality}
@@ -283,7 +340,7 @@ export default function ServiceAreasPage() {
 
           {impactError && (
             <Alert className="mb-6">
-              Could not check what depends on this area, so it can't be deleted right now. (
+              Could not check what depends on this area, so it can't be archived right now. (
               {impactError})
             </Alert>
           )}
@@ -307,16 +364,16 @@ export default function ServiceAreasPage() {
 
               {!impact.can_delete ? (
                 <p className="text-sm text-red-700 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-6">
-                  This area can't be deleted while consumers or current/upcoming advisories depend
-                  on it. Deleting it would stop those consumers from saving an address change and
-                  leave the advisories pointing at an area that no longer exists.
+                  This area can't be archived while consumers or current/upcoming advisories depend
+                  on it. Archiving it would stop those consumers from saving an address change and
+                  leave the advisories pointing at an area that is no longer in use.
                 </p>
               ) : (
                 <p className="text-sm text-gray-700 mb-6">
                   {impact.open_report_count > 0
-                    ? `Deleting it removes the Area Office and feeder match for ${impact.open_report_count} open report(s), which changes how linemen and duplicates are ranked for them. `
+                    ? `Archiving it removes the Area Office and feeder match for ${impact.open_report_count} open report(s), which changes how linemen and duplicates are ranked for them. `
                     : 'Nothing depends on this area. '}
-                  This action cannot be undone.
+                  You can restore it later from the archive.
                 </p>
               )}
             </>
@@ -327,8 +384,8 @@ export default function ServiceAreasPage() {
               {impact && !impact.can_delete ? 'Close' : 'Cancel'}
             </Button>
             {impact?.can_delete && (
-              <Button variant="danger" onClick={handleDeleteConfirmed} disabled={deleteLoading}>
-                {deleteLoading ? 'Deleting…' : 'Delete'}
+              <Button variant="danger" onClick={handleArchiveConfirmed} disabled={deleteLoading}>
+                {deleteLoading ? 'Archiving…' : 'Archive'}
               </Button>
             )}
           </div>

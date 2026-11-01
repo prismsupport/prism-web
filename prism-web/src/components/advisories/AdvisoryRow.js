@@ -1,9 +1,10 @@
 import RowActions from '@/components/ui/RowActions'
 import StatusPill from '@/components/ui/StatusPill'
 import Badge from '@/components/ui/Badge'
+import Button from '@/components/ui/Button'
 import { formatClockTime, formatDate } from '@/lib/format'
 
-export default function AdvisoryRow({ advisory, onEdit, onDelete }) {
+export default function AdvisoryRow({ advisory, archived = false, onEdit, onDelete, onRestore }) {
   return (
     <tr className="border-b border-gray-100 last:border-0">
       <td className="px-5 py-4">
@@ -34,7 +35,17 @@ export default function AdvisoryRow({ advisory, onEdit, onDelete }) {
         </div>
       </td>
       <td className="px-5 py-4">
-        <RowActions onEdit={() => onEdit(advisory)} onDelete={() => onDelete(advisory)} />
+        {archived ? (
+          <Button type="button" variant="neutral" size="row" dim={false} onClick={() => onRestore(advisory)}>
+            Restore
+          </Button>
+        ) : (
+          <RowActions
+            archive
+            onEdit={() => onEdit(advisory)}
+            onDelete={() => onDelete(advisory)}
+          />
+        )}
       </td>
     </tr>
   )

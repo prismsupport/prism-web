@@ -1,9 +1,10 @@
 import RowActions from '@/components/ui/RowActions'
 import Badge from '@/components/ui/Badge'
+import Button from '@/components/ui/Button'
 import { getCategoryColor } from '@/lib/faqCategoryColor'
 import { formatDate } from '@/lib/format'
 
-export default function FaqEntryRow({ entry, onEdit, onDelete }) {
+export default function FaqEntryRow({ entry, archived = false, onEdit, onDelete, onRestore }) {
   const keywordList = entry.keywords
     ? entry.keywords.split(',').map((k) => k.trim()).filter(Boolean)
     : []
@@ -48,7 +49,20 @@ export default function FaqEntryRow({ entry, onEdit, onDelete }) {
           </div>
         )}
       </div>
-      <RowActions className="pt-1" onEdit={() => onEdit(entry)} onDelete={() => onDelete(entry)} />
+      {archived ? (
+        <div className="pt-1">
+          <Button type="button" variant="neutral" size="row" dim={false} onClick={() => onRestore(entry)}>
+            Restore
+          </Button>
+        </div>
+      ) : (
+        <RowActions
+          className="pt-1"
+          archive
+          onEdit={() => onEdit(entry)}
+          onDelete={() => onDelete(entry)}
+        />
+      )}
     </div>
   )
 }

@@ -59,8 +59,7 @@ export default function Button({
   )
 }
 
-// Same look, rendered as a Next.js link
-export function ButtonLink({ variant = 'primary', size = 'md', className = '', children, ...props }) {
+export function ButtonLink({ variant = 'primary', size = 'md', dim, className = '', children, ...props }) {
   return (
     <Link className={buttonClasses({ variant, size, dim: false, className })} {...props}>
       {children}

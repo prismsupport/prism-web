@@ -110,26 +110,46 @@ export default function FaqManagementPage() {
     setLoading(false);
   }
 
-  async function handleDeleteConfirmed() {
+  // Archive = hide it from the chatbot, but keep the entry in the database.
+  async function handleArchiveConfirmed() {
     const supabase = createClient();
-    const { data, error: deleteError } = await supabase
-      .from('faq_entries')
-      .delete()
-      .eq('faq_id', deletingEntry.faq_id)
-      .select()
-    if (deleteError || !data?.length) {
-      toast.error(deleteError?.message || "Couldn't delete this entry.")
+    const { data, error: archiveError } = await supabase
+      .from("faq_entries")
+      .update({ archived_at: new Date().toISOString() })
+      .eq("faq_id", deletingEntry.faq_id)
+      .select();
+    if (archiveError || !data?.length) {
+      toast.error(archiveError?.message || "Couldn't archive this entry.");
     } else {
-      toast.success("FAQ entry deleted")
+      toast.success("FAQ entry archived");
     }
-    setDeletingEntry(null)
+    setDeletingEntry(null);
     loadEverything();
   }
 
+  async function handleRestore(entry) {
+    const supabase = createClient();
+    const { error: restoreError } = await supabase
+      .from("faq_entries")
+      .update({ archived_at: null })
+      .eq("faq_id", entry.faq_id);
+    if (restoreError) {
+      toast.error(restoreError.message);
+      return;
+    }
+    toast.success("FAQ entry restored");
+    loadEverything();
+  }
+
+  const activeEntries = entries.filter((e) => !e.archived_at);
+  const archivedEntries = entries.filter((e) => e.archived_at);
+
   const filteredEntries =
-    activeTab === "all" || activeTab === "unanswered"
-      ? entries
-      : entries.filter((e) => e.category === activeTab);
+    activeTab === "archived"
+      ? archivedEntries
+      : activeTab === "all" || activeTab === "unanswered"
+        ? activeEntries
+        : activeEntries.filter((e) => e.category === activeTab);
 
   const entriesPg = usePagination(filteredEntries);
   const inquiriesPg = usePagination(inquiries);
@@ -153,6 +173,7 @@ export default function FaqManagementPage() {
       key: cat,
       label: cat.charAt(0).toUpperCase() + cat.slice(1),
     })),
+    { key: "archived", label: "Archived" },
   ];
 
   function handleTabChange(key) {
@@ -214,16 +235,26 @@ export default function FaqManagementPage() {
           <div>
             {filteredEntries.length === 0 && (
               <EmptyState
-                title="No FAQ entries yet"
-                description="Add a question and answer for your consumers, or answer a pending inquiry."
+                title={
+                  activeTab === "archived"
+                    ? "No archived FAQ entries"
+                    : "No FAQ entries yet"
+                }
+                description={
+                  activeTab === "archived"
+                    ? "FAQ entries you archive will show up here."
+                    : "Add a question and answer for your consumers, or answer a pending inquiry."
+                }
               />
             )}
             {entriesPg.pageItems.map((entry) => (
               <FaqEntryRow
                 key={entry.faq_id}
                 entry={entry}
+                archived={activeTab === "archived"}
                 onEdit={setEditingEntry}
                 onDelete={setDeletingEntry}
+                onRestore={handleRestore}
               />
             ))}
             <Pagination {...entriesPg.paginationProps} />
@@ -250,13 +281,15 @@ export default function FaqManagementPage() {
 
       {deletingEntry && (
         <ConfirmDialog
-          title="Delete FAQ Entry"
-          onConfirm={handleDeleteConfirmed}
+          title="Archive FAQ Entry"
+          confirmLabel="Archive"
+          onConfirm={handleArchiveConfirmed}
           onClose={() => setDeletingEntry(null)}
         >
-          Are you sure you want to delete "
+          Are you sure you want to archive "
           <span className="font-semibold">{deletingEntry.question}</span>"?
-          This action cannot be undone.
+          The chatbot will stop using it, but you can restore it later from the
+          Archived tab.
         </ConfirmDialog>
       )}
 
