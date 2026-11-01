@@ -64,6 +64,9 @@ function DispatchContent() {
 
   const [priorityFilter, setPriorityFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [searchText, setSearchText] = useState("");
+  const [municipalityFilter, setMunicipalityFilter] = useState("all");
+  const [assigneeFilter, setAssigneeFilter] = useState("all");
   const [page, setPage] = useState(1);
 
   const [loading, setLoading] = useState(true);
@@ -292,13 +295,44 @@ function DispatchContent() {
       .length,
   };
 
+  const term = searchText.trim().toLowerCase();
+  const municipalityOptions = Array.from(
+    new Set(allTickets.map((t) => t.municipality).filter(Boolean)),
+  ).sort();
+
+  const assigneeOptions = Object.entries(linemenNames)
+    .map(([id, name]) => ({ id, name }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
   const filtered = allTickets.filter((t) => {
-    const priorityMatch =
-      priorityFilter === "all" || t.priority === priorityFilter;
-    const statusMatch =
-      statusFilter === "all" || bucketForTicket(t) === statusFilter;
-    return priorityMatch && statusMatch;
+    if (priorityFilter !== "all" && t.priority !== priorityFilter) return false;
+    if (statusFilter !== "all" && bucketForTicket(t) !== statusFilter) return false;
+    if (municipalityFilter !== "all" && t.municipality !== municipalityFilter) return false;
+
+    if (assigneeFilter !== "all") {
+      const a = t.kind === "master" ? assignmentFor(null, t.master_id) : assignmentFor(t.report_id, null);
+      if (assigneeFilter === "unassigned" ? !!a : a?.lineman_id !== assigneeFilter) return false;
+    }
+
+    if (term) {
+      const haystack = [t.ticket_number, t.master_ticket, t.nearest_landmark, t.barangay, t.municipality]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      if (!haystack.includes(term)) return false;
+    }
+    return true;
   });
+
+  const hasActiveFilters =
+    term || priorityFilter !== "all" || statusFilter !== "all" ||
+    municipalityFilter !== "all" || assigneeFilter !== "all";
+
+  function clearFilters() {
+    setSearchText(""); setPriorityFilter("all"); setStatusFilter("all");
+    setMunicipalityFilter("all"); setAssigneeFilter("all");
+    setPage(1);
+  }
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -333,7 +367,7 @@ function DispatchContent() {
 
   return (
     <div>
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-2xl font-bold text-gray-900">Dispatch Management</h1>
         <div className="flex items-center gap-3">
           {isOwner && (
@@ -380,16 +414,24 @@ function DispatchContent() {
       />
 
       <DispatchFilters
+        searchText={searchText}
+        onSearchChange={(v) => handleFilterChange(setSearchText, v)}
         priorityFilter={priorityFilter}
-        onPriorityChange={(value) =>
-          handleFilterChange(setPriorityFilter, value)
-        }
+        onPriorityChange={(v) => handleFilterChange(setPriorityFilter, v)}
         statusFilter={statusFilter}
-        onStatusChange={(value) => handleFilterChange(setStatusFilter, value)}
+        onStatusChange={(v) => handleFilterChange(setStatusFilter, v)}
         statusOptions={Object.keys(counts)}
+        municipalityFilter={municipalityFilter}
+        onMunicipalityChange={(v) => handleFilterChange(setMunicipalityFilter, v)}
+        municipalityOptions={municipalityOptions}
+        assigneeFilter={assigneeFilter}
+        onAssigneeChange={(v) => handleFilterChange(setAssigneeFilter, v)}
+        assigneeOptions={assigneeOptions}
+        onClear={clearFilters}
+        hasActiveFilters={!!hasActiveFilters}
       />
 
-      <div className="flex items-center gap-3 bg-white rounded-xl border border-gray-200 p-4 mb-6">
+      <div className="flex flex-wrap items-center gap-3 bg-white rounded-xl border border-gray-200 p-4 mb-6">
         <span className="text-xs font-bold text-gray-500 tracking-wide">
           RESPONSE TIME THRESHOLD
         </span>
@@ -538,7 +580,8 @@ function DispatchContent() {
       ))}
 
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[900px] text-sm">
           <thead>
             <tr className="bg-gray-50 border-b border-gray-200 text-left text-xs text-gray-500 uppercase tracking-wide">
               <th className="px-5 py-3 font-semibold">Ticket ID</th>
@@ -593,6 +636,7 @@ function DispatchContent() {
               })}
           </tbody>
         </table>
+        </div>
 
         {!loading && (
           <Pagination

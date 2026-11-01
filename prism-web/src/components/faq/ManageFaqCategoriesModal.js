@@ -13,7 +13,7 @@ export default function ManageFaqCategoriesModal({ cooperativeId, categories, on
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
-  async function persist(updatedList) {
+  async function persist(updatedList, successMessage) {
     setSaving(true)
     setError('')
     const supabase = createClient()
@@ -26,32 +26,30 @@ export default function ManageFaqCategoriesModal({ cooperativeId, categories, on
       toast.error(updateError.message)
       setError(updateError.message)
       setSaving(false)
-      toast.success('FAQ categories updated')
       return
     }
 
     setList(updatedList)
     onUpdated(updatedList)
     setSaving(false)
+    toast.success(successMessage)
   }
 
   function handleAdd() {
     const trimmed = newCategory.trim().toLowerCase()
     if (!trimmed || list.includes(trimmed)) return
-    persist([...list, trimmed])
+    persist([...list, trimmed], 'FAQ category added')
     setNewCategory('')
   }
 
   function handleDelete(category) {
-    persist(list.filter((c) => c !== category))
+    persist(list.filter((c) => c !== category), 'FAQ category removed')
   }
 
   return (
     <Modal title="Manage FAQ Categories" onClose={onClose}>
       <div className="space-y-2 mb-4">
-        {list.length === 0 && (
-          <p className="text-sm text-gray-500">No categories yet.</p>
-        )}
+        {list.length === 0 && <p className="text-sm text-gray-500">No categories yet.</p>}
         {list.map((category) => (
           <div
             key={category}
@@ -63,7 +61,7 @@ export default function ManageFaqCategoriesModal({ cooperativeId, categories, on
               disabled={saving}
               className="text-xs font-semibold text-red-600"
             >
-              Delete
+              Remove
             </button>
           </div>
         ))}
@@ -75,6 +73,7 @@ export default function ManageFaqCategoriesModal({ cooperativeId, categories, on
         <input
           value={newCategory}
           onChange={(e) => setNewCategory(e.target.value)}
+          aria-label="New category name"
           placeholder="New category name"
           className="flex-1 px-3 py-2 rounded-lg border border-gray-200 bg-gray-50 text-sm"
         />

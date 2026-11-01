@@ -1,6 +1,6 @@
 export function FilterBar({ className = 'flex items-center justify-between', children }) {
   return (
-    <div className={`bg-white rounded-xl border border-gray-200 p-4 mb-6 ${className}`}>
+    <div className={`bg-white rounded-xl border border-gray-200 p-4 mb-6 flex-wrap gap-3 ${className}`}>
       {children}
     </div>
   )
@@ -8,7 +8,7 @@ export function FilterBar({ className = 'flex items-center justify-between', chi
 
 export function FilterSelect({ label, value, onChange, children, ...props }) {
   return (
-    <div className="flex items-center gap-2">
+    <label className="flex items-center gap-2">
       <span className="text-xs font-bold text-gray-500 tracking-wide">{label}</span>
       <select
         value={value}
@@ -18,6 +18,6 @@ export function FilterSelect({ label, value, onChange, children, ...props }) {
       >
         {children}
       </select>
-    </div>
+    </label>
   )
 }

@@ -9,6 +9,7 @@ export default function SearchInput({
   placeholder,
   size = 'md',
   className = 'flex-1',
+  ariaLabel,
 }) {
   return (
     <div className={`relative ${className}`}>
@@ -18,16 +19,18 @@ export default function SearchInput({
         fill="none"
         stroke="currentColor"
         strokeWidth="2"
+        aria-hidden="true"
         className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
       >
         <circle cx="11" cy="11" r="7" />
         <path d="m21 21-4.3-4.3" />
       </svg>
       <input
-        type="text"
+        type="search"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
+        aria-label={ariaLabel || placeholder || 'Search'}
         className={`w-full pl-10 pr-3.5 ${SIZES[size]} rounded-lg border border-gray-200 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent`}
       />
     </div>

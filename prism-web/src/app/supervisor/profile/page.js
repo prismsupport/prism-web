@@ -243,7 +243,6 @@ export default function SupervisorProfilePage() {
       toast.error(passwordUpdateError.message)
       setPasswordError(passwordUpdateError.message)
       setPasswordSaving(false)
-      toast.success('Password updated')
       return
     }
 
@@ -251,6 +250,7 @@ export default function SupervisorProfilePage() {
     setNewPassword('')
     setConfirmPassword('')
     setPasswordSuccess('Password changed successfully.')
+    toast.success('Password updated')
   }
 
   if (loading) return <PageLoading />

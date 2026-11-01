@@ -30,12 +30,17 @@ export default function Toaster() {
   useEffect(() => subscribe(setItems), []);
 
   return (
-    <div className="pointer-events-none fixed bottom-6 right-6 z-[10000] flex w-80 flex-col gap-3">
+    <div
+      aria-live="polite"
+      aria-atomic="false"
+      className="pointer-events-none fixed bottom-4 right-4 left-4 sm:left-auto sm:bottom-6 sm:right-6 z-[10000] flex sm:w-80 flex-col gap-3"
+    >
       {items.map((t) => {
         const tone = TONES[t.type] || TONES.info;
         return (
           <div
             key={t.id}
+            role={t.type === "error" ? "alert" : "status"}
             className="pointer-events-auto flex animate-in fade-in slide-in-from-bottom-2 items-start gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-lg duration-200"
           >
             <span className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${tone.badge}`}>
@@ -48,6 +53,7 @@ export default function Toaster() {
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 className="h-3.5 w-3.5"
+                aria-hidden="true"
               >
                 {tone.icon}
               </svg>
