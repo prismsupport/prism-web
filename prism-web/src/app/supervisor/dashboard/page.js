@@ -16,8 +16,17 @@ import StatusPill from '@/components/ui/StatusPill'
 import EmptyState from '@/components/ui/EmptyState'
 import StageBreakdown from '@/components/dashboard/StageBreakdown'
 import { computeStageTimes, averageStages } from '@/lib/stageTimes'
+import AreaBreakdown from '@/components/dashboard/AreaBreakdown'
+import BarList from '@/components/dashboard/BarList'
+import { issueLabel } from '@/lib/issueCodes'
 
 const MAX_ROWS = 1000 // Supabase returns at most 1000 rows per request
+
+const TABS = [
+  { key: 'overview', label: 'Overview' },
+  { key: 'insights', label: 'Insights' },
+  { key: 'performance', label: 'Performance' },
+]
 
 const RANGES = [
   { key: '7', label: 'Last 7 days', days: 7 },
@@ -36,6 +45,66 @@ const STATUS_CARDS = [
 
 function average(values) {
   return values.length > 0 ? values.reduce((s, v) => s + v, 0) / values.length : null
+}
+
+function normKey(value) {
+  return String(value || '').trim().toLowerCase()
+}
+
+function sortedEntries(map) {
+  return Object.entries(map).sort((a, b) => b[1] - a[1])
+}
+
+function sourceLabel(source) {
+  if (source === 'consumer') return 'by consumer'
+  if (source === 'supervisor') return 'by supervisor'
+  return `from ${String(source).replace(/_/g, ' ')}`
+}
+
+// Report counts per bucket: daily for 7 days, 6-day periods for 30 and 90
+// days, and the last 12 months for all time.
+function buildTrend(reports, rangeDays) {
+  const now = new Date()
+  const times = reports.map((r) => new Date(r.created_at).getTime())
+  const inside = (start, end) => times.filter((t) => t >= start.getTime() && t < end.getTime()).length
+
+  if (rangeDays === null) {
+    const out = []
+    for (let i = 11; i >= 0; i--) {
+      const start = new Date(now.getFullYear(), now.getMonth() - i, 1)
+      const end = new Date(now.getFullYear(), now.getMonth() - i + 1, 1)
+      out.push({
+        label: start.toLocaleDateString('en-PH', { month: 'short', year: '2-digit' }),
+        count: inside(start, end),
+      })
+    }
+    return out
+  }
+
+  const step = rangeDays === 7 ? 1 : 6
+  const buckets = rangeDays / step
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const out = []
+  for (let k = 0; k < buckets; k++) {
+    const start = new Date(todayStart)
+    start.setDate(start.getDate() - ((buckets - 1 - k) * step + (step - 1)))
+    const end = new Date(start)
+    end.setDate(end.getDate() + step)
+    out.push({
+      label:
+        step === 1
+          ? start.toLocaleDateString('en-PH', { weekday: 'short' })
+          : start.toLocaleDateString('en-PH', { day: 'numeric', month: 'short' }),
+      count: inside(start, end),
+    })
+  }
+  return out
+}
+
+function trendSubtitle(rangeKey) {
+  if (rangeKey === '7') return 'Reports per day, last 7 days'
+  if (rangeKey === 'all') return 'Reports per month, last 12 months'
+  return `Reports per 6-day period, last ${rangeKey} days`
 }
 
 function AttentionCard({ label, count, href, color }) {
@@ -61,11 +130,11 @@ function AttentionCard({ label, count, href, color }) {
 // Data loading. Each section only runs when the supervisor has that feature.
 // ---------------------------------------------------------------------------
 
-async function loadDispatchData(supabase, coopId, sinceIso) {
+async function loadDispatchData(supabase, coopId, sinceIso, rangeDays) {
   // ---- Reports in the selected period ----
   let reportQuery = supabase
     .from('reports')
-    .select('report_id, status, barangay, created_at, master_id')
+    .select('report_id, status, barangay, municipality, created_at, master_id, reopened_at, issue_code')
     .eq('cooperative_id', coopId)
     .order('created_at', { ascending: false })
     .limit(MAX_ROWS)
@@ -74,6 +143,21 @@ async function loadDispatchData(supabase, coopId, sinceIso) {
   const { data: reportsData, error: reportsError } = await reportQuery
   if (reportsError) throw new Error(reportsError.message)
   const reports = reportsData || []
+
+  // Cooperative targets and service areas (feeder, substation, area office)
+  const [{ data: settingsRow }, { data: areaRows }] = await Promise.all([
+    supabase
+      .from('cooperative_settings')
+      .select('response_time_threshold_minutes, resolution_target_minutes')
+      .eq('cooperative_id', coopId)
+      .maybeSingle(),
+    supabase
+      .from('service_areas')
+      .select('barangay, municipality, feeder, substation, area_office')
+      .eq('cooperative_id', coopId),
+  ])
+  const thresholdMinutes = settingsRow?.response_time_threshold_minutes ?? null
+  const targetMinutes = settingsRow?.resolution_target_minutes ?? null
 
   const totalReports = reports.length
   const declinedReports = reports.filter((r) => r.status === 'cancelled').length
@@ -97,7 +181,7 @@ async function loadDispatchData(supabase, coopId, sinceIso) {
   // of older tickets are ignored below.
   let assignmentQuery = supabase
     .from('job_assignments')
-    .select('assignment_id, report_id, master_id, status, assigned_at, completed_at, job_assignment_status_logs(new_status, changed_at)')
+    .select('assignment_id, report_id, master_id, status, assigned_at, completed_at, reopen_source, job_assignment_status_logs(new_status, changed_at)')
     .order('assigned_at', { ascending: false })
     .limit(MAX_ROWS)
   if (sinceIso) assignmentQuery = assignmentQuery.gte('assigned_at', sinceIso)
@@ -116,6 +200,8 @@ async function loadDispatchData(supabase, coopId, sinceIso) {
   // Repair time: FIRST dispatch -> final completion (resolved tickets only).
   const responseTimes = []
   const repairTimes = []
+  const resolutionTimes = []
+  const reopenSources = {}
   Object.entries(assignmentsByTicket).forEach(([key, list]) => {
     const firstAssigned = Math.min(...list.map((a) => new Date(a.assigned_at).getTime()))
     const response = (firstAssigned - ticketStart[key]) / 60000
@@ -126,7 +212,28 @@ async function loadDispatchData(supabase, coopId, sinceIso) {
       const lastCompleted = Math.max(...finished.map((a) => new Date(a.completed_at).getTime()))
       const repair = (lastCompleted - firstAssigned) / 60000
       if (repair >= 0) repairTimes.push(repair)
+
+      // Resolution time: ticket start -> final completion
+      const resolution = (lastCompleted - ticketStart[key]) / 60000
+      if (resolution >= 0) resolutionTimes.push(resolution)
     }
+
+    list.forEach((a) => {
+      if (a.reopen_source) reopenSources[a.reopen_source] = (reopenSources[a.reopen_source] || 0) + 1
+    })
+  })
+
+  const percentWithin = (values, limit) =>
+    limit && values.length > 0
+      ? Math.round((values.filter((v) => v <= limit).length / values.length) * 100)
+      : null
+  const responsePct = percentWithin(responseTimes, thresholdMinutes)
+  const resolutionPct = percentWithin(resolutionTimes, targetMinutes)
+
+  // Reopened tickets (a Master Ticket counts once)
+  const reopenedKeys = new Set()
+  reports.forEach((r) => {
+    if (r.reopened_at) reopenedKeys.add(reportKeyById[r.report_id])
   })
 
   // Average time per stage. Waiting for dispatch reuses the response times above.
@@ -139,28 +246,38 @@ async function loadDispatchData(supabase, coopId, sinceIso) {
   const stageAverages = averageStages(stageRows)
   stageAverages.waiting = average(responseTimes)
 
-  // ---- By barangay (top 5) ----
-  const barangayMap = {}
-  reports.forEach((r) => {
-    if (!r.barangay) return
-    barangayMap[r.barangay] = (barangayMap[r.barangay] || 0) + 1
+  // ---- Breakdowns by area (reports, not tickets) ----
+  const areaLookup = {}
+  ;(areaRows || []).forEach((a) => {
+    const key = `${normKey(a.barangay)}|${normKey(a.municipality)}`
+    if (!areaLookup[key]) areaLookup[key] = a
   })
-  const barangayData = Object.entries(barangayMap)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 5)
-
-  // ---- Last 7 days trend (always the most recent 7 days) ----
-  const days = []
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date()
-    d.setDate(d.getDate() - i)
-    days.push(d)
+  const maps = { barangay: {}, municipality: {}, feeder: {}, substation: {}, area_office: {} }
+  const bump = (map, name) => {
+    map[name] = (map[name] || 0) + 1
   }
-  const dailyTrend = days.map((d) => {
-    const dayStr = d.toDateString()
-    const count = reports.filter((r) => new Date(r.created_at).toDateString() === dayStr).length
-    return { label: d.toLocaleDateString('en-PH', { weekday: 'short' }), count }
+  reports.forEach((r) => {
+    if (r.barangay) {
+      bump(maps.barangay, r.municipality ? `${r.barangay} (${r.municipality})` : r.barangay)
+    }
+    if (r.municipality) bump(maps.municipality, r.municipality)
+    const area = areaLookup[`${normKey(r.barangay)}|${normKey(r.municipality)}`]
+    bump(maps.feeder, area?.feeder || 'Unmapped')
+    bump(maps.substation, area?.substation || 'Unmapped')
+    bump(maps.area_office, area?.area_office || 'Unmapped')
   })
+  const areaBreakdown = {}
+  Object.keys(maps).forEach((k) => {
+    areaBreakdown[k] = sortedEntries(maps[k])
+  })
+
+  // ---- Most common issues ----
+  const issueMap = {}
+  reports.forEach((r) => bump(issueMap, issueLabel(r.issue_code)))
+  const issueData = sortedEntries(issueMap)
+
+  // ---- Report trend ----
+  const trend = buildTrend(reports, rangeDays)
 
   // ---- Current status overview (not time-limited) ----
   // Count-only queries: nothing is downloaded, only the totals come back.
@@ -236,9 +353,18 @@ async function loadDispatchData(supabase, coopId, sinceIso) {
       resolvedReports,
       avgResponse: average(responseTimes),
       avgRepair: average(repairTimes),
+      avgResolution: average(resolutionTimes),
+      responsePct,
+      thresholdMinutes,
+      resolutionPct,
+      resolutionCount: resolutionTimes.length,
+      targetMinutes,
+      reopenedCount: reopenedKeys.size,
+      reopenSources,
     },
-    barangayData,
-    dailyTrend,
+    areaBreakdown,
+    issueData,
+    trend,
     statusCounts,
     linemenPerformance,
     stageAverages,
@@ -331,6 +457,7 @@ export default function SupervisorDashboardPage() {
   const hasAnyWidget = can.dispatch || can.advisories || can.faq || can.billing
 
   const [rangeKey, setRangeKey] = useState('30')
+  const [tab, setTab] = useState('overview')
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -385,7 +512,7 @@ export default function SupervisorDashboardPage() {
     }
 
     const [dispatchPart, advisoryPart, attentionPart] = await Promise.all([
-      can.dispatch ? loadDispatchData(supabase, coopId, sinceIso) : null,
+      can.dispatch ? loadDispatchData(supabase, coopId, sinceIso, range.days) : null,
       can.advisories ? loadAdvisorySummary(supabase, coopId) : null,
       loadAttention(supabase, coopId, can),
     ])
@@ -403,9 +530,13 @@ export default function SupervisorDashboardPage() {
     )
   }
 
-  const { stats, barangayData, dailyTrend, statusCounts, linemenPerformance, advisoryCounts, attention, stageAverages } = data
-  const maxBarangayCount = Math.max(...(barangayData || []).map(([, c]) => c), 1)
-  const maxTrendCount = Math.max(...(dailyTrend || []).map((d) => d.count), 1)
+  const { stats, areaBreakdown, issueData, trend, statusCounts, linemenPerformance, advisoryCounts, attention, stageAverages } = data
+  const unresolvedNow = statusCounts
+    ? (statusCounts.pending ?? 0) + (statusCounts.dispatched ?? 0) + (statusCounts.in_progress ?? 0) + (statusCounts.qa_review ?? 0)
+    : 0
+  const reopenHint = stats
+    ? Object.entries(stats.reopenSources).map(([src, n]) => `${n} ${sourceLabel(src)}`).join(' · ')
+    : ''
 
   // Needs-attention cards: only the ones this supervisor can act on
   const attentionItems = []
@@ -510,8 +641,13 @@ export default function SupervisorDashboardPage() {
 
       {can.dispatch && stats && (
         <>
-          {/* Top stat cards */}
-                    <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-4">
+          <div className="mb-6">
+            <SegmentedControl options={TABS} value={tab} onChange={setTab} />
+          </div>
+
+          {tab === 'overview' && (
+            <>
+              <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-4">
             <MetricCard
               label="Total outage reports"
               value={stats.totalReports}
@@ -526,9 +662,95 @@ export default function SupervisorDashboardPage() {
             </MetricCard>
             <MetricCard
               tone="amber"
+              label="Unresolved tickets"
+              value={unresolvedNow}
+              hint="Current: not yet resolved"
+            >
+              <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+              <rect width="8" height="4" x="8" y="2" rx="1" />
+            </MetricCard>
+            <MetricCard
+              tone="green"
+              label="Resolved within target"
+              value={stats.resolutionPct !== null ? `${stats.resolutionPct}%` : '—'}
+              hint={
+                stats.targetMinutes
+                  ? `Target ${formatMinutes(stats.targetMinutes)} · ${stats.resolutionCount} resolved`
+                  : 'No resolution target set (Dispatch page)'
+              }
+            >
+              <circle cx="12" cy="12" r="10" />
+              <path d="m9 12 2 2 4-4" />
+            </MetricCard>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+              <h2 className="text-sm font-bold text-gray-900 mb-1">Dispatch Status Overview</h2>
+              <p className="text-xs text-gray-400 mb-4">Current, all tickets</p>
+              <StatusBreakdown cards={STATUS_CARDS} counts={statusCounts} />
+            </div>
+                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+            <h2 className="text-sm font-bold text-gray-900 mb-1">Report Trend</h2>
+            <p className="text-xs text-gray-400 mb-4">{trendSubtitle(rangeKey)}</p>
+            <TrendChart data={trend} />
+                </div>
+              </div>
+            </>
+          )}
+
+          {tab === 'insights' && (
+            <>
+              <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-4">
+            <MetricCard
+              label="Reopened tickets"
+              value={stats.reopenedCount}
+              hint={reopenHint || 'Reports filed in this period'}
+            >
+              <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
+              <path d="M3 3v5h5" />
+            </MetricCard>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                <AreaBreakdown breakdown={areaBreakdown} />
+
+            {/* Most common issues */}
+            <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+              <h2 className="mb-1 text-sm font-bold text-gray-900">Most Common Issues</h2>
+              <p className="mb-4 text-xs text-gray-400">
+                Category chosen by the consumer. Older reports show as Uncategorized.
+              </p>
+              <BarList
+                rows={issueData}
+                emptyTitle="No reports in this period"
+                emptyDescription="Issue categories appear as consumers submit reports."
+              />
+            </div>
+              </div>
+            </>
+          )}
+
+          {tab === 'performance' && (
+            <>
+              <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
+            <MetricCard
+              tone="amber"
               label="Avg. response time"
               value={formatMinutes(stats.avgResponse)}
-              hint="Submission to first dispatch"
+              hint={
+                stats.responsePct !== null
+                  ? `${stats.responsePct}% dispatched within ${stats.thresholdMinutes} min`
+                  : 'Submission to first dispatch'
+              }
+            >
+              <circle cx="12" cy="12" r="10" />
+              <path d="M12 6v6l4 2" />
+            </MetricCard>
+            <MetricCard
+              label="Avg. resolution time"
+              value={formatMinutes(stats.avgResolution)}
+              hint="Submission to final completion"
             >
               <circle cx="12" cy="12" r="10" />
               <path d="M12 6v6l4 2" />
@@ -540,61 +762,11 @@ export default function SupervisorDashboardPage() {
             >
               <path d="M13 2 3 14h7l-1 8 11-14h-7l1-6Z" />
             </MetricCard>
-          </div>
+              </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-            {/* Outage reports by barangay */}
-                        <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-              <h2 className="mb-4 text-sm font-bold text-gray-900">Outage Reports by Barangay</h2>
-              {barangayData.length === 0 ? (
-                <EmptyState
-                  title="No reports in this period"
-                  description="Reports show up here as consumers submit them."
-                />
-              ) : (
-                <div className="space-y-4">
-                  {barangayData.map(([barangay, count], i) => (
-                    <div key={barangay}>
-                      <div className="mb-1.5 flex items-center justify-between text-sm">
-                        <span className="flex items-center gap-2 text-gray-700">
-                          <span className="flex h-5 w-5 items-center justify-center rounded-md bg-gray-100 text-[11px] font-bold text-gray-500">
-                            {i + 1}
-                          </span>
-                          {barangay}
-                        </span>
-                        <span className="font-display font-bold tabular-nums text-gray-900">{count}</span>
-                      </div>
-                      <div className="h-2 w-full rounded-full bg-gray-100">
-                        <div
-                          className="h-2 rounded-full bg-blue-700"
-                          style={{ width: `${(count / maxBarangayCount) * 100}%` }}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+              <StageBreakdown averages={stageAverages} />
 
-            {/* Reports per day */}
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-              <h2 className="text-sm font-bold text-gray-900 mb-1">Reports per Day</h2>
-              <p className="text-xs text-gray-400 mb-4">Last 7 days trend</p>
-              <TrendChart data={dailyTrend} />
-            </div>
-          </div>
-
-          <StageBreakdown averages={stageAverages} />
-          
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-            {/* Dispatch status overview */}
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-              <h2 className="text-sm font-bold text-gray-900 mb-1">Dispatch Status Overview</h2>
-              <p className="text-xs text-gray-400 mb-4">Current, all tickets</p>
-              <StatusBreakdown cards={STATUS_CARDS} counts={statusCounts} />
-            </div>
-
-            {/* Top lineman performance */}
+              <div className="mb-6">
             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-sm font-bold text-gray-900">Top Lineman Performance</h2>
@@ -646,7 +818,9 @@ export default function SupervisorDashboardPage() {
                 </div>
               )}
             </div>
-          </div>
+              </div>
+            </>
+          )}
         </>
       )}
 

@@ -7,7 +7,8 @@ import { useSearchParams } from "next/navigation";
 import Pagination from "@/components/ui/Pagination";
 import DispatchStatCards from "@/components/dispatch/DispatchStatCards";
 import DispatchFilters from "@/components/dispatch/DispatchFilters";
-import DuplicateSuggestionCard from "@/components/dispatch/DuplicateSuggestionCard";
+import DispatchSettingsModal from "@/components/dispatch/DispatchSettingsModal";
+import DispatchAlerts from "@/components/dispatch/DispatchAlerts";
 import DispatchTicketRow from "@/components/dispatch/DispatchTicketRow";
 import StatusNamesModal from "@/components/dispatch/StatusNamesModal";
 import ManagePriorityLevelsModal from "@/components/dispatch/ManagePriorityLevelsModal";
@@ -50,6 +51,7 @@ const ASSIGNMENT_TO_BUCKET = {
 
 function DispatchContent() {
   const searchParams = useSearchParams()
+  const [showSettings, setShowSettings] = useState(false)
   const [showStatusNames, setShowStatusNames] = useState(false)
   const [showPriorityLevels, setShowPriorityLevels] = useState(false)
   const [showOfficeHours, setShowOfficeHours] = useState(false)
@@ -75,8 +77,7 @@ function DispatchContent() {
   // Response Time Monitoring
   const [cooperativeId, setCooperativeId] = useState(null);
   const [threshold, setThreshold] = useState(30);
-  const [thresholdInput, setThresholdInput] = useState("30");
-  const [savingThreshold, setSavingThreshold] = useState(false);
+  const [target, setTarget] = useState(null); // resolution target, minutes (null = not set)
   const [overdueTickets, setOverdueTickets] = useState([]);
   const { isUnread, markNotificationRead } = useUnreadSupervisorNotifications([
     "reports",
@@ -133,7 +134,7 @@ function DispatchContent() {
       await Promise.all([
         supabase
           .from("cooperative_settings")
-          .select("response_time_threshold_minutes")
+          .select("response_time_threshold_minutes, resolution_target_minutes")
           .eq("cooperative_id", coopId)
           .single(),
         supabase
@@ -162,8 +163,8 @@ function DispatchContent() {
     const coop = settingsRes.data;
     if (coop?.response_time_threshold_minutes != null) {
       setThreshold(coop.response_time_threshold_minutes);
-      setThresholdInput(String(coop.response_time_threshold_minutes));
     }
+    setTarget(coop?.resolution_target_minutes ?? null);
 
     if (reportsRes.error) setError(reportsRes.error.message);
     const standaloneReports = reportsRes.data || [];
@@ -224,35 +225,6 @@ function DispatchContent() {
     setOverdueTickets(overdueRes.data || []);
 
     setLoading(false);
-  }
-
-  async function handleSaveThreshold() {
-    const parsed = parseInt(thresholdInput, 10);
-    if (isNaN(parsed) || parsed <= 0) {
-      setError("Response time threshold must be a positive number of minutes.");
-      return;
-    }
-
-    setSavingThreshold(true);
-    setError("");
-    const supabase = createClient();
-
-    const { error: updateError } = await supabase
-      .from("cooperative_settings")
-      .update({ response_time_threshold_minutes: parsed })
-      .eq("cooperative_id", cooperativeId);
-
-    if (updateError) {
-      toast.error(updateError.message);
-      setError(updateError.message);
-      setSavingThreshold(false);
-      return;
-    }
-
-    setThreshold(parsed);
-    setSavingThreshold(false);
-    toast.success("Response time threshold updated");
-    loadEverything();
   }
 
   function assignmentFor(reportId, masterId) {
@@ -369,29 +341,41 @@ function DispatchContent() {
     <div>
       <div className="flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-2xl font-bold text-gray-900">Dispatch Management</h1>
-        <div className="flex items-center gap-3">
-          {isOwner && (
-            <button
-              onClick={() => setShowOfficeHours(true)}
-              className="bg-white hover:bg-gray-50 text-gray-700 text-sm font-semibold px-4 py-2 rounded-lg border border-gray-200 transition-colors whitespace-nowrap"
-            >
-              Office Hours
-            </button>
-          )}
-          <button
-            onClick={() => setShowPriorityLevels(true)}
-            className="bg-white hover:bg-gray-50 text-gray-700 text-sm font-semibold px-4 py-2 rounded-lg border border-gray-200 transition-colors whitespace-nowrap"
-          >
-            Priority Levels
-          </button>
-          <button
-            onClick={() => setShowStatusNames(true)}
-            className="bg-white hover:bg-gray-50 text-gray-700 text-sm font-semibold px-4 py-2 rounded-lg border border-gray-200 transition-colors whitespace-nowrap"
-          >
-            Status Names
-          </button>
-        </div>
+        <button
+          onClick={() => setShowSettings(true)}
+          className="bg-white hover:bg-gray-50 text-gray-700 text-sm font-semibold px-4 py-2 rounded-lg border border-gray-200 transition-colors whitespace-nowrap"
+        >
+          Settings
+        </button>
       </div>
+      {showSettings && (
+        <DispatchSettingsModal
+          cooperativeId={cooperativeId}
+          threshold={threshold}
+          target={target}
+          isOwner={isOwner}
+          onClose={() => setShowSettings(false)}
+          onSaved={(newThreshold, newTarget) => {
+            setTarget(newTarget)
+            if (newThreshold !== threshold) {
+              setThreshold(newThreshold)
+              loadEverything()
+            }
+          }}
+          onOpenOfficeHours={() => {
+            setShowSettings(false)
+            setShowOfficeHours(true)
+          }}
+          onOpenPriorityLevels={() => {
+            setShowSettings(false)
+            setShowPriorityLevels(true)
+          }}
+          onOpenStatusNames={() => {
+            setShowSettings(false)
+            setShowStatusNames(true)
+          }}
+        />
+      )}
       {showStatusNames && <StatusNamesModal onClose={() => setShowStatusNames(false)} />}
       {showOfficeHours && <OfficeHoursModal onClose={() => setShowOfficeHours(false)} />}
       {showPriorityLevels && (
@@ -406,6 +390,14 @@ function DispatchContent() {
       <p className="text-sm text-gray-500 mt-1 mb-6">
         Real-time tickets monitoring and lineman coordination.
       </p>
+
+      <DispatchAlerts
+        overdueTickets={overdueTickets}
+        threshold={threshold}
+        reopenRequests={reopenRequests}
+        clusters={clusters}
+        joinGroups={joinGroups}
+      />
 
       <DispatchStatCards
         counts={counts}
@@ -431,153 +423,11 @@ function DispatchContent() {
         hasActiveFilters={!!hasActiveFilters}
       />
 
-      <div className="flex flex-wrap items-center gap-3 bg-white rounded-xl border border-gray-200 p-4 mb-6">
-        <span className="text-xs font-bold text-gray-500 tracking-wide">
-          RESPONSE TIME THRESHOLD
-        </span>
-        <input
-          type="number"
-          min={1}
-          value={thresholdInput}
-          onChange={(e) => setThresholdInput(e.target.value)}
-          className="w-20 text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white"
-        />
-        <span className="text-sm text-gray-500">minutes</span>
-        <button
-          onClick={handleSaveThreshold}
-          disabled={
-            savingThreshold || parseInt(thresholdInput, 10) === threshold
-          }
-          className="bg-blue-700 hover:bg-blue-800 disabled:opacity-50 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
-        >
-          {savingThreshold ? "Saving…" : "Save"}
-        </button>
-        <span className="text-xs text-gray-400 ml-2">
-          Pending tickets unassigned past this limit are flagged below and
-          notify supervisors once.
-        </span>
-      </div>
-
       {error && (
         <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-4">
           {error}
         </p>
       )}
-
-      {overdueTickets.map((o) => (
-        <div
-          key={o.ticket_id}
-          className="flex items-center justify-between bg-white rounded-xl border border-red-200 p-4 mb-4"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-red-50 flex items-center justify-center text-red-700">
-              ⏱
-            </div>
-            <div>
-              <p className="text-sm font-bold text-gray-900">
-                RESPONSE TIME EXCEEDED
-              </p>
-              <p className="text-sm text-gray-600">
-                <span className="font-medium">{o.ticket_number}</span> has been
-                unassigned for{" "}
-                <span className="font-semibold text-red-600">
-                  {o.minutes_elapsed} minutes
-                </span>{" "}
-                (threshold: {threshold} min)
-              </p>
-            </div>
-          </div>
-          <Link
-            href={
-              o.ticket_kind === "master"
-                ? `/supervisor/dispatch/master/${o.ticket_id}`
-                : `/supervisor/dispatch/report/${o.ticket_id}`
-            }
-            className="bg-red-600 hover:bg-red-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors whitespace-nowrap"
-          >
-            Review Now
-          </Link>
-        </div>
-      ))}
-
-      {reopenRequests.map((r) => (
-        <div
-          key={r.reopen_id}
-          className="flex items-center justify-between bg-white rounded-xl border border-amber-200 p-4 mb-4"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-amber-50 flex items-center justify-center text-amber-700">
-              ↺
-            </div>
-            <div>
-              <p className="text-sm font-bold text-gray-900">
-                TICKET REOPEN REQUEST
-              </p>
-              <p className="text-sm text-gray-600">
-                <span className="font-medium">{r.reports?.ticket_number}</span>{" "}
-                — Consumer requested this resolved ticket be reopened
-              </p>
-            </div>
-          </div>
-          <Link
-            href={`/supervisor/dispatch/reopen/${r.reopen_id}`}
-            className="bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors whitespace-nowrap"
-          >
-            Review Request
-          </Link>
-        </div>
-      ))}
-
-      {clusters.map((cluster) => (
-        <DuplicateSuggestionCard
-          key={cluster.cluster_anchor_id}
-          type="cluster"
-          title="POTENTIAL DUPLICATE"
-          description={
-            <>
-              <span className="text-blue-700 font-medium">
-                {cluster.area_label}
-              </span>
-              {"   "}Confidence:{" "}
-              <span className="font-semibold text-green-600">
-                {cluster.confidence}%
-              </span>
-              {"   "}Related Reports:{" "}
-              <span className="font-semibold">{cluster.related_count}</span>
-              {"   "}Status: Pending Administrator Review
-            </>
-          }
-          href={`/supervisor/dispatch/cluster/${cluster.cluster_anchor_id}`}
-          buttonLabel="Review Cluster"
-        />
-      ))}
-
-      {joinGroups.map((g) => (
-        <DuplicateSuggestionCard
-          key={`${g.target_type}-${g.target_id}`}
-          type="join"
-          title={
-            g.reportIds.length > 1
-              ? `${g.reportIds.length} POSSIBLE MATCHES TO EXISTING TICKET`
-              : "POSSIBLE MATCH TO EXISTING TICKET"
-          }
-          description={
-            <>
-              {g.reportIds.length} report{g.reportIds.length === 1 ? "" : "s"}{" "}
-              may belong to{" "}
-              <span className="text-purple-700 font-medium">
-                {g.target_label}
-              </span>
-              {"   "}Best match:{" "}
-              <span className="font-semibold text-green-600">
-                {g.maxScore}%
-              </span>
-            </>
-          }
-          href={`/supervisor/dispatch/join-group/${g.target_type}/${g.target_id}?reports=${g.reportIds.join(",")}`}
-          buttonLabel="Review Matches"
-        />
-      ))}
 
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
