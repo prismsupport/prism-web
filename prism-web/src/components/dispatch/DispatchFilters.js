@@ -2,10 +2,13 @@ import { FilterBar, FilterSelect } from '@/components/ui/FilterBar'
 import SearchInput from '@/components/ui/SearchInput'
 import { buttonClasses } from '@/components/ui/Button'
 import { useStatusLabels } from '@/lib/workflow/StatusLabelsContext'
+import { ISSUE_LABELS } from '@/lib/issueCodes'
 
 export default function DispatchFilters({
   searchText,
   onSearchChange,
+  categoryFilter,
+  onCategoryChange,
   priorityFilter,
   onPriorityChange,
   statusFilter,
@@ -29,6 +32,15 @@ export default function DispatchFilters({
         onChange={onSearchChange}
         placeholder="Search ticket no., landmark, barangay, municipality…"
       />
+      <FilterSelect label="CATEGORY" value={categoryFilter} onChange={onCategoryChange}>
+        <option value="all">All Categories</option>
+        {Object.entries(ISSUE_LABELS).map(([code, label]) => (
+          <option key={code} value={code}>
+            {label}
+          </option>
+        ))}
+        <option value="uncategorized">Uncategorized</option>
+      </FilterSelect>
       <FilterSelect label="PRIORITY" value={priorityFilter} onChange={onPriorityChange}>
         <option value="all">All Priorities</option>
         {priorityLevels.map((p) => (
@@ -45,6 +57,7 @@ export default function DispatchFilters({
           </option>
         ))}
         <option value="cancelled">{statusLabel('cancelled')}</option>
+        <option value="overdue">Overdue (response time exceeded)</option>
       </FilterSelect>
       <FilterSelect label="MUNICIPALITY" value={municipalityFilter} onChange={onMunicipalityChange}>
         <option value="all">All Municipalities</option>

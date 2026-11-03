@@ -9,6 +9,8 @@ export default function DispatchTicketRow({
   bucket,
   isClustered,
   isOverdue,
+  categoryLabel,
+  recurringCount,
   assigneeName,
   isUnread,
   onOpen,
@@ -49,6 +51,15 @@ export default function DispatchTicketRow({
           <p className="text-xs text-red-600 font-medium flex items-center gap-1 mt-0.5">
             <span className="w-1.5 h-1.5 rounded-full bg-red-600" />
             Response Time Exceeded
+          </p>
+        )}
+      </td>
+      <td className="px-5 py-4">
+        <p className="text-gray-900">{categoryLabel}</p>
+        {recurringCount > 0 && (
+          <p className="text-xs text-amber-600 font-medium flex items-center gap-1 mt-0.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+            Recurring · {recurringCount} reports
           </p>
         )}
       </td>

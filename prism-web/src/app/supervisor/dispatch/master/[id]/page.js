@@ -20,6 +20,7 @@ import { PageLoading } from "@/components/ui/Skeleton";
 import { toast } from '@/lib/toast'
 import ReopenTicketModal from '@/components/dispatch/ReopenTicketModal'
 import ReopenReasonNote from '@/components/dispatch/ReopenReasonNote'
+import { issueLabel } from '@/lib/issueCodes'
 
 export default function MasterTicketDetailPage() {
   const { id } = useParams()
@@ -27,6 +28,7 @@ export default function MasterTicketDetailPage() {
 
   const [master, setMaster] = useState(null)
   const [members, setMembers] = useState([])
+  const [masterIssues, setMasterIssues] = useState([])
   const [assignment, setAssignment] = useState(null)
   const [assignedLinemanName, setAssignedLinemanName] = useState('')
   const [statusLogs, setStatusLogs] = useState([])
@@ -89,10 +91,16 @@ export default function MasterTicketDetailPage() {
 
     const { data: memberReportIds } = await supabase
       .from('reports')
-      .select('report_id')
+      .select('report_id, issue_code')
       .eq('master_id', id)
 
     const ids = (memberReportIds || []).map((r) => r.report_id)
+    const issueTally = {}
+    ;(memberReportIds || []).forEach((r) => {
+      const label = issueLabel(r.issue_code)
+      issueTally[label] = (issueTally[label] || 0) + 1
+    })
+    setMasterIssues(Object.entries(issueTally).sort((a, b) => b[1] - a[1]))
     let memberReports = []
     if (ids.length > 0) {
       const { data } = await supabase.rpc('get_reports_with_location', {
@@ -376,6 +384,18 @@ export default function MasterTicketDetailPage() {
                 {master.barangay}, {master.municipality}
               </p>
             </div>
+            {masterIssues.length > 0 && (
+              <div className="text-sm mt-3">
+                <p className="text-xs text-gray-400">Reported concerns</p>
+                <div className="flex flex-wrap gap-1.5 mt-1">
+                  {masterIssues.map(([label, n]) => (
+                    <span key={label} className="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded">
+                      {label} · {n}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="bg-white rounded-xl border border-gray-200 p-6">

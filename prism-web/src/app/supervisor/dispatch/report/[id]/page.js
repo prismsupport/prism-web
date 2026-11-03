@@ -22,6 +22,8 @@ import { toast } from '@/lib/toast'
 import ReopenTicketModal from '@/components/dispatch/ReopenTicketModal'
 import ReopenReasonNote from '@/components/dispatch/ReopenReasonNote'
 import StageTimesCard from '@/components/dispatch/StageTimesCard'
+import { issueLabel } from '@/lib/issueCodes'
+import { recurringSinceIso, RECURRING_MIN_REPORTS, RECURRING_WINDOW_DAYS } from '@/lib/recurring'
 
 export default function ReportReviewPage() {
   const { id } = useParams()
@@ -38,6 +40,8 @@ export default function ReportReviewPage() {
   const [error, setError] = useState('')
   const [showHistory, setShowHistory] = useState(false)
   const [showMap, setShowMap] = useState(true)
+  const [issueCode, setIssueCode] = useState(null)
+  const [recurringCount, setRecurringCount] = useState(0)
 
   const [showAssignPanel, setShowAssignPanel] = useState(false)
   const [linemen, setLinemen] = useState([])
@@ -72,6 +76,23 @@ export default function ReportReviewPage() {
     }
 
     setReport(reportData)
+
+    const { data: catRow } = await supabase
+      .from('reports').select('issue_code').eq('report_id', id).maybeSingle()
+    const code = catRow?.issue_code || null
+    setIssueCode(code)
+    setRecurringCount(0)
+    if (code && code !== 'other') {
+      const { count } = await supabase
+        .from('reports')
+        .select('report_id', { count: 'exact', head: true })
+        .eq('issue_code', code)
+        .eq('barangay', reportData.barangay)
+        .eq('municipality', reportData.municipality)
+        .neq('status', 'cancelled')
+        .gte('created_at', recurringSinceIso())
+      setRecurringCount(count ?? 0)
+    }
 
     if (reportData.photo_url) {
       const { data: signed } = await supabase.storage
@@ -388,6 +409,15 @@ export default function ReportReviewPage() {
                 <p className="text-gray-500 text-xs">
                   Zone {report.zone || '—'}, {report.barangay}, {report.municipality}
                 </p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-400">Category</p>
+                <p className="text-gray-900 font-medium">{issueLabel(issueCode)}</p>
+                {recurringCount >= RECURRING_MIN_REPORTS && (
+                  <p className="text-xs text-amber-600 font-medium mt-0.5">
+                    ↻ Recurring: {recurringCount} reports of this type in {report.barangay} in the last {RECURRING_WINDOW_DAYS} days
+                  </p>
+                )}
               </div>
               <div>
                 <p className="text-xs text-gray-400">Description</p>

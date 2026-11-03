@@ -21,11 +21,17 @@ import {
 import EmptyState from "@/components/ui/EmptyState" 
 import { TableSkeletonRows } from "@/components/ui/Skeleton"
 import { toast } from "@/lib/toast"
+import { issueLabel } from "@/lib/issueCodes"
+import {
+  loadRecentIssueReports,
+  buildRecurringGroups,
+  recurringCountFor,
+} from "@/lib/recurring"
 
 const PAGE_SIZE = 10;
 
 const REPORT_COLUMNS =
-  "report_id, ticket_number, master_id, consumer_id, cooperative_id, status, priority, zone, barangay, municipality, nearest_landmark, created_at, updated_at, reopened_at";
+  "report_id, ticket_number, master_id, consumer_id, cooperative_id, status, priority, zone, barangay, municipality, nearest_landmark, created_at, updated_at, reopened_at, issue_code";
 const MASTER_COLUMNS =
   "master_id, master_ticket, cooperative_id, status, priority, barangay, municipality, report_count, created_at, reopened_at";
 const ASSIGNMENT_COLUMNS =
@@ -38,6 +44,7 @@ const VALID_STATUS_FILTERS = [
   'qa_review',
   'resolved',
   'cancelled',
+  'overdue',
 ]
 
 const ASSIGNMENT_TO_BUCKET = {
@@ -63,7 +70,10 @@ function DispatchContent() {
   const [joinSuggestions, setJoinSuggestions] = useState([]);
   const [reopenRequests, setReopenRequests] = useState([]);
   const [masterTickets, setMasterTickets] = useState([]);
+  const [recentIssueReports, setRecentIssueReports] = useState([]);
+  const [masterIssues, setMasterIssues] = useState({});
 
+  const [categoryFilter, setCategoryFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [searchText, setSearchText] = useState("");
@@ -224,6 +234,28 @@ function DispatchContent() {
     if (overdueRes.error) setError((prev) => prev || overdueRes.error.message);
     setOverdueTickets(overdueRes.data || []);
 
+    // Recurring issues: last 30 days of reports (including those inside Master Tickets)
+    setRecentIssueReports(await loadRecentIssueReports(supabase, coopId));
+
+    // A Master Ticket takes the most common category among its reports
+    const { data: memberRows } = await supabase
+      .from("reports")
+      .select("master_id, issue_code")
+      .eq("cooperative_id", coopId)
+      .not("master_id", "is", null)
+      .not("issue_code", "is", null)
+      .limit(1000);
+    const tally = {};
+    (memberRows || []).forEach((m) => {
+      tally[m.master_id] = tally[m.master_id] || {};
+      tally[m.master_id][m.issue_code] = (tally[m.master_id][m.issue_code] || 0) + 1;
+    });
+    const dominant = {};
+    Object.entries(tally).forEach(([masterId, codes]) => {
+      dominant[masterId] = Object.entries(codes).sort((a, b) => b[1] - a[1])[0][0];
+    });
+    setMasterIssues(dominant);
+
     setLoading(false);
   }
 
@@ -241,6 +273,7 @@ function DispatchContent() {
       ...m,
       kind: "master",
       ticketKey: m.master_id,
+      issue_code: masterIssues[m.master_id] || null,
     })),
   ];
 
@@ -276,9 +309,17 @@ function DispatchContent() {
     .map(([id, name]) => ({ id, name }))
     .sort((a, b) => a.name.localeCompare(b.name));
 
+  const overdueIds = new Set(overdueTickets.map((o) => o.ticket_id));
+  const { counts: recurringCounts } = buildRecurringGroups(recentIssueReports);
+
   const filtered = allTickets.filter((t) => {
+    if (categoryFilter === "uncategorized") {
+      if (t.issue_code) return false;
+    } else if (categoryFilter !== "all" && t.issue_code !== categoryFilter) return false;
     if (priorityFilter !== "all" && t.priority !== priorityFilter) return false;
-    if (statusFilter !== "all" && bucketForTicket(t) !== statusFilter) return false;
+    if (statusFilter === "overdue") {
+      if (!overdueIds.has(t.ticketKey)) return false;
+    } else if (statusFilter !== "all" && bucketForTicket(t) !== statusFilter) return false;
     if (municipalityFilter !== "all" && t.municipality !== municipalityFilter) return false;
 
     if (assigneeFilter !== "all") {
@@ -297,11 +338,11 @@ function DispatchContent() {
   });
 
   const hasActiveFilters =
-    term || priorityFilter !== "all" || statusFilter !== "all" ||
+    term || categoryFilter !== "all" || priorityFilter !== "all" || statusFilter !== "all" ||
     municipalityFilter !== "all" || assigneeFilter !== "all";
 
   function clearFilters() {
-    setSearchText(""); setPriorityFilter("all"); setStatusFilter("all");
+    setSearchText(""); setCategoryFilter("all"); setPriorityFilter("all"); setStatusFilter("all");
     setMunicipalityFilter("all"); setAssigneeFilter("all");
     setPage(1);
   }
@@ -312,8 +353,6 @@ function DispatchContent() {
   const clusteredReportIds = new Set(
     clusters.flatMap((c) => c.report_ids || []),
   );
-  const overdueIds = new Set(overdueTickets.map((o) => o.ticket_id));
-
   const joinGroups = Object.values(
     joinSuggestions.reduce((acc, s) => {
       const key = `${s.target_type}-${s.target_id}`;
@@ -408,6 +447,8 @@ function DispatchContent() {
       <DispatchFilters
         searchText={searchText}
         onSearchChange={(v) => handleFilterChange(setSearchText, v)}
+        categoryFilter={categoryFilter}
+        onCategoryChange={(v) => handleFilterChange(setCategoryFilter, v)}
         priorityFilter={priorityFilter}
         onPriorityChange={(v) => handleFilterChange(setPriorityFilter, v)}
         statusFilter={statusFilter}
@@ -431,10 +472,11 @@ function DispatchContent() {
 
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[900px] text-sm">
+          <table className="w-full min-w-[1000px] text-sm">
           <thead>
             <tr className="bg-gray-50 border-b border-gray-200 text-left text-xs text-gray-500 uppercase tracking-wide">
               <th className="px-5 py-3 font-semibold">Ticket ID</th>
+              <th className="px-5 py-3 font-semibold">Category</th>
               <th className="px-5 py-3 font-semibold">Priority</th>
               <th className="px-5 py-3 font-semibold">Location</th>
               <th className="px-5 py-3 font-semibold">Job Order Status</th>
@@ -444,10 +486,10 @@ function DispatchContent() {
             </tr>
           </thead>
           <tbody>
-            {loading && <TableSkeletonRows rows={6} cols={7} />}
+            {loading && <TableSkeletonRows rows={6} cols={8} />}
             {!loading && paginated.length === 0 && (
               <tr>
-                <td colSpan={7}>
+                <td colSpan={8}>
                   <EmptyState
                     title="No tickets match this view"
                     description="Try a different filter, or wait for new outage reports to come in."
@@ -471,6 +513,13 @@ function DispatchContent() {
                       !isMaster && clusteredReportIds.has(t.report_id)
                     }
                     isOverdue={overdueIds.has(t.ticketKey)}
+                    categoryLabel={issueLabel(t.issue_code)}
+                    recurringCount={recurringCountFor(
+                      recurringCounts,
+                      t.issue_code,
+                      t.barangay,
+                      t.municipality,
+                    )}
                     assigneeName={
                       assignment ? linemenNames[assignment.lineman_id] : null
                     }

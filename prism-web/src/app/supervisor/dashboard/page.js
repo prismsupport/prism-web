@@ -19,6 +19,7 @@ import { computeStageTimes, averageStages } from '@/lib/stageTimes'
 import AreaBreakdown from '@/components/dashboard/AreaBreakdown'
 import BarList from '@/components/dashboard/BarList'
 import { issueLabel } from '@/lib/issueCodes'
+import { loadRecentIssueReports, buildRecurringGroups, RECURRING_MIN_REPORTS, RECURRING_WINDOW_DAYS } from '@/lib/recurring'
 
 const MAX_ROWS = 1000 // Supabase returns at most 1000 rows per request
 
@@ -275,6 +276,11 @@ async function loadDispatchData(supabase, coopId, sinceIso, rangeDays) {
   const issueMap = {}
   reports.forEach((r) => bump(issueMap, issueLabel(r.issue_code)))
   const issueData = sortedEntries(issueMap)
+  const recentIssueRows = await loadRecentIssueReports(supabase, coopId)
+  const recurringRows = buildRecurringGroups(recentIssueRows).groups.map((g) => [
+    `${g.label} · ${g.barangay}${g.municipality ? ` (${g.municipality})` : ''}`,
+    g.count,
+  ])
 
   // ---- Report trend ----
   const trend = buildTrend(reports, rangeDays)
@@ -364,6 +370,7 @@ async function loadDispatchData(supabase, coopId, sinceIso, rangeDays) {
     },
     areaBreakdown,
     issueData,
+    recurringRows,
     trend,
     statusCounts,
     linemenPerformance,
@@ -530,7 +537,7 @@ export default function SupervisorDashboardPage() {
     )
   }
 
-  const { stats, areaBreakdown, issueData, trend, statusCounts, linemenPerformance, advisoryCounts, attention, stageAverages } = data
+  const { stats, areaBreakdown, issueData, recurringRows, trend, statusCounts, linemenPerformance, advisoryCounts, attention, stageAverages } = data
   const unresolvedNow = statusCounts
     ? (statusCounts.pending ?? 0) + (statusCounts.dispatched ?? 0) + (statusCounts.in_progress ?? 0) + (statusCounts.qa_review ?? 0)
     : 0
@@ -543,7 +550,7 @@ export default function SupervisorDashboardPage() {
   if (can.dispatch && statusCounts) {
     attentionItems.push(
       { key: 'pending', label: `${statusLabel('pending')} tickets`, count: statusCounts.pending, href: '/supervisor/dispatch?status=pending', color: 'text-red-600' },
-      { key: 'overdue', label: 'Overdue tickets', count: attention.overdue ?? 0, href: '/supervisor/dispatch?status=pending', color: 'text-red-600' },
+      { key: 'overdue', label: 'Overdue tickets', count: attention.overdue ?? 0, href: '/supervisor/dispatch?status=overdue', color: 'text-red-600' },
       { key: 'qa', label: 'QA reviews waiting', count: statusCounts.qa_review, href: '/supervisor/dispatch?status=qa_review', color: 'text-blue-700' },
       { key: 'reopen', label: 'Reopen requests', count: attention.reopen ?? 0, href: '/supervisor/dispatch', color: 'text-amber-600' }
     )
@@ -715,18 +722,31 @@ export default function SupervisorDashboardPage() {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
                 <AreaBreakdown breakdown={areaBreakdown} />
 
-            {/* Most common issues */}
-            <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-              <h2 className="mb-1 text-sm font-bold text-gray-900">Most Common Issues</h2>
-              <p className="mb-4 text-xs text-gray-400">
-                Category chosen by the consumer. Older reports show as Uncategorized.
-              </p>
-              <BarList
-                rows={issueData}
-                emptyTitle="No reports in this period"
-                emptyDescription="Issue categories appear as consumers submit reports."
-              />
-            </div>
+                {/* Most common issues */}
+                <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+                  <h2 className="mb-1 text-sm font-bold text-gray-900">Most Common Issues</h2>
+                  <p className="mb-4 text-xs text-gray-400">
+                    Category chosen by the consumer. Older reports show as Uncategorized.
+                  </p>
+                  <BarList
+                    rows={issueData}
+                    emptyTitle="No reports in this period"
+                    emptyDescription="Issue categories appear as consumers submit reports."
+                  />
+                </div>
+              </div>
+
+              <div className="mb-6 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+                <h2 className="mb-1 text-sm font-bold text-gray-900">Recurring Issues</h2>
+                <p className="mb-4 text-xs text-gray-400">
+                  The same category reported {RECURRING_MIN_REPORTS} or more times in the same barangay in the
+                  last {RECURRING_WINDOW_DAYS} days. This window is fixed and does not follow the period selector.
+                </p>
+                <BarList
+                  rows={recurringRows}
+                  emptyTitle="No recurring issues"
+                  emptyDescription="Nothing has been reported often enough in one barangay to count as recurring."
+                />
               </div>
             </>
           )}
