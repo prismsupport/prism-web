@@ -253,6 +253,11 @@ export default function MasterTicketDetailPage() {
   }
 
   async function handleAssignLineman(linemanId) {
+    if (!master.priority) {
+      toast.error('Set a priority before assigning a lineman')
+      return
+    }
+
     setAssigning(true)
     setLinemenError('')
     const supabase = createClient()

@@ -203,6 +203,11 @@ export default function ReportReviewPage() {
   }
 
   async function handleAssignLineman(linemanId) {
+    if (!report.priority) {
+      toast.error('Set a priority before assigning a lineman')
+      return
+    }
+
     setAssigning(true)
     setLinemenError('')
     const supabase = createClient()

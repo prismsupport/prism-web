@@ -50,7 +50,9 @@ export default function LinemanRecommendationPanel({
   assigning,
 }) {
   const [selectedId, setSelectedId] = useState(null)
+  const [initialPriority] = useState(priority || '')
   const { priorityLevels } = useStatusLabels()
+  const priorityChanged = Boolean(priority) && priority !== initialPriority || !initialPriority && Boolean(priority)
 
   // Scores are computed in the database (score_lineman_candidates).
   // This panel only displays them.
@@ -78,7 +80,9 @@ export default function LinemanRecommendationPanel({
         <select
           value={priority || ''}
           onChange={(e) => onPriorityChange(e.target.value)}
-          className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm"
+          className={`w-full px-3.5 py-2.5 rounded-lg border bg-gray-50 text-sm ${
+            priorityChanged ? 'border-gray-200' : 'border-amber-400'
+          }`}
         >
           {!priority && (
             <option value="" disabled>
@@ -91,6 +95,11 @@ export default function LinemanRecommendationPanel({
             </option>
           ))}
         </select>
+        {!priorityChanged && (
+          <p className="text-xs text-amber-700 mt-1.5">
+            Choose a priority before assigning a lineman.
+          </p>
+        )}
       </div>
 
       <div className="bg-blue-50 text-blue-800 text-xs rounded-lg p-3 mb-5 flex gap-2">
@@ -241,7 +250,7 @@ export default function LinemanRecommendationPanel({
       <div className="space-y-2">
         <button
           onClick={() => selectedId && onAssign(selectedId)}
-          disabled={!selectedId || assigning}
+          disabled={!selectedId || !priorityChanged || assigning}
           className="w-full bg-blue-700 hover:bg-blue-800 disabled:opacity-50 text-white font-semibold text-sm py-3 rounded-lg transition-colors"
         >
           {assigning ? 'Assigning…' : 'Assign Selected Lineman'}
