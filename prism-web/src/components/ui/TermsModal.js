@@ -4,7 +4,7 @@ import Modal from '@/components/ui/Modal'
 
 const OPERATOR_NAME = 'Official PRISM Support'
 const CONTACT_EMAIL = 'prismsupport01@gmail.com'
-const LAST_UPDATED = 'October 28, 2026'
+const LAST_UPDATED = 'November 3, 2026'
 
 const SECTIONS = [
   {
@@ -60,8 +60,8 @@ const SECTIONS = [
   {
     title: '7. Billing Integration',
     body: [
-      'Connecting a billing system is optional. If you connect one, you authorize PRISM to make read-only lookups to the billing API you provide, solely to help verify consumer billing account linkage requests.',
-      'PRISM does not process payments, does not change billing records, and does not copy retrieved billing data into its database. The API key you provide is stored in encrypted form.',
+      'Connecting your billing system is required for consumers to register and view their bills. You authorize PRISM to make read-only lookups to the billing API you provide, solely to confirm the account number a consumer enters, to read the account details needed to set up that consumer\'s account, and to show their bills in the app.',
+      'PRISM does not process payments, does not change billing records, and does not copy bill amounts or billing history into its database. Basic account details (account number, account holder name, account type, meter number, and service address) are saved with the consumer\'s account. The API key you provide is stored in encrypted form.',
       'You are responsible for the security and accuracy of your billing API and for having the right to share the information it returns.',
     ],
   },

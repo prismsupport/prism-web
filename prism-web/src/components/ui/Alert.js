@@ -6,7 +6,11 @@ const TONES = {
 }
 
 // Inline message box. className controls the margin (default mb-4).
-export default function Alert({ tone = 'error', className = 'mb-4', children }) {
+export default function Alert({ tone = 'error', className = 'mb-4', children, ...props }) {
   if (!children) return null
-  return <p className={`text-sm rounded-lg px-3 py-2 ${TONES[tone]} ${className}`}>{children}</p>
+  return (
+    <p className={`text-sm rounded-lg px-3 py-2 ${TONES[tone]} ${className}`} {...props}>
+      {children}
+    </p>
+  )
 }

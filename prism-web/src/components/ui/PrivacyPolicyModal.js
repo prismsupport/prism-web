@@ -4,7 +4,7 @@ import Modal from '@/components/ui/Modal'
 
 const OPERATOR_NAME = 'Official PRISM Support'
 const CONTACT_EMAIL = 'prismsupport01@gmail.com'
-const LAST_UPDATED = 'October 28, 2026'
+const LAST_UPDATED = 'November 3, 2026'
 
 const SECTIONS = [
   {
@@ -29,7 +29,7 @@ const SECTIONS = [
       'Outage reports: GPS coordinates of the outage, address and nearest landmark, description, photos, whether nearby homes are affected, and the electric account number.',
       'Field and repair information (linemen): job order status and timestamps, completion checklist, repair photos, voice recordings, written remarks, and the lineman\'s duty schedule, assigned area office, and location.',
       'Lineman location: while a lineman is on duty and the app is open, the app reports the device location about every 30 seconds or after moving about 50 meters. Tracking stops when the lineman is off shift, and no location is reported while the app is closed.',
-      'Billing information: account number, account name, and account type submitted in a linkage request. When a supervisor reviews a request, we look up the account holder\'s name and the latest bill\'s status in the cooperative\'s billing system. Retrieved billing data is not copied into our database.',
+      'Billing information: the account number a consumer enters when registering or adding an account. We look it up in the cooperative\'s billing system and save the account holder\'s name, account type, meter number, and service address (municipality, barangay, zone) with the consumer\'s account. Bills and billing history are fetched when the consumer opens them and are not copied into our database.',
       'Service interactions: FAQ chatbot questions, supervisor replies, ratings and comments, reopen requests, and notifications.',
       'Device and technical information: push notification tokens, login session tokens, and basic technical logs needed to run and secure the service.',
     ],
@@ -41,7 +41,7 @@ const SECTIONS = [
       'To receive, locate, track, and resolve outage reports, and to give consumers live ticket status and push notifications.',
       'To help supervisors group duplicate reports, dispatch linemen, review completed repairs, and publish targeted power advisories.',
       'To guide linemen to outage sites using maps and routing.',
-      'To verify billing account linkage requests and show read-only billing information to approved accounts.',
+      'To verify the account number a consumer enters against the cooperative\'s billing system and show read-only billing information for linked accounts.',
       'To produce service analytics for the cooperative, such as response time, repair time, and lineman performance.',
       'To secure the platform, prevent misuse, and meet legal obligations.',
       'We do not sell personal information and do not use it for advertising.',
@@ -65,7 +65,7 @@ const SECTIONS = [
     title: '7. Service Providers and Third Parties',
     body: [
       'To run the platform we use third-party services that may process data on our behalf, including: cloud hosting, database, authentication, and file storage providers; a push notification service; and map, address lookup (geocoding), and routing services, which receive the coordinates needed to display maps, convert locations to addresses, and calculate routes.',
-      'If a cooperative connects its billing system, the platform sends the account number to that cooperative\'s billing API to verify a linkage request.',
+      'The platform sends the account number a consumer enters to the cooperative\'s billing API to look up the account when the consumer registers or adds an account, and to load their bills.',
       'Some of these providers may store or process data outside the Philippines. We use providers that apply appropriate security safeguards, and we limit what is shared to what is needed for the service.',
       'We may disclose information when required by law, a court order, or a lawful request from a government authority.',
     ],

@@ -10,7 +10,6 @@ const FEATURES = [
   { key: 'dispatch', label: 'Dispatch' },
   { key: 'advisories', label: 'Advisories + Service Areas' },
   { key: 'faq', label: 'FAQ' },
-  { key: 'billing', label: 'Billing Requests' },
 ]
 
 export default function CreateSupervisorModal({ cooperativeId, onClose, onCreated }) {

@@ -3,8 +3,10 @@
 // make sure the address cannot be used to reach internal services.
 //
 // Rules: https only, default port only, no embedded passwords, no query
-// string, public addresses only, no redirects, 15 second timeout, and a
-// size limit on the reply.
+// string, base address only (or the legacy /api/accounts path), public
+// addresses only, no redirects, 15 second timeout, and a size limit on the
+// reply. These rules match what the mobile Edge Functions accept, so a
+// connection that passes here also works for consumers.
 //
 // Known limit: the address is checked right before each request. A
 // determined attacker who controls DNS could still race that check.
@@ -43,6 +45,8 @@ function isPrivateAddress(address) {
   return true // unknown format: refuse
 }
 
+// Returns { ok: true, url, origin } or { ok: false, error }.
+// origin is the cleaned base address that gets saved and used.
 export async function validateBillingUrl(rawUrl) {
   let url
   try {
@@ -64,6 +68,17 @@ export async function validateBillingUrl(rawUrl) {
     return { ok: false, error: 'The address must not contain "?" or "#" parts.' }
   }
 
+  const path = url.pathname.replace(/\/+$/, '')
+  if (path !== '' && path !== '/api/accounts') {
+    return {
+      ok: false,
+      error: 'Enter the base address only, for example https://billing.example.com',
+    }
+  }
+  if (!url.hostname.includes('.') || url.hostname.endsWith('.')) {
+    return { ok: false, error: 'The billing API address must use a full domain name.' }
+  }
+
   let addresses
   try {
     addresses = await dns.lookup(url.hostname, { all: true })
@@ -77,7 +92,7 @@ export async function validateBillingUrl(rawUrl) {
     }
   }
 
-  return { ok: true, url }
+  return { ok: true, url, origin: url.origin }
 }
 
 async function readLimited(res) {
@@ -98,17 +113,23 @@ async function readLimited(res) {
   return Buffer.concat(chunks).toString('utf8')
 }
 
-// Returns { ok, status, json } on any HTTP reply, or
+// options: { method: 'GET' | 'POST', body: object }
+// Returns { ok, status, json, contentType } on any HTTP reply, or
 // { ok: false, status, reason } when something went wrong
 // (reason: 'redirect' | 'too_large' | 'timeout' | 'network').
-export async function fetchJsonSafely(url, headers = {}) {
+export async function fetchJsonSafely(url, headers = {}, { method = 'GET', body } = {}) {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)
 
   try {
     const res = await fetch(url, {
-      method: 'GET',
-      headers: { Accept: 'application/json', ...headers },
+      method,
+      headers: {
+        Accept: 'application/json',
+        ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+        ...headers,
+      },
+      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
       redirect: 'manual',
       cache: 'no-store',
       signal: controller.signal,
@@ -133,7 +154,12 @@ export async function fetchJsonSafely(url, headers = {}) {
     } catch {
       json = null
     }
-    return { ok: res.ok, status: res.status, json }
+    return {
+      ok: res.ok,
+      status: res.status,
+      json,
+      contentType: res.headers.get('content-type') || '',
+    }
   } catch (err) {
     return { ok: false, status: 0, reason: err?.name === 'AbortError' ? 'timeout' : 'network' }
   } finally {

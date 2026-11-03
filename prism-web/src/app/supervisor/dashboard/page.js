@@ -422,18 +422,6 @@ async function loadAttention(supabase, coopId, can) {
     )
   }
 
-  if (can.billing) {
-    tasks.push(
-      supabase
-        .from('consumer_bill_links')
-        .select('link_id', { count: 'exact', head: true })
-        .eq('status', 'pending')
-        .then((res) => {
-          out.billing = res.count ?? 0
-        })
-    )
-  }
-
   if (can.faq) {
     tasks.push(
       supabase
@@ -459,9 +447,8 @@ export default function SupervisorDashboardPage() {
     dispatch: hasFeature('dispatch'),
     advisories: hasFeature('advisories'),
     faq: hasFeature('faq'),
-    billing: hasFeature('billing'),
   }
-  const hasAnyWidget = can.dispatch || can.advisories || can.faq || can.billing
+  const hasAnyWidget = can.dispatch || can.advisories || can.faq
 
   const [rangeKey, setRangeKey] = useState('30')
   const [tab, setTab] = useState('overview')
@@ -555,9 +542,6 @@ export default function SupervisorDashboardPage() {
       { key: 'reopen', label: 'Reopen requests', count: attention.reopen ?? 0, href: '/supervisor/dispatch', color: 'text-amber-600' }
     )
   }
-  if (can.billing) {
-    attentionItems.push({ key: 'billing', label: 'Billing requests', count: attention.billing ?? 0, href: '/supervisor/billing', color: 'text-amber-600' })
-  }
   if (can.faq) {
     attentionItems.push({ key: 'faq', label: 'Unanswered FAQs', count: attention.faq ?? 0, href: '/supervisor/faq', color: 'text-amber-600' })
   }
@@ -629,7 +613,7 @@ export default function SupervisorDashboardPage() {
       {attentionItems.length > 0 && (
         <div className="mb-6">
           <h2 className="text-sm font-bold text-gray-900 mb-3">Needs Attention</h2>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
             {attentionItems.map((item) => (
               <AttentionCard
                 key={item.key}

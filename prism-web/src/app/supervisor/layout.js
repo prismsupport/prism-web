@@ -4,6 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import SupervisorSidebar from "@/components/navigation/SupervisorSidebar";
 import SupervisorTopBar from "@/components/navigation/SupervisorTopBar";
+import BillingSetupGate from "@/components/billing/BillingSetupGate";
 import { createClient } from "@/lib/supabase/client";
 import { PermissionsProvider, usePermissions } from "@/lib/supervisor/PermissionsContext";
 import AccessRestricted from "@/components/ui/AccessRestricted";
@@ -89,6 +90,7 @@ export default function SupervisorLayout({ children }) {
               onLogout={handleLogout}
             />
             <main className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+              <BillingSetupGate onLogout={handleLogout} />
               <RouteGuard>{children}</RouteGuard>
             </main>
           </div>

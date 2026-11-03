@@ -4,7 +4,7 @@ const supervisorNavItems = [
   { label: "Advisories", href: "/supervisor/advisories" },
   { label: "Service Areas", href: "/supervisor/service-areas" },
   { label: "FAQ", href: "/supervisor/faq" },
-  { label: "Billing Requests", href: "/supervisor/billing" },
+  { label: "Billing Integration", href: "/supervisor/billing" },
   { label: "Users", href: "/supervisor/users" },
 ];
 

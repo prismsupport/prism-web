@@ -10,12 +10,12 @@ const PermissionsContext = createContext(null)
 // Pages not listed here (Dashboard, profile) are open to every Supervisor.
 const PAGE_RULES = [
   { prefix: '/supervisor/users', label: 'Users', ownerOnly: true },
+  { prefix: '/supervisor/billing', label: 'Billing Integration', ownerOnly: true },
   { prefix: '/supervisor/dispatch', label: 'Dispatch', feature: 'dispatch' },
   { prefix: '/supervisor/lineman-performance', label: 'Lineman Performance', feature: 'dispatch' },
   { prefix: '/supervisor/advisories', label: 'Advisories', feature: 'advisories' },
   { prefix: '/supervisor/service-areas', label: 'Service Areas', feature: 'advisories' },
   { prefix: '/supervisor/faq', label: 'FAQ', feature: 'faq' },
-  { prefix: '/supervisor/billing', label: 'Billing Requests', feature: 'billing' },
 ]
 
 function matchesPrefix(pathname, prefix) {

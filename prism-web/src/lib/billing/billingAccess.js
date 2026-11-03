@@ -13,11 +13,11 @@ export function getAdminClient() {
   )
 }
 
-// Confirms the caller is an active Supervisor with billing access
-// (the owner, or someone granted the 'billing' feature).
+// Confirms the caller is the active Owner supervisor of a cooperative.
+// Only the Owner manages the billing integration.
 // Returns { ok: true, supabase, admin, userId, cooperativeId }
 // or { ok: false, status, error }.
-export async function requireBillingSupervisor() {
+export async function requireBillingOwner() {
   const cookieStore = await cookies()
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -41,12 +41,15 @@ export async function requireBillingSupervisor() {
 
   const { data: perms } = await supabase
     .from('supervisor')
-    .select('is_owner, feature_access')
+    .select('is_owner')
     .eq('profile_id', user.id)
     .single()
-  const allowed = !!perms && (perms.is_owner || (perms.feature_access || []).includes('billing'))
-  if (!allowed) {
-    return { ok: false, status: 403, error: 'You do not have access to billing.' }
+  if (!perms?.is_owner) {
+    return {
+      ok: false,
+      status: 403,
+      error: 'Only the cooperative owner can manage the billing integration.',
+    }
   }
 
   return {
@@ -92,17 +95,8 @@ export async function loadBillingConfig(admin, cooperativeId) {
 const FAILURE_MESSAGES = {
   not_configured:
     "Billing integration is not set up yet. Use Billing Integration to connect your cooperative's billing API.",
-  invalid_config: 'The saved billing settings are invalid. Please review them in Billing Integration.',
-  unsafe_url: 'The billing API address is not allowed.',
-  auth_failed:
-    'The billing system rejected the saved API key. Please update it in Billing Integration.',
-  timeout: 'The cooperative billing system took too long to respond.',
-  network: 'The cooperative billing system could not be reached.',
-  server_error: 'The cooperative billing system reported an error.',
-  bad_response: 'The billing system replied in an unexpected format.',
 }
 
-export function describeLookupFailure(reason, detail) {
-  if (reason === 'unsafe_url' && detail) return detail
+export function describeLookupFailure(reason) {
   return FAILURE_MESSAGES[reason] || 'The cooperative billing system could not be checked.'
 }
