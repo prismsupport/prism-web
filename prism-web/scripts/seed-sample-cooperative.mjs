@@ -58,6 +58,30 @@ const MIN = 60000
 const RESPONSE_TIME_THRESHOLD_MINUTES = 30
 const EXCEEDED_REPORT_AGE_MINUTES = 35
 const DAY = 1440 // minutes in a day
+// Report categories (same codes the mobile report form saves in reports.issue_code)
+const ISSUE_LABELS = {
+  no_power: 'No Power / Total Power Interruption',
+  partial_power: 'Partial Power Interruption',
+  frequent_interruptions: 'Frequent Power Interruptions',
+  low_voltage: 'Low Voltage / Weak Power Supply',
+  damaged_power_lines: 'Damaged Power Lines',
+  damaged_electric_post: 'Fallen or Damaged Electric Post',
+  sparks_or_unusual_sounds: 'Sparks or Unusual Equipment Sounds',
+  other: 'Other Concern',
+}
+// Used for reports that do not set their own category (picked by ticket order, no random numbers)
+const ISSUE_ROTATION = ['no_power', 'partial_power', 'low_voltage', 'frequent_interruptions', 'damaged_power_lines', 'sparks_or_unusual_sounds', 'damaged_electric_post', 'other']
+// Two matching descriptions per category
+const ISSUE_DETAILS = {
+  no_power: ['Walang kuryente sa buong kalye namin simula pa kanina.', 'No electricity in our area since this afternoon. Our neighbors are also affected.'],
+  partial_power: ['Half of our house has no power while the other circuits still work.', 'Ang ilang saksakan lang ang may kuryente, yung iba wala.'],
+  frequent_interruptions: ['The power keeps going off and on several times a day this week.', 'Paulit-ulit na namamatay ang kuryente ngayong linggo.'],
+  low_voltage: ['Mahina ang boltahe at pumipitik ang ilaw buong gabi.', 'Voltage is very low. Our refrigerator and fan barely run.'],
+  damaged_power_lines: ['There is a loose service wire hanging from the pole in front of our house.', 'A fallen tree branch is touching the power lines beside the road.'],
+  damaged_electric_post: ['The electric post in front of our house is leaning after the strong wind.', 'May nabaling poste ng kuryente sa tabi ng kalsada.'],
+  sparks_or_unusual_sounds: ['Sparks were seen on the transformer near our house before the lights went out.', 'May narinig kaming malakas na pagsabog sa poste, tapos may kislap.'],
+  other: ['The streetlight in front of our house stays on all day and does not turn off.', 'Our meter display is blank even though the lights are working.'],
+}
 // ---------------------------------------------------------------------------
 // Small helpers
 // ---------------------------------------------------------------------------
@@ -127,7 +151,7 @@ const AREAS = [
   { sub: 'Banahaw 20 MVA Substation', feeder: 'Feeder 2', barangay: 'Bagong Silang', municipality: 'San Vicente', office: 0, lat: 14.064, lng: 121.33 },
   { sub: 'Banahaw 20 MVA Substation', feeder: 'Feeder 2', barangay: 'Santa Cruz', municipality: 'San Vicente', office: 0, lat: 14.071, lng: 121.337 },
   { sub: 'Santa Lucia 10 MVA Substation', feeder: 'Feeder 3', barangay: 'Poblacion', municipality: 'Santa Lucia', office: 1, lat: 14.09, lng: 121.35 },
-  { sub: 'Santa Lucia 10 MVA Substation', feeder: 'Feeder 3', barangay: 'Sto. NiÃ±o', municipality: 'Santa Lucia', office: 1, lat: 14.095, lng: 121.356 },
+  { sub: 'Santa Lucia 10 MVA Substation', feeder: 'Feeder 3', barangay: 'Sto. Niño', municipality: 'Santa Lucia', office: 1, lat: 14.095, lng: 121.356 },
   { sub: 'Santa Lucia 10 MVA Substation', feeder: 'Feeder 3', barangay: 'Mabini', municipality: 'Santa Lucia', office: 1, lat: 14.086, lng: 121.36 },
   { sub: 'Villa Aurora 10 MVA Substation', feeder: 'Feeder 4', barangay: 'Poblacion', municipality: 'Villa Aurora', office: 2, lat: 14.05, lng: 121.3 },
   { sub: 'Villa Aurora 10 MVA Substation', feeder: 'Feeder 4', barangay: 'Rizal', municipality: 'Villa Aurora', office: 2, lat: 14.046, lng: 121.306 },
@@ -372,6 +396,7 @@ async function seed() {
           area_offices: AREA_OFFICES,
           area_office_hotlines: HOTLINES,
           response_time_threshold_minutes: RESPONSE_TIME_THRESHOLD_MINUTES,
+          resolution_target_minutes: 240,
         },
         { onConflict: 'cooperative_id' }
       ),
@@ -839,13 +864,13 @@ async function seed() {
   )
 
   const SPECS = [
-    { key: 'R1', kind: 'resolved', area: 0, c: 0, minutesAgo: 27 * DAY, priority: 'medium', assignedAgo: 27 * DAY - 12, repairMin: 95, rating: 5, comment: 'Mabilis ang response ng crew. Salamat po!' },
+    { key: 'R1', issue: 'low_voltage', kind: 'resolved', area: 0, c: 0, minutesAgo: 27 * DAY, priority: 'medium', assignedAgo: 27 * DAY - 12, repairMin: 95, rating: 5, comment: 'Mabilis ang response ng crew. Salamat po!' },
     { key: 'R2', kind: 'resolved', area: 5, c: 1, minutesAgo: 24 * DAY, priority: 'high', assignedAgo: 24 * DAY - 9, repairMin: 140, rating: 4, comment: 'Okay naman, medyo natagalan lang.' },
-    { key: 'R3', kind: 'resolved', area: 8, c: 0, minutesAgo: 21 * DAY, priority: 'low', assignedAgo: 21 * DAY - 30, repairMin: 65, rating: null },
+    { key: 'R3', issue: null, kind: 'resolved', area: 8, c: 0, minutesAgo: 21 * DAY, priority: 'low', assignedAgo: 21 * DAY - 30, repairMin: 65, rating: null },
     { key: 'R4', kind: 'resolved', area: 2, c: 1, minutesAgo: 17 * DAY, priority: 'critical', assignedAgo: 17 * DAY - 6, repairMin: 180, rating: 5, comment: 'Very professional crew. They fixed the transformer quickly.' },
     { key: 'R5', kind: 'resolved', area: 6, c: 0, minutesAgo: 14 * DAY, priority: 'medium', assignedAgo: 14 * DAY - 22, repairMin: 110, rating: 3, comment: 'Nawalan ulit ng ilang minuto matapos ayusin.' },
     { key: 'R6', kind: 'resolved', area: 9, c: 1, minutesAgo: 11 * DAY, priority: 'high', assignedAgo: 11 * DAY - 14, repairMin: 75, rating: 5 },
-    { key: 'R7', kind: 'resolved', area: 1, c: 0, minutesAgo: 8 * DAY, priority: 'medium', assignedAgo: 8 * DAY - 35, repairMin: 55, rating: null },
+    { key: 'R7', issue: null, kind: 'resolved', area: 1, c: 0, minutesAgo: 8 * DAY, priority: 'medium', assignedAgo: 8 * DAY - 35, repairMin: 55, rating: null },
     { key: 'R8', kind: 'resolved', area: 11, c: 1, minutesAgo: 5 * DAY, priority: 'low', assignedAgo: 5 * DAY - 18, repairMin: 120, rating: 4, comment: 'Thank you for the quick repair.' },
     { key: 'R9', kind: 'resolved', area: 3, c: 0, minutesAgo: 3 * DAY, priority: 'high', assignedAgo: 3 * DAY - 8, repairMin: 90, rating: 5, comment: 'Maraming salamat po sa mabilis na pag-aayos.' },
     { key: 'R10', kind: 'resolved', area: 4, c: 1, minutesAgo: 29 * 60, priority: 'medium', assignedAgo: 29 * 60 - 10, repairMin: 80, rating: null, reopenRequest: true },
@@ -857,17 +882,18 @@ async function seed() {
     { key: 'IP3', kind: 'in_progress', area: 9, c: 0, minutesAgo: 95, priority: 'critical', assignedAgo: 80 },
     { key: 'D1', kind: 'dispatched', area: 3, c: 1, minutesAgo: 50, priority: 'medium', assignedAgo: 35, state: 'assigned' },
     { key: 'D2', kind: 'dispatched', area: 11, c: 0, minutesAgo: 70, priority: 'low', assignedAgo: 40, state: 'on_the_way' },
-    { key: 'X1', kind: 'declined', area: 4, c: 0, minutesAgo: 2 * DAY, declineReason: 'Based on our check, the outage is limited to your household. Please check your main breaker and call the area office if it still has no power.' },
-    { key: 'X2', kind: 'declined', area: 7, c: 1, minutesAgo: 6 * 60, declineReason: 'This outage was already reported by your neighbors and is being handled under an existing ticket.' },
-    { key: 'P1', kind: 'pending', area: 5, c: 0, consumer: specialReportConsumers[0], minutesAgo: EXCEEDED_REPORT_AGE_MINUTES, details: 'No power in several homes near the area office; this is the single seeded report intended to exceed the response-time threshold.' },
+    { key: 'X1', issue: 'no_power', kind: 'declined', area: 4, c: 0, minutesAgo: 2 * DAY, declineReason: 'Based on our check, the outage is limited to your household. Please check your main breaker and call the area office if it still has no power.' },
+    { key: 'X2', issue: 'no_power', kind: 'declined', area: 7, c: 1, minutesAgo: 6 * 60, declineReason: 'This outage was already reported by your neighbors and is being handled under an existing ticket.' },
+    { key: 'P1', issue: 'no_power', kind: 'pending', area: 5, c: 0, consumer: specialReportConsumers[0], minutesAgo: EXCEEDED_REPORT_AGE_MINUTES, details: 'No power in several homes near the area office; this is the single seeded report intended to exceed the response-time threshold.' },
     { key: 'P2', kind: 'pending', area: 10, c: 1, minutesAgo: 15 },
-    { key: 'C1', kind: 'pending', area: 0, c: 0, consumer: specialReportConsumers[1], minutesAgo: 17, homes: true, jitter: 0.0008 },
-    { key: 'C2', kind: 'pending', area: 0, c: 0, consumer: specialReportConsumers[2], minutesAgo: 14, homes: true, jitter: 0.0008 },
-    { key: 'C3', kind: 'pending', area: 0, c: 0, consumer: specialReportConsumers[3], minutesAgo: 12, homes: true, jitter: 0.0008 },
+    { key: 'C1', issue: 'no_power', kind: 'pending', area: 0, c: 0, consumer: specialReportConsumers[1], minutesAgo: 17, homes: true, jitter: 0.0008 },
+    { key: 'C2', issue: 'no_power', kind: 'pending', area: 0, c: 0, consumer: specialReportConsumers[2], minutesAgo: 14, homes: true, jitter: 0.0008 },
+    { key: 'C3', issue: 'no_power', kind: 'pending', area: 0, c: 0, consumer: specialReportConsumers[3], minutesAgo: 12, homes: true, jitter: 0.0008 },
     // Duplicate-suggestion cluster: ten reports within roughly 25 metres in Poblacion.
     ...Array.from({ length: 10 }, (_, i) => ({
       key: `DUP${String(i + 1).padStart(2, '0')}`,
       kind: 'pending',
+      issue: 'no_power',
       area: 0,
       c: 0,
       consumer: duplicateClusterConsumers[i],
@@ -885,26 +911,27 @@ async function seed() {
     // Two alternate-feeder reports placed immediately beside the main Poblacion cluster
     // (roughly within 50â€“100 m). Only FAR1 has outage wording similar to the cluster;
     // FAR2 describes voltage fluctuation, so it should not look like another duplicate.
-    { key: 'FAR1', kind: 'pending', area: 2, c: 0, consumer: specialReportConsumers[4], minutesAgo: 26, priority: 'medium', homes: true, jitter: 0.00008, centerLat: 14.07535, centerLng: 121.32035, details: 'Several homes just across the feeder boundary near Poblacion lost power around the same time as nearby streets.' },
-    { key: 'FAR2', kind: 'pending', area: 2, c: 1, minutesAgo: 24, priority: 'high', homes: true, jitter: 0.00008, centerLat: 14.07555, centerLng: 121.3205, details: 'Lights are flickering and voltage is low on the neighboring feeder near Poblacion; power has not fully gone out in every house.' },
+    { key: 'FAR1', issue: 'no_power', kind: 'pending', area: 2, c: 0, consumer: specialReportConsumers[4], minutesAgo: 26, priority: 'medium', homes: true, jitter: 0.00008, centerLat: 14.07535, centerLng: 121.32035, details: 'Several homes just across the feeder boundary near Poblacion lost power around the same time as nearby streets.' },
+    { key: 'FAR2', issue: 'low_voltage', kind: 'pending', area: 2, c: 1, minutesAgo: 24, priority: 'high', homes: true, jitter: 0.00008, centerLat: 14.07555, centerLng: 121.3205, details: 'Lights are flickering and voltage is low on the neighboring feeder near Poblacion; power has not fully gone out in every house.' },
     // Consumer walkthrough: Maria Santos (consumer01) has in-progress, resolved-unrated,
     // and resolved-rated outage reports.
-    { key: 'CONSIP', kind: 'in_progress', area: 0, c: 0, minutesAgo: 88, priority: 'high', assignedAgo: 73, forceLineman: true, details: 'The service line is sparking intermittently near our meter and the lights keep flickering.' },
-    { key: 'CONSNORATE', kind: 'resolved', area: 0, c: 0, minutesAgo: 4 * DAY, priority: 'medium', assignedAgo: 4 * DAY - 10, repairMin: 85, rating: null, details: 'Power was restored after a loose service connection was tightened; awaiting consumer feedback.' },
-    { key: 'CONSRATED', kind: 'resolved', area: 0, c: 0, minutesAgo: 2 * DAY, priority: 'high', assignedAgo: 2 * DAY - 12, repairMin: 70, rating: 5, comment: 'The crew arrived quickly, explained the fault, and restored power safely.' },
+    { key: 'CONSIP', issue: 'sparks_or_unusual_sounds', kind: 'in_progress', area: 0, c: 0, minutesAgo: 88, priority: 'high', assignedAgo: 73, forceLineman: true, details: 'The service line is sparking intermittently near our meter and the lights keep flickering.' },
+    { key: 'CONSNORATE', issue: 'low_voltage', kind: 'resolved', area: 0, c: 0, minutesAgo: 4 * DAY, priority: 'medium', assignedAgo: 4 * DAY - 10, repairMin: 85, rating: null, details: 'Power was restored after a loose service connection was tightened; awaiting consumer feedback.' },
+    { key: 'CONSRATED', issue: 'low_voltage', kind: 'resolved', area: 0, c: 0, minutesAgo: 2 * DAY, priority: 'high', assignedAgo: 2 * DAY - 12, repairMin: 70, rating: 5, comment: 'The crew arrived quickly, explained the fault, and restored power safely.' },
     // Lineman walkthrough: Ben Navarro (lineman3) has a reopened/dispatched job, a fixed job,
     // and three resolved jobs with consumer ratings in his history.
-    { key: 'LINEREOPEN', kind: 'lineman_reopened', area: 5, c: 0, minutesAgo: 65, priority: 'high', forceLineman: true, details: 'Power dropped again after an earlier repair; please recheck the service drop and transformer connection.' },
-    { key: 'LINEFIXED', kind: 'lineman_fixed', area: 5, c: 1, minutesAgo: 2 * DAY, priority: 'medium', forceLineman: true, details: 'A loose jumper connection caused low voltage at several homes near the barangay hall.' },
-    { key: 'LINEHIST1', kind: 'resolved', area: 5, c: 0, minutesAgo: 9 * DAY, priority: 'high', assignedAgo: 9 * DAY - 12, repairMin: 80, rating: 5, comment: 'Mabilis dumating ang crew at maayos ang trabaho. Salamat po!', forceLineman: true },
-    { key: 'LINEHIST2', kind: 'resolved', area: 5, c: 1, minutesAgo: 6 * DAY, priority: 'medium', assignedAgo: 6 * DAY - 18, repairMin: 105, rating: 4, comment: 'Maayos ang pagkukumpuni, pero medyo matagal bago dumating.', forceLineman: true },
-    { key: 'LINEHIST3', kind: 'resolved', area: 5, c: 0, minutesAgo: 3 * DAY, priority: 'high', assignedAgo: 3 * DAY - 9, repairMin: 70, rating: 5, comment: 'Power was restored quickly and the lineman explained what happened.', forceLineman: true },
+    { key: 'LINEREOPEN', issue: 'partial_power', kind: 'lineman_reopened', area: 5, c: 0, minutesAgo: 65, priority: 'high', forceLineman: true, details: 'Power dropped again after an earlier repair; please recheck the service drop and transformer connection.' },
+    { key: 'LINEFIXED', issue: 'low_voltage', kind: 'lineman_fixed', area: 5, c: 1, minutesAgo: 2 * DAY, priority: 'medium', forceLineman: true, details: 'A loose jumper connection caused low voltage at several homes near the barangay hall.' },
+    { key: 'LINEHIST1', issue: 'no_power', kind: 'resolved', area: 5, c: 0, minutesAgo: 9 * DAY, priority: 'high', assignedAgo: 9 * DAY - 12, repairMin: 80, rating: 5, comment: 'Mabilis dumating ang crew at maayos ang trabaho. Salamat po!', forceLineman: true },
+    { key: 'LINEHIST2', issue: 'no_power', kind: 'resolved', area: 5, c: 1, minutesAgo: 6 * DAY, priority: 'medium', assignedAgo: 6 * DAY - 18, repairMin: 105, rating: 4, comment: 'Maayos ang pagkukumpuni, pero medyo matagal bago dumating.', forceLineman: true },
+    { key: 'LINEHIST3', issue: 'no_power', kind: 'resolved', area: 5, c: 0, minutesAgo: 3 * DAY, priority: 'high', assignedAgo: 3 * DAY - 9, repairMin: 70, rating: 5, comment: 'Power was restored quickly and the lineman explained what happened.', forceLineman: true },
 
     // The master ticket must contain exactly eight individual reports.
     // Each report uses its own consumer account.
     ...Array.from({ length: 8 }, (_, i) => ({
       key: `M${i + 1}`,
       kind: 'master_member',
+      issue: 'no_power',
       area: 5,
       c: i % 2,
       consumer: masterTicketConsumers[i],
@@ -943,6 +970,13 @@ async function seed() {
     const reportId = randomUUID()
     const createdMs = NOW - spec.minutesAgo * MIN
     const photoPath = spec.photo ? await uploadPhoto('report-photos', `${coopId}/${reportId}.png`, PNG.report) : null
+    // Category + description (spec.issue: a code, null = old report without a category, missing = rotation)
+    const landmark = pick(LANDMARKS)
+    const seq = Number(String(spec.ticket).slice(-4)) || 0
+    const issueCode = spec.issue === undefined ? ISSUE_ROTATION[seq % ISSUE_ROTATION.length] : spec.issue
+    const randomDetail = spec.details ? null : pick(DETAILS) // keeps the random sequence unchanged
+    const baseDetail = spec.details || (issueCode ? ISSUE_DETAILS[issueCode][seq % 2] : randomDetail)
+    const reportDetails = issueCode ? `${ISSUE_LABELS[issueCode]}. ${baseDetail}` : baseDetail
     check(
       await sb.from('reports').insert({
         report_id: reportId,
@@ -952,8 +986,9 @@ async function seed() {
         barangay: area.barangay,
         municipality: area.municipality,
         location: point(lat, lng),
-        nearest_landmark: pick(LANDMARKS),
-        report_details: spec.details || pick(DETAILS),
+        nearest_landmark: landmark,
+        report_details: reportDetails,
+        issue_code: issueCode,
         photo_url: photoPath,
         upload_at: photoPath ? at(createdMs) : null,
         priority: spec.priority ?? null,
@@ -1245,6 +1280,7 @@ async function seed() {
   console.log(`Reports     : ${SPECS.length} (includes one 10-report duplicate cluster + 2 nearby Feeder 2 reports)` )
   console.log('Consumer demo: consumer01@sample-coop.test (Maria Santos) has upcoming/completed advisories, matched + mismatched billing requests, and in-progress/resolved rated + unrated outages.')
   console.log('Lineman demo : lineman3@sample-coop.test (Ben Navarro) has a reopened dispatched job, an in-progress 8-report master ticket, a fixed job, and rated resolved-job history.')
+  console.log('Categories  : every report has an issue category except two older ones (shown as Uncategorized); Poblacion (San Vicente) has recurring Low Voltage reports, and the Poblacion and Santa Lucia clusters are recurring No Power.')
   console.log('\nBefore taking screenshots, run:  node scripts/seed-sample-cooperative.mjs --refresh')
 }
 // ---------------------------------------------------------------------------
