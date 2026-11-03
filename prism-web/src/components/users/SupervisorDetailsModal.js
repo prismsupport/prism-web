@@ -10,7 +10,7 @@ import { toast } from '@/lib/toast'
 
 const FEATURES = [
   { key: 'dispatch', label: 'Dispatch' },
-  { key: 'advisories', label: 'Advisories' },
+  { key: 'advisories', label: 'Advisories + Service Areas' },
   { key: 'faq', label: 'FAQ' },
   { key: 'billing', label: 'Billing Requests' },
 ]

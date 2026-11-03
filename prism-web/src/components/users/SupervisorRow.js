@@ -1,6 +1,13 @@
 import Button from '@/components/ui/Button'
 import Badge from '@/components/ui/Badge'
 
+const FEATURE_LABELS = {
+  dispatch: 'Dispatch',
+  advisories: 'Advisories + Service Areas',
+  faq: 'FAQ',
+  billing: 'Billing Requests',
+}
+
 export default function SupervisorRow({ supervisor, currentUserId, onSelect }) {
   const isSelf = supervisor.id === currentUserId
 
@@ -19,7 +26,7 @@ export default function SupervisorRow({ supervisor, currentUserId, onSelect }) {
           <div className="flex flex-wrap justify-center gap-1">
             {supervisor.feature_access.map((f) => (
               <Badge key={f} tone="gray" bold={false} className="capitalize">
-                {f}
+                {FEATURE_LABELS[f] || f}
               </Badge>
             ))}
           </div>

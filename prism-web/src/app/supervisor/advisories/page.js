@@ -10,12 +10,15 @@ import Alert from '@/components/ui/Alert'
 import Button, { ButtonLink } from '@/components/ui/Button'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import DataTable from '@/components/ui/DataTable'
-import { FilterBar, FilterSelect } from '@/components/ui/FilterBar'
+import { FilterBar } from '@/components/ui/FilterBar'
+import { FilterMenu, FilterChips } from '@/components/ui/FilterMenu'
+import SearchInput from '@/components/ui/SearchInput'
 import Pagination from '@/components/ui/Pagination'
 import StatCard, { StatCardGrid } from '@/components/ui/StatCard'
 import AdvisoryRow from '@/components/advisories/AdvisoryRow'
 import AdvisoryFormModal from '@/components/advisories/AdvisoryFormModal'
 import EmptyState from '@/components/ui/EmptyState'
+import ArchiveIcon from '@/components/ui/icons/ArchiveIcon'
 
 const COLUMNS = [
   'Advisory Title',
@@ -40,7 +43,13 @@ function computeStatus(advisory) {
 export default function AdvisoriesPage() {
   const [cooperativeId, setCooperativeId] = useState(null)
   const [advisories, setAdvisories] = useState([])
-  const [areaFilter, setAreaFilter] = useState('All Area')
+  const [feederFilter, setFeederFilter] = useState('all')
+  const [municipalityFilter, setMunicipalityFilter] = useState('all')
+  const [barangayFilter, setBarangayFilter] = useState('all')
+  const [cooperativeScopeFilter, setCooperativeScopeFilter] = useState('all')
+  const [monthFilter, setMonthFilter] = useState('all')
+  const [serviceAreas, setServiceAreas] = useState([])
+  const [searchText, setSearchText] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -69,13 +78,23 @@ export default function AdvisoriesPage() {
 
     setCooperativeId(coopId)
 
-    const { data: advisoryData, error: advisoryError } = await supabase
-      .from('advisories')
-      .select('*')
-      .eq('cooperative_id', coopId)
-      .order('date', { ascending: false })
+    const [{ data: advisoryData, error: advisoryError }, { data: serviceAreaData, error: serviceAreaError }] =
+      await Promise.all([
+        supabase
+          .from('advisories')
+          .select('*')
+          .eq('cooperative_id', coopId)
+          .order('date', { ascending: false }),
+        supabase
+          .from('service_areas')
+          .select('feeder, municipality, barangay')
+          .eq('cooperative_id', coopId)
+          .is('archived_at', null),
+      ])
 
     if (advisoryError) setError(advisoryError.message)
+    if (serviceAreaError) setError((current) => current || serviceAreaError.message)
+    setServiceAreas(serviceAreaData || [])
 
     const advisoryIds = (advisoryData || []).map((a) => a.advisory_id)
     let targets = []
@@ -153,15 +172,24 @@ export default function AdvisoriesPage() {
     showArchived ? a.archived_at : !a.archived_at
   )
 
-  const allAreaValues = Array.from(
-    new Set(
-      visibleAdvisories.flatMap((a) =>
-        a.targets.map((t) =>
-          t.scope_type === 'entire_cooperative' ? 'Entire Cooperative' : t.target_value
-        )
-      )
-    )
-  ).filter(Boolean)
+  const feederOptions = Array.from(
+    new Set(serviceAreas.map((a) => a.feeder).filter(Boolean))
+  ).sort()
+
+  const municipalityOptions = Array.from(
+    new Set(serviceAreas.map((a) => a.municipality).filter(Boolean))
+  ).sort()
+
+  const barangayOptions = Array.from(
+    new Map(
+      serviceAreas
+        .filter((a) => a.barangay && a.municipality)
+        .map((a) => [
+          `${a.barangay}|${a.municipality}`,
+          `${a.barangay} (${a.municipality})`,
+        ])
+    ).values()
+  ).sort()
 
   const counts = {
     all: visibleAdvisories.length,
@@ -170,19 +198,147 @@ export default function AdvisoriesPage() {
     completed: visibleAdvisories.filter((a) => a.computedStatus === 'completed').length,
   }
 
+  const monthOptions = Array.from(
+    new Set(visibleAdvisories.map((advisory) => advisory.date?.slice(0, 7)).filter(Boolean))
+  )
+    .sort((a, b) => b.localeCompare(a))
+    .map((month) => ({
+      value: month,
+      label: new Intl.DateTimeFormat('en', { month: 'long', year: 'numeric' }).format(
+        new Date(`${month}-01T00:00:00`)
+      ),
+    }))
+
+  const term = searchText.trim().toLowerCase()
+
   const filtered = visibleAdvisories.filter((a) => {
     const statusMatch = statusFilter === 'all' || a.computedStatus === statusFilter
-    const areaMatch =
-      areaFilter === 'All Area' ||
+    const monthMatch = monthFilter === 'all' || a.date?.startsWith(monthFilter)
+    const feederMatch =
+      feederFilter === 'all' ||
+      a.targets.some((t) => t.scope_type === 'feeder' && t.target_value === feederFilter)
+    const municipalityMatch =
+      municipalityFilter === 'all' ||
       a.targets.some(
-        (t) =>
-          t.target_value === areaFilter ||
-          (t.scope_type === 'entire_cooperative' && areaFilter === 'Entire Cooperative')
+        (t) => t.scope_type === 'municipality' && t.target_value === municipalityFilter
       )
-    return statusMatch && areaMatch
+    const barangayMatch =
+      barangayFilter === 'all' ||
+      a.targets.some((t) => t.scope_type === 'barangay' && t.target_value === barangayFilter)
+    const cooperativeScopeMatch =
+      cooperativeScopeFilter === 'all' ||
+      a.targets.some((t) => t.scope_type === 'entire_cooperative')
+    const searchMatch =
+      !term ||
+      [
+        a.title,
+        a.description,
+        ...a.targets.map((t) =>
+          t.scope_type === 'entire_cooperative' ? 'Entire Cooperative' : t.target_value
+        ),
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+        .includes(term)
+    return (
+      statusMatch &&
+      monthMatch &&
+      feederMatch &&
+      municipalityMatch &&
+      barangayMatch &&
+      cooperativeScopeMatch &&
+      searchMatch
+    )
   })
 
   const pg = usePagination(filtered)
+
+  const filters = [
+    {
+      key: 'status',
+      label: 'Status',
+      value: statusFilter,
+      onChange: (value) => {
+        setStatusFilter(value)
+        pg.setPage(1)
+      },
+      options: [
+        { value: 'all', label: 'All Statuses' },
+        { value: 'upcoming', label: 'Upcoming' },
+        { value: 'active', label: 'Active' },
+        { value: 'completed', label: 'Completed' },
+      ],
+    },
+    {
+      key: 'month',
+      label: 'Month',
+      value: monthFilter,
+      onChange: (value) => {
+        setMonthFilter(value)
+        pg.setPage(1)
+      },
+      options: [
+        { value: 'all', label: 'All Months' },
+        ...monthOptions,
+      ],
+    },
+    {
+      key: 'cooperative-scope',
+      label: 'Target Scope',
+      value: cooperativeScopeFilter,
+      onChange: (value) => {
+        setCooperativeScopeFilter(value)
+        pg.setPage(1)
+      },
+      options: [
+        { value: 'all', label: 'All Target Scopes' },
+        { value: 'entire_cooperative', label: 'Entire Cooperative' },
+      ],
+    },
+    {
+      key: 'feeder',
+      label: 'Feeder',
+      value: feederFilter,
+      onChange: (value) => {
+        setFeederFilter(value)
+        pg.setPage(1)
+      },
+      options: [
+        { value: 'all', label: 'All Feeders' },
+        ...feederOptions.map((feeder) => ({ value: feeder, label: feeder })),
+      ],
+    },
+    {
+      key: 'municipality',
+      label: 'Municipality',
+      value: municipalityFilter,
+      onChange: (value) => {
+        setMunicipalityFilter(value)
+        pg.setPage(1)
+      },
+      options: [
+        { value: 'all', label: 'All Municipalities' },
+        ...municipalityOptions.map((municipality) => ({
+          value: municipality,
+          label: municipality,
+        })),
+      ],
+    },
+    {
+      key: 'barangay',
+      label: 'Barangay',
+      value: barangayFilter,
+      onChange: (value) => {
+        setBarangayFilter(value)
+        pg.setPage(1)
+      },
+      options: [
+        { value: 'all', label: 'All Barangays' },
+        ...barangayOptions.map((barangay) => ({ value: barangay, label: barangay })),
+      ],
+    },
+  ]
 
   const statusCards = [
     { key: 'all', label: 'All Advisories', color: 'text-blue-700' },
@@ -218,52 +374,73 @@ export default function AdvisoriesPage() {
         ))}
       </StatCardGrid>
 
-      <FilterBar>
-        <FilterSelect
-          label="AREA"
-          value={areaFilter}
-          onChange={(value) => {
-            setAreaFilter(value)
+      <FilterBar className="flex flex-wrap items-center gap-3">
+        <SearchInput
+          className="flex-1 min-w-[200px]"
+          value={searchText}
+          onChange={(v) => {
+            setSearchText(v)
+            pg.setPage(1)
+          }}
+          placeholder="Search advisory title, description, or target scope…"
+        />
+        <FilterMenu filters={filters} />
+        <Button
+          variant="plain"
+          dim={false}
+          className="inline-flex items-center gap-2 whitespace-nowrap"
+          onClick={() => {
+            setShowArchived(!showArchived)
+            setStatusFilter('all')
+            setMonthFilter('all')
+            setFeederFilter('all')
+            setMunicipalityFilter('all')
+            setBarangayFilter('all')
+            setCooperativeScopeFilter('all')
+            setSearchText('')
             pg.setPage(1)
           }}
         >
-          <option>All Area</option>
-          {allAreaValues.map((a) => (
-            <option key={a}>{a}</option>
-          ))}
-        </FilterSelect>
-        <div className="flex items-center gap-3">
-          <ButtonLink
-            href="/supervisor/service-areas"
-            variant="plain"
-            dim={false}
-            className="whitespace-nowrap"
+          <ArchiveIcon />
+          {showArchived ? 'Back to Advisories' : 'View Archive'}
+        </Button>
+        <ButtonLink
+          href="/supervisor/service-areas"
+          variant="plain"
+          dim={false}
+          className="inline-flex items-center gap-2 whitespace-nowrap"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="h-4 w-4"
+            aria-hidden="true"
           >
-            Manage Service Areas
-          </ButtonLink>
+            <path d="M3 21h18" />
+            <path d="M5 21V5l7-3 7 3v16" />
+            <path d="M9 9h1" />
+            <path d="M14 9h1" />
+            <path d="M9 13h1" />
+            <path d="M14 13h1" />
+            <path d="M9 21v-4h6v4" />
+          </svg>
+          Manage Service Areas
+        </ButtonLink>
+        {!showArchived && (
           <Button
-            variant="plain"
             dim={false}
             className="whitespace-nowrap"
-            onClick={() => {
-              setShowArchived(!showArchived)
-              setStatusFilter('all')
-              setAreaFilter('All Area')
-              pg.setPage(1)
-            }}
+            onClick={() => setShowCreateModal(true)}
           >
-            {showArchived ? 'Back to Advisories' : 'View Archive'}
+            + Create New Advisory
           </Button>
-          {!showArchived && (
-            <Button
-              dim={false}
-              className="whitespace-nowrap"
-              onClick={() => setShowCreateModal(true)}
-            >
-              + Create New Advisory
-            </Button>
-          )}
-        </div>
+        )}
+        <FilterChips filters={filters} />
       </FilterBar>
 
       <Alert>{error}</Alert>

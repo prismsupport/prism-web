@@ -9,6 +9,8 @@ import Alert from '@/components/ui/Alert'
 import Button from '@/components/ui/Button'
 import DataTable from '@/components/ui/DataTable'
 import { FilterBar, FilterSelect } from '@/components/ui/FilterBar'
+import { FilterMenu, FilterChips } from '@/components/ui/FilterMenu'
+import SearchInput from '@/components/ui/SearchInput'
 import Tabs from '@/components/ui/Tabs'
 import CreateLinemanModal from '@/components/users/CreateLinemanModal'
 import LinemanDetailsModal from '@/components/users/LinemanDetailsModal'
@@ -63,8 +65,15 @@ export default function UsersPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
-  const [areaFilter, setAreaFilter] = useState('All Area')
+  const [areaFilter, setAreaFilter] = useState('All Area Offices')
+  const [shiftFilter, setShiftFilter] = useState('All Shifts')
   const [sortOrder, setSortOrder] = useState('Name (A-Z)')
+  const [consumerSortOrder, setConsumerSortOrder] = useState('Name (A-Z)')
+  const [municipalityFilter, setMunicipalityFilter] = useState('All Municipalities')
+  const [barangayFilter, setBarangayFilter] = useState('All Barangays')
+  const [supervisorSortOrder, setSupervisorSortOrder] = useState('Name (A-Z)')
+  const [supervisorAccessFilter, setSupervisorAccessFilter] = useState('All Access')
+  const [searchText, setSearchText] = useState('')
 
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showCreateSupervisorModal, setShowCreateSupervisorModal] = useState(false)
@@ -237,21 +246,163 @@ export default function UsersPage() {
     setSelectedSupervisor(null)
   }
 
+  const term = searchText.trim().toLowerCase()
+  const matches = (...values) =>
+    !term ||
+    values
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase()
+      .includes(term)
+
   const filteredLinemen = linemen
-    .filter((l) => areaFilter === 'All Area' || l.assigned_area_office === areaFilter)
+    .filter((l) => areaFilter === 'All Area Offices' || l.assigned_area_office === areaFilter)
+    .filter((l) => {
+      if (shiftFilter === 'All Shifts') return true
+      const shiftName = shiftFilter === 'Morning Duty' ? 'morning' : 'night'
+      return (l.schedule || []).some((shift) =>
+        shift.name?.toLowerCase().includes(shiftName)
+      )
+    })
+    .filter((l) =>
+      matches(
+        l.first_name,
+        l.last_name,
+        `${l.first_name} ${l.last_name}`,
+        l.email,
+        l.phone_number,
+        l.company_id_number,
+        l.assigned_area_office
+      )
+    )
     .sort((a, b) =>
       sortOrder === 'Name (A-Z)'
         ? a.first_name.localeCompare(b.first_name)
         : b.first_name.localeCompare(a.first_name)
     )
 
+  const municipalityOptions = [...new Set(consumers.map((c) => c.municipality).filter(Boolean))].sort()
+  const barangayOptions = [...new Set(consumers.map((c) => c.barangay).filter(Boolean))].sort()
+
+  const filteredConsumers = consumers
+    .filter(
+      (c) =>
+        municipalityFilter === 'All Municipalities' || c.municipality === municipalityFilter
+    )
+    .filter((c) => barangayFilter === 'All Barangays' || c.barangay === barangayFilter)
+    .filter((c) =>
+      matches(
+        `${c.first_name} ${c.last_name}`,
+        c.email,
+        c.phone_number,
+        c.zone,
+        c.barangay,
+        c.municipality
+      )
+    )
+    .sort((a, b) =>
+      consumerSortOrder === 'Name (A-Z)'
+        ? a.first_name.localeCompare(b.first_name)
+        : b.first_name.localeCompare(a.first_name)
+    )
+
+  const filteredSupervisors = supervisors
+    .filter((s) => {
+      if (supervisorAccessFilter === 'All Access') return true
+      if (supervisorAccessFilter === 'owner') return s.is_owner
+      if (supervisorAccessFilter === 'no_access') {
+        return !s.is_owner && (!s.feature_access || s.feature_access.length === 0)
+      }
+      return !s.is_owner && s.feature_access?.includes(supervisorAccessFilter)
+    })
+    .filter((s) => matches(`${s.first_name} ${s.last_name}`, s.email, s.phone_number))
+    .sort((a, b) =>
+      supervisorSortOrder === 'Name (A-Z)'
+        ? a.first_name.localeCompare(b.first_name)
+        : b.first_name.localeCompare(a.first_name)
+    )
+
   const linemanPg = usePagination(filteredLinemen)
-  const consumerPg = usePagination(consumers)
-  const supervisorPg = usePagination(supervisors)
+  const consumerPg = usePagination(filteredConsumers)
+  const supervisorPg = usePagination(filteredSupervisors)
+
+  function handleTabChange(key) {
+    setActiveTab(key)
+    setSearchText('')
+    linemanPg.setPage(1)
+    consumerPg.setPage(1)
+    supervisorPg.setPage(1)
+  }
+
+  const linemanFilters = [
+    {
+      key: 'area',
+      label: 'Area Office',
+      value: areaFilter,
+      defaultValue: 'All Area Offices',
+      onChange: (value) => {
+        setAreaFilter(value)
+        linemanPg.setPage(1)
+      },
+      options: [
+        { value: 'All Area Offices', label: 'All Area Offices' },
+        ...areaOffices.map((a) => ({ value: a, label: a })),
+      ],
+    },
+    {
+      key: 'shift',
+      label: 'Shift',
+      value: shiftFilter,
+      defaultValue: 'All Shifts',
+      onChange: (value) => {
+        setShiftFilter(value)
+        linemanPg.setPage(1)
+      },
+      options: [
+        { value: 'All Shifts', label: 'All Shifts' },
+        { value: 'Morning Duty', label: 'Morning Duty' },
+        { value: 'Night Duty', label: 'Night Duty' },
+      ],
+    },
+  ]
+
+  const consumerFilters = [
+    {
+      key: 'municipality',
+      label: 'Municipality',
+      value: municipalityFilter,
+      defaultValue: 'All Municipalities',
+      onChange: (value) => {
+        setMunicipalityFilter(value)
+        consumerPg.setPage(1)
+      },
+      options: [
+        { value: 'All Municipalities', label: 'All Municipalities' },
+        ...municipalityOptions.map((municipality) => ({
+          value: municipality,
+          label: municipality,
+        })),
+      ],
+    },
+    {
+      key: 'barangay',
+      label: 'Barangay',
+      value: barangayFilter,
+      defaultValue: 'All Barangays',
+      onChange: (value) => {
+        setBarangayFilter(value)
+        consumerPg.setPage(1)
+      },
+      options: [
+        { value: 'All Barangays', label: 'All Barangays' },
+        ...barangayOptions.map((barangay) => ({ value: barangay, label: barangay })),
+      ],
+    },
+  ]
 
   return (
     <div>
-      <Tabs variant="underline" tabs={TABS} value={activeTab} onChange={setActiveTab} />
+      <Tabs variant="underline" tabs={TABS} value={activeTab} onChange={handleTabChange} />
 
       <Alert>{error}</Alert>
 
@@ -262,36 +413,32 @@ export default function UsersPage() {
             description="Manage field personnel accounts under your cooperative."
           />
 
-          <FilterBar>
-            <div className="flex items-center gap-6">
-              <FilterSelect
-                label="AREA"
-                value={areaFilter}
-                onChange={(value) => {
-                  setAreaFilter(value)
-                  linemanPg.setPage(1)
-                }}
-              >
-                <option>All Area</option>
-                {areaOffices.map((a) => (
-                  <option key={a}>{a}</option>
-                ))}
-              </FilterSelect>
-              <FilterSelect
-                label="SORT"
-                value={sortOrder}
-                onChange={(value) => {
-                  setSortOrder(value)
-                  linemanPg.setPage(1)
-                }}
-              >
-                <option>Name (A-Z)</option>
-                <option>Name (Z-A)</option>
-              </FilterSelect>
-            </div>
-            <Button dim={false} onClick={() => setShowCreateModal(true)}>
+          <FilterBar className="flex flex-wrap items-center gap-3">
+            <SearchInput
+              className="flex-1 min-w-[200px]"
+              value={searchText}
+              onChange={(v) => {
+                setSearchText(v)
+                linemanPg.setPage(1)
+              }}
+              placeholder="Search name, email, contact number, company ID, area office…"
+            />
+            <FilterSelect
+              label="SORT"
+              value={sortOrder}
+              onChange={(value) => {
+                setSortOrder(value)
+                linemanPg.setPage(1)
+              }}
+            >
+              <option value="Name (A-Z)">Name (A-Z)</option>
+              <option value="Name (Z-A)">Name (Z-A)</option>
+            </FilterSelect>
+            <FilterMenu filters={linemanFilters} />
+            <Button dim={false} className="whitespace-nowrap" onClick={() => setShowCreateModal(true)}>
               + Create Lineman Account
             </Button>
+            <FilterChips filters={linemanFilters} />
           </FilterBar>
 
           <DataTable
@@ -313,10 +460,35 @@ export default function UsersPage() {
             description="View and manage consumer accounts under your cooperative."
           />
 
+          <FilterBar className="flex flex-wrap items-center gap-3">
+            <SearchInput
+              className="flex-1 min-w-[200px]"
+              value={searchText}
+              onChange={(v) => {
+                setSearchText(v)
+                consumerPg.setPage(1)
+              }}
+              placeholder="Search name, email, contact number, zone, barangay, municipality…"
+            />
+            <FilterSelect
+              label="SORT"
+              value={consumerSortOrder}
+              onChange={(value) => {
+                setConsumerSortOrder(value)
+                consumerPg.setPage(1)
+              }}
+            >
+              <option value="Name (A-Z)">Name (A-Z)</option>
+              <option value="Name (Z-A)">Name (Z-A)</option>
+            </FilterSelect>
+            <FilterMenu filters={consumerFilters} />
+            <FilterChips filters={consumerFilters} />
+          </FilterBar>
+
           <DataTable
             columns={CONSUMER_COLUMNS}
             loading={loading}
-            isEmpty={consumers.length === 0}
+            isEmpty={filteredConsumers.length === 0}
             empty="No consumer accounts yet."
             footer={!loading && <Pagination {...consumerPg.paginationProps} />}
           >
@@ -330,21 +502,58 @@ export default function UsersPage() {
           <PageHeader
             title="Supervisor Accounts"
             description="Manage other supervisor accounts and their feature access under your cooperative."
-            actions={
-              <Button
-                dim={false}
-                className="whitespace-nowrap"
-                onClick={() => setShowCreateSupervisorModal(true)}
-              >
-                + Create Supervisor Account
-              </Button>
-            }
           />
+
+          <FilterBar className="flex flex-wrap items-center gap-3">
+            <SearchInput
+              className="flex-1 min-w-[200px]"
+              value={searchText}
+              onChange={(v) => {
+                setSearchText(v)
+                supervisorPg.setPage(1)
+              }}
+              placeholder="Search name, email, or contact number…"
+            />
+            <FilterSelect
+              label="SORT"
+              value={supervisorSortOrder}
+              onChange={(value) => {
+                setSupervisorSortOrder(value)
+                supervisorPg.setPage(1)
+              }}
+            >
+              <option value="Name (A-Z)">Name (A-Z)</option>
+              <option value="Name (Z-A)">Name (Z-A)</option>
+            </FilterSelect>
+            <FilterSelect
+              label="FILTER"
+              value={supervisorAccessFilter}
+              onChange={(value) => {
+                setSupervisorAccessFilter(value)
+                supervisorPg.setPage(1)
+              }}
+            >
+              <option value="All Access">All Access</option>
+              <option value="owner">Owner</option>
+              <option value="dispatch">Dispatch</option>
+              <option value="advisories">Advisories + Service Areas</option>
+              <option value="faq">FAQ</option>
+              <option value="billing">Billing Requests</option>
+              <option value="no_access">No Access</option>
+            </FilterSelect>
+            <Button
+              dim={false}
+              className="whitespace-nowrap"
+              onClick={() => setShowCreateSupervisorModal(true)}
+            >
+              + Create Supervisor Account
+            </Button>
+          </FilterBar>
 
           <DataTable
             columns={SUPERVISOR_COLUMNS}
             loading={loading}
-            isEmpty={supervisors.length === 0}
+            isEmpty={filteredSupervisors.length === 0}
             empty="No supervisor accounts yet."
             footer={!loading && <Pagination {...supervisorPg.paginationProps} />}
           >

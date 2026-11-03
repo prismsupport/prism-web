@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useSearchParams } from "next/navigation";
 import Pagination from "@/components/ui/Pagination";
 import DispatchStatCards from "@/components/dispatch/DispatchStatCards";
-import DispatchFilters from "@/components/dispatch/DispatchFilters";
+import DispatchFilters, { DATE_RANGES } from "@/components/dispatch/DispatchFilters";
 import DispatchSettingsModal from "@/components/dispatch/DispatchSettingsModal";
 import DispatchAlerts from "@/components/dispatch/DispatchAlerts";
 import DispatchTicketRow from "@/components/dispatch/DispatchTicketRow";
@@ -79,6 +79,7 @@ function DispatchContent() {
   const [searchText, setSearchText] = useState("");
   const [municipalityFilter, setMunicipalityFilter] = useState("all");
   const [assigneeFilter, setAssigneeFilter] = useState("all");
+  const [rangeKey, setRangeKey] = useState("all");
   const [page, setPage] = useState(1);
 
   const [loading, setLoading] = useState(true);
@@ -301,6 +302,8 @@ function DispatchContent() {
   };
 
   const term = searchText.trim().toLowerCase();
+  const rangeDays = DATE_RANGES.find((r) => r.key === rangeKey)?.days;
+  const since = rangeDays ? Date.now() - rangeDays * 86400000 : null;
   const municipalityOptions = Array.from(
     new Set(allTickets.map((t) => t.municipality).filter(Boolean)),
   ).sort();
@@ -327,8 +330,12 @@ function DispatchContent() {
       if (assigneeFilter === "unassigned" ? !!a : a?.lineman_id !== assigneeFilter) return false;
     }
 
+    if (since && new Date(t.created_at).getTime() < since) return false;
+
     if (term) {
-      const haystack = [t.ticket_number, t.master_ticket, t.nearest_landmark, t.barangay, t.municipality]
+      const a = t.kind === "master" ? assignmentFor(null, t.master_id) : assignmentFor(t.report_id, null);
+      const linemanName = a ? linemenNames[a.lineman_id] : "";
+      const haystack = [t.ticket_number, t.master_ticket, t.nearest_landmark, t.barangay, t.municipality, linemanName]
         .filter(Boolean)
         .join(" ")
         .toLowerCase();
@@ -336,16 +343,6 @@ function DispatchContent() {
     }
     return true;
   });
-
-  const hasActiveFilters =
-    term || categoryFilter !== "all" || priorityFilter !== "all" || statusFilter !== "all" ||
-    municipalityFilter !== "all" || assigneeFilter !== "all";
-
-  function clearFilters() {
-    setSearchText(""); setCategoryFilter("all"); setPriorityFilter("all"); setStatusFilter("all");
-    setMunicipalityFilter("all"); setAssigneeFilter("all");
-    setPage(1);
-  }
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -380,12 +377,6 @@ function DispatchContent() {
     <div>
       <div className="flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-2xl font-bold text-gray-900">Dispatch Management</h1>
-        <button
-          onClick={() => setShowSettings(true)}
-          className="bg-white hover:bg-gray-50 text-gray-700 text-sm font-semibold px-4 py-2 rounded-lg border border-gray-200 transition-colors whitespace-nowrap"
-        >
-          Settings
-        </button>
       </div>
       {showSettings && (
         <DispatchSettingsModal
@@ -460,8 +451,9 @@ function DispatchContent() {
         assigneeFilter={assigneeFilter}
         onAssigneeChange={(v) => handleFilterChange(setAssigneeFilter, v)}
         assigneeOptions={assigneeOptions}
-        onClear={clearFilters}
-        hasActiveFilters={!!hasActiveFilters}
+        rangeKey={rangeKey}
+        onRangeChange={(v) => handleFilterChange(setRangeKey, v)}
+        onSettings={() => setShowSettings(true)}
       />
 
       {error && (

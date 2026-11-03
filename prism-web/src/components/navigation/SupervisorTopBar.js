@@ -1,83 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState } from "react";
 import Avatar from "@/components/ui/Avatar";
 import NotificationBell from "@/components/ui/NotificationBell";
 
 export default function SupervisorTopBar({ supervisorName, avatarUrl, onLogout }) {
-  const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [searchText, setSearchText] = useState("");
-
-  // Press "/" anywhere to open search.
-  useEffect(() => {
-    function onKey(e) {
-      const tag = e.target.tagName;
-      if (e.key === "/" && tag !== "INPUT" && tag !== "TEXTAREA" && !e.target.isContentEditable) {
-        e.preventDefault();
-        setSearchOpen(true);
-      }
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
-
-  function handleSearchSubmit(event) {
-    event.preventDefault();
-    const query = searchText.trim();
-    if (query) router.push(`/supervisor/search?q=${encodeURIComponent(query)}`);
-  }
-
-  function closeSearch() {
-    setSearchText("");
-    setSearchOpen(false);
-  }
 
   return (
     <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center justify-end gap-2 border-b border-gray-200 bg-white px-8">
-      <form
-        onSubmit={handleSearchSubmit}
-        className={`flex items-center overflow-hidden rounded-full border transition-all duration-200 ${
-          searchOpen ? "w-80 border-gray-200 bg-gray-50" : "w-9 border-transparent"
-        }`}
-      >
-        <button
-          type="button"
-          onClick={() => setSearchOpen(true)}
-          aria-label="Search"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            className="h-5 w-5"
-          >
-            <circle cx="11" cy="11" r="7" />
-            <path d="m21 21-4.3-4.3" />
-          </svg>
-        </button>
-        {searchOpen && (
-          <input
-            autoFocus
-            type="text"
-            value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
-            onBlur={() => !searchText && setSearchOpen(false)}
-            onKeyDown={(e) => e.key === "Escape" && closeSearch()}
-            aria-label="Search reports, tickets, or users"
-            placeholder="Search reports, tickets, or users…"
-            className="min-w-0 flex-1 bg-transparent pr-4 text-sm placeholder-gray-400 focus:outline-none"
-          />
-        )}
-      </form>
-
       <NotificationBell />
 
       <div className="relative ml-1">

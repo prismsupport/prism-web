@@ -11,13 +11,14 @@ import PageHeader from '@/components/ui/PageHeader'
 import Alert from '@/components/ui/Alert'
 import Button from '@/components/ui/Button'
 import DataTable from '@/components/ui/DataTable'
-import { FilterBar, FilterSelect } from '@/components/ui/FilterBar'
+import { FilterBar } from '@/components/ui/FilterBar'
+import { FilterMenu, FilterChips } from '@/components/ui/FilterMenu'
 import SearchInput from '@/components/ui/SearchInput'
 import StatCard, { StatCardGrid } from '@/components/ui/StatCard'
 import ServiceAreaFormModal from '@/components/service-areas/ServiceAreaFormModal'
 import ServiceAreaRow from '@/components/service-areas/ServiceAreaRow'
-import BackToAdvisoriesLink from '@/components/service-areas/BackToAdvisoriesLink'
 import ManageAreaOfficesModal from '@/components/users/ManageAreaOfficesModal'
+import ArchiveIcon from '@/components/ui/icons/ArchiveIcon'
 
 const COLUMNS = ['Barangay', 'Municipality', 'Province', 'Feeder', 'Substation', 'Area Office', 'Actions']
 
@@ -31,6 +32,8 @@ export default function ServiceAreasPage() {
   const [substationFilter, setSubstationFilter] = useState('All Substations')
   const [feederFilter, setFeederFilter] = useState('All Feeders')
   const [areaOfficeFilter, setAreaOfficeFilter] = useState('All Area Offices')
+  const [provinceFilter, setProvinceFilter] = useState('All Provinces')
+  const [municipalityFilter, setMunicipalityFilter] = useState('All Municipalities')
   const [searchText, setSearchText] = useState('')
 
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -150,12 +153,23 @@ export default function ServiceAreasPage() {
     new Set(visibleAreas.map((a) => a.feeder).filter(Boolean))
   ).sort()
 
+  const provinceOptions = Array.from(
+    new Set(visibleAreas.map((a) => a.province).filter(Boolean))
+  ).sort()
+
+  const municipalityOptions = Array.from(
+    new Set(visibleAreas.map((a) => a.municipality).filter(Boolean))
+  ).sort()
+
   const filtered = visibleAreas.filter((a) => {
+    const areaOfficeMatch =
+      areaOfficeFilter === 'All Area Offices' || a.area_office === areaOfficeFilter
     const substationMatch =
       substationFilter === 'All Substations' || a.substation === substationFilter
     const feederMatch = feederFilter === 'All Feeders' || a.feeder === feederFilter
-    const areaOfficeMatch =
-      areaOfficeFilter === 'All Area Offices' || a.area_office === areaOfficeFilter
+    const provinceMatch = provinceFilter === 'All Provinces' || a.province === provinceFilter
+    const municipalityMatch =
+      municipalityFilter === 'All Municipalities' || a.municipality === municipalityFilter
     const term = searchText.trim().toLowerCase()
     const searchMatch =
       !term ||
@@ -164,7 +178,14 @@ export default function ServiceAreasPage() {
       a.substation?.toLowerCase().includes(term) ||
       a.feeder?.toLowerCase().includes(term) ||
       a.area_office?.toLowerCase().includes(term)
-    return substationMatch && feederMatch && areaOfficeMatch && searchMatch
+    return (
+      areaOfficeMatch &&
+      substationMatch &&
+      feederMatch &&
+      provinceMatch &&
+      municipalityMatch &&
+      searchMatch
+    )
   })
 
   const pg = usePagination(filtered)
@@ -177,48 +198,72 @@ export default function ServiceAreasPage() {
     pg.setPage(1)
   }
 
+    const filters = [
+    {
+      key: 'areaOffice',
+      label: 'Area Office',
+      value: areaOfficeFilter,
+      defaultValue: 'All Area Offices',
+      onChange: withReset(setAreaOfficeFilter),
+      options: [
+        { value: 'All Area Offices', label: 'All Area Offices' },
+        ...areaOffices.map((a) => ({ value: a, label: a })),
+      ],
+    },
+    {
+      key: 'substation',
+      label: 'Substation',
+      value: substationFilter,
+      defaultValue: 'All Substations',
+      onChange: withReset(setSubstationFilter),
+      options: [
+        { value: 'All Substations', label: 'All Substations' },
+        ...substationOptions.map((s) => ({ value: s, label: s })),
+      ],
+    },
+    {
+      key: 'feeder',
+      label: 'Feeder',
+      value: feederFilter,
+      defaultValue: 'All Feeders',
+      onChange: withReset(setFeederFilter),
+      options: [
+        { value: 'All Feeders', label: 'All Feeders' },
+        ...feederOptions.map((f) => ({ value: f, label: f })),
+      ],
+    },
+    {
+      key: 'province',
+      label: 'Province',
+      value: provinceFilter,
+      defaultValue: 'All Provinces',
+      onChange: withReset(setProvinceFilter),
+      options: [
+        { value: 'All Provinces', label: 'All Provinces' },
+        ...provinceOptions.map((p) => ({ value: p, label: p })),
+      ],
+    },
+    {
+      key: 'municipality',
+      label: 'Municipality',
+      value: municipalityFilter,
+      defaultValue: 'All Municipalities',
+      onChange: withReset(setMunicipalityFilter),
+      options: [
+        { value: 'All Municipalities', label: 'All Municipalities' },
+        ...municipalityOptions.map((m) => ({ value: m, label: m })),
+      ],
+    },
+  ]
+
   return (
     <div>
-      <BackToAdvisoriesLink withMarginBottom />
-
       <PageHeader
         title={showArchived ? 'Archived Service Areas' : 'Service Areas'}
         description={
           showArchived
             ? 'Archived areas are no longer used for feeder matching, dispatch, or advisories. Restore one to use it again.'
             : 'Manage the substations, feeders, barangays, and area offices covered by your cooperative.'
-        }
-        actions={
-          <div className="flex items-center gap-3">
-            <Button
-              variant="plain"
-              dim={false}
-              className="whitespace-nowrap"
-              onClick={() => setShowManageAreaOffices(true)}
-            >
-              Manage Area Offices
-            </Button>
-            <Button
-              variant="plain"
-              dim={false}
-              className="whitespace-nowrap"
-              onClick={() => {
-                setShowArchived(!showArchived)
-                setSubstationFilter('All Substations')
-                setFeederFilter('All Feeders')
-                setAreaOfficeFilter('All Area Offices')
-                setSearchText('')
-                pg.setPage(1)
-              }}
-            >
-              {showArchived ? 'Back to Service Areas' : 'View Archive'}
-            </Button>
-            {!showArchived && (
-              <Button dim={false} className="whitespace-nowrap" onClick={() => setShowCreateModal(true)}>
-                + Add Service Area
-              </Button>
-            )}
-          </div>
         }
       />
 
@@ -242,50 +287,63 @@ export default function ServiceAreasPage() {
 
       <FilterBar className="flex flex-wrap items-center gap-3">
         <SearchInput
-          className="flex-1 min-w-[220px]"
+          className="flex-1 min-w-[200px]"
           value={searchText}
           onChange={withReset(setSearchText)}
           placeholder="Search barangay, municipality, substation, feeder, area office…"
         />
-
-        <FilterSelect label="AREA OFFICE" value={areaOfficeFilter} onChange={withReset(setAreaOfficeFilter)}>
-          <option>All Area Offices</option>
-          {areaOffices.map((a) => (
-            <option key={a}>{a}</option>
-          ))}
-        </FilterSelect>
-
-        <FilterSelect label="SUBSTATION" value={substationFilter} onChange={withReset(setSubstationFilter)}>
-          <option>All Substations</option>
-          {substationOptions.map((s) => (
-            <option key={s}>{s}</option>
-          ))}
-        </FilterSelect>
-
-        <FilterSelect label="FEEDER" value={feederFilter} onChange={withReset(setFeederFilter)}>
-          <option>All Feeders</option>
-          {feederOptions.map((f) => (
-            <option key={f}>{f}</option>
-          ))}
-        </FilterSelect>
-
-        {(substationFilter !== 'All Substations' ||
-          feederFilter !== 'All Feeders' ||
-          areaOfficeFilter !== 'All Area Offices' ||
-          searchText) && (
-          <button
-            onClick={() => {
-              setSubstationFilter('All Substations')
-              setFeederFilter('All Feeders')
-              setAreaOfficeFilter('All Area Offices')
-              setSearchText('')
-              pg.setPage(1)
-            }}
-            className="text-sm text-blue-700 font-medium whitespace-nowrap"
+        <FilterMenu filters={filters} />
+        <Button
+          variant="plain"
+          dim={false}
+          className="inline-flex items-center gap-2 whitespace-nowrap"
+          onClick={() => {
+            setShowArchived(!showArchived)
+            setSubstationFilter('All Substations')
+            setFeederFilter('All Feeders')
+            setAreaOfficeFilter('All Area Offices')
+            setProvinceFilter('All Provinces')
+            setMunicipalityFilter('All Municipalities')
+            setSearchText('')
+            pg.setPage(1)
+          }}
+        >
+          <ArchiveIcon />
+          {showArchived ? 'Back to Service Areas' : 'View Archive'}
+        </Button>
+        <Button
+          variant="plain"
+          dim={false}
+          className="inline-flex items-center gap-2 whitespace-nowrap"
+          onClick={() => setShowManageAreaOffices(true)}
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="h-4 w-4"
+            aria-hidden="true"
           >
-            Clear filters
-          </button>
+            <path d="M3 21h18" />
+            <path d="M5 21V5l7-3 7 3v16" />
+            <path d="M9 9h1" />
+            <path d="M14 9h1" />
+            <path d="M9 13h1" />
+            <path d="M14 13h1" />
+            <path d="M9 21v-4h6v4" />
+          </svg>
+          Manage Area Offices
+        </Button>
+        {!showArchived && (
+          <Button dim={false} className="whitespace-nowrap" onClick={() => setShowCreateModal(true)}>
+            + Add Service Area
+          </Button>
         )}
+        <FilterChips filters={filters} />
       </FilterBar>
 
       <Alert>{error}</Alert>

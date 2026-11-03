@@ -35,6 +35,17 @@ const ICONS = {
       <path d="M11.6 16.8a3 3 0 1 1-5.8-1.6" />
     </>
   ),
+  "service-areas": (
+    <>
+      <path d="M3 21h18" />
+      <path d="M5 21V5l7-3 7 3v16" />
+      <path d="M9 9h1" />
+      <path d="M14 9h1" />
+      <path d="M9 13h1" />
+      <path d="M14 13h1" />
+      <path d="M9 21v-4h6v4" />
+    </>
+  ),
   faq: (
     <>
       <circle cx="12" cy="12" r="10" />

@@ -7,7 +7,7 @@ const PermissionsContext = createContext(null)
 
 // Every restricted page, matched by path prefix so sub-pages are covered too
 // (e.g. /supervisor/dispatch/report/123 follows /supervisor/dispatch).
-// Pages not listed here (Dashboard, profile, search) are open to every Supervisor.
+// Pages not listed here (Dashboard, profile) are open to every Supervisor.
 const PAGE_RULES = [
   { prefix: '/supervisor/users', label: 'Users', ownerOnly: true },
   { prefix: '/supervisor/dispatch', label: 'Dispatch', feature: 'dispatch' },
