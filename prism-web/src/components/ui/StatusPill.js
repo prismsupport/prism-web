@@ -47,7 +47,7 @@ function Pill({ tone, text }) {
     <span
       className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${tone}`}
     >
-      <span className="h-1.5 w-1.5 rounded-full bg-current" />
+      <span className="h-1.5 w-1.5 rounded-full bg-current" aria-hidden="true" />
       {text}
     </span>
   );
@@ -58,8 +58,6 @@ export function PriorityPill({ label, rank, count }) {
   return <Pill tone={TONES[priorityTone(rank, count)]} text={label} />;
 }
 
-// status: the key that decides the colour. label: optional text override.
-// labelOf: show the name of a different status code than the one that sets the colour.
 export default function StatusPill({ status, label, labelOf, kind }) {
   const { labels, priorityLevels } = useStatusLabels();
   const empty = !status;

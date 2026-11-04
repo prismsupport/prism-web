@@ -6,6 +6,7 @@ import Modal from '@/components/ui/Modal'
 import FormSection from '@/components/ui/FormSection'
 import FormField from '@/components/ui/FormField'
 import StatusDot from '@/components/ui/StatusDot'
+import Alert from '@/components/ui/Alert'
 import ShiftScheduleEditor from '@/components/users/ShiftScheduleEditor'
 import { validateSchedule, cleanSchedule } from '@/lib/lineman/schedule'
 import { toast } from "@/lib/toast"
@@ -29,6 +30,7 @@ export default function LinemanDetailsModal({ lineman, areaOffices, onClose, onT
   const [overrideHours, setOverrideHours] = useState(2)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [toggling, setToggling] = useState(false)
 
   const overrideActive =
     lineman.duty_override_until && new Date(lineman.duty_override_until) > new Date()
@@ -64,7 +66,7 @@ export default function LinemanDetailsModal({ lineman, areaOffices, onClose, onT
       .eq('id', lineman.id)
 
     if (userError) {
-      setError(userError.message)
+      toast.error(userError)
       setSaving(false)
       return
     }
@@ -75,7 +77,7 @@ export default function LinemanDetailsModal({ lineman, areaOffices, onClose, onT
       .eq('profile_id', lineman.id)
 
     if (linemanError) {
-      setError(linemanError.message)
+      toast.error('Name and contact details were saved, but the area office and schedule were not. Please save again.')
       setSaving(false)
       return
     }
@@ -99,7 +101,7 @@ export default function LinemanDetailsModal({ lineman, areaOffices, onClose, onT
       .eq('profile_id', lineman.id)
 
     if (overrideError) {
-      setError(overrideError.message)
+      toast.error(overrideError)
       setSaving(false)
       return
     }
@@ -252,11 +254,7 @@ export default function LinemanDetailsModal({ lineman, areaOffices, onClose, onT
         </div>
       </div>
 
-      {error && (
-        <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-4">
-          {error}
-        </p>
-      )}
+      <Alert>{error}</Alert>
 
       {editing ? (
         <div className="flex justify-end gap-3">
@@ -283,14 +281,19 @@ export default function LinemanDetailsModal({ lineman, areaOffices, onClose, onT
             Edit
           </button>
           <button
-            onClick={() => onToggleActive(lineman.id, lineman.is_active)}
-            className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-colors ${
+            disabled={toggling}
+            onClick={async () => {
+              setToggling(true)
+              await onToggleActive(lineman.id, lineman.is_active)
+              setToggling(false)
+            }}
+            className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-colors disabled:opacity-60 ${
               lineman.is_active
                 ? 'bg-gray-100 hover:bg-gray-200 text-gray-700'
                 : 'bg-blue-700 hover:bg-blue-800 text-white'
             }`}
           >
-            {lineman.is_active ? 'Deactivate Account' : 'Reactivate Account'}
+            {toggling ? 'Working…' : lineman.is_active ? 'Deactivate Account' : 'Reactivate Account'}
           </button>
         </div>
       )}

@@ -56,6 +56,7 @@ export default function AdvisoriesPage() {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [editingAdvisory, setEditingAdvisory] = useState(null)
   const [deletingAdvisory, setDeletingAdvisory] = useState(null)
+  const [archiving, setArchiving] = useState(false)
   const [showArchived, setShowArchived] = useState(false)
 
   useEffect(() => {
@@ -130,24 +131,26 @@ export default function AdvisoriesPage() {
   }
 
   // Archive = hide it, but keep the advisory (and its photo) in the database.
-  async function handleArchiveConfirmed() {
-    const supabase = createClient()
+   async function handleArchiveConfirmed() {
+     setArchiving(true)
+     const supabase = createClient()
 
-    const { data, error: archiveError } = await supabase
-      .from('advisories')
-      .update({ archived_at: new Date().toISOString() })
-      .eq('advisory_id', deletingAdvisory.advisory_id)
-      .select('advisory_id')
+     const { data, error: archiveError } = await supabase
+       .from('advisories')
+       .update({ archived_at: new Date().toISOString() })
+       .eq('advisory_id', deletingAdvisory.advisory_id)
+       .select('advisory_id')
 
-    if (archiveError || !data?.length) {
-      toast.error(archiveError?.message || "Couldn't archive this advisory.")
-      return
-    }
+     setArchiving(false)
+     if (archiveError || !data?.length) {
+       toast.error(archiveError || "Couldn't archive this advisory.")
+       return
+     }
 
-    toast.success('Advisory archived')
-    setDeletingAdvisory(null)
-    await loadAdvisories()
-  }
+     toast.success('Advisory archived')
+     setDeletingAdvisory(null)
+     await loadAdvisories()
+   }
 
   async function handleRestore(advisory) {
     const supabase = createClient()
@@ -493,6 +496,7 @@ export default function AdvisoriesPage() {
         <ConfirmDialog
           title="Archive Advisory"
           confirmLabel="Archive"
+          loading={archiving}
           onConfirm={handleArchiveConfirmed}
           onClose={() => setDeletingAdvisory(null)}
         >

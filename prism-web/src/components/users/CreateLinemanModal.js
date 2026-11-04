@@ -2,11 +2,13 @@
 
 import { useState } from 'react'
 import Modal from '@/components/ui/Modal'
+import Alert from '@/components/ui/Alert'
+import Button from '@/components/ui/Button'
 import FormSection from '@/components/ui/FormSection'
 import FormField from '@/components/ui/FormField'
 import ShiftScheduleEditor from '@/components/users/ShiftScheduleEditor'
 import { validateSchedule, cleanSchedule } from '@/lib/lineman/schedule'
-import { toast } from "@/lib/toast"
+import { toast } from '@/lib/toast'
 
 export default function CreateLinemanModal({ cooperativeId, areaOffices, onManageAreas, onClose, onCreated }) {
   const [form, setForm] = useState({
@@ -38,21 +40,26 @@ export default function CreateLinemanModal({ cooperativeId, areaOffices, onManag
 
     setLoading(true)
 
-    const res = await fetch('/api/supervisor/create-lineman', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ cooperativeId, ...form, schedule: cleanSchedule(schedule) }),
-    })
-    const result = await res.json()
+    try {
+      const res = await fetch('/api/supervisor/create-lineman', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cooperativeId, ...form, schedule: cleanSchedule(schedule) }),
+      })
+      const result = await res.json().catch(() => ({}))
 
-    if (!res.ok) {
-      setError(result.error || 'Failed to create account.')
+      if (!res.ok) {
+        toast.error(result.error || 'Failed to create the account. Nothing was saved.')
+        setLoading(false)
+        return
+      }
+    } catch (err) {
+      toast.error(err)
       setLoading(false)
       return
     }
 
-    toast.success("Lineman account created")
-    
+    toast.success('Lineman account created')
     onCreated()
   }
 
@@ -156,27 +163,15 @@ export default function CreateLinemanModal({ cooperativeId, areaOffices, onManag
           </div>
         </div>
 
-        {error && (
-          <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-4">
-            {error}
-          </p>
-        )}
+        <Alert>{error}</Alert>
 
         <div className="flex justify-end gap-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2.5 rounded-lg text-sm font-semibold text-gray-600 border border-gray-200 hover:bg-gray-50"
-          >
+          <Button type="button" variant="outline" dim={false} onClick={onClose} disabled={loading}>
             Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={loading}
-            className="px-4 py-2.5 rounded-lg text-sm font-semibold text-white bg-blue-700 hover:bg-blue-800 disabled:opacity-60"
-          >
+          </Button>
+          <Button type="submit" disabled={loading}>
             {loading ? 'Creating…' : 'Create Account'}
-          </button>
+          </Button>
         </div>
       </form>
     </Modal>

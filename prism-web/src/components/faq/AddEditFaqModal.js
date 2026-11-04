@@ -47,27 +47,17 @@ export default function AddEditFaqModal({ cooperativeId, entry, categories, onCl
       keywords: normalizedKeywords || null,
     }
 
-    if (isEditing) {
-      const { error: updateError } = await supabase
-        .from('faq_entries')
-        .update({ ...fields, updated_at: new Date().toISOString() })
-        .eq('faq_id', entry.faq_id)
+    const { error: saveError } = isEditing
+      ? await supabase
+          .from('faq_entries')
+          .update({ ...fields, updated_at: new Date().toISOString() })
+          .eq('faq_id', entry.faq_id)
+      : await supabase.from('faq_entries').insert({ cooperative_id: cooperativeId, ...fields })
 
-      if (updateError) {
-        setError(updateError.message)
-        setLoading(false)
-        return
-      }
-    } else {
-      const { error: insertError } = await supabase
-        .from('faq_entries')
-        .insert({ cooperative_id: cooperativeId, ...fields })
-
-      if (insertError) {
-        setError(insertError.message)
-        setLoading(false)
-        return
-      }
+    if (saveError) {
+      toast.error(saveError)
+      setLoading(false)
+      return
     }
 
     toast.success(isEditing ? 'FAQ updated' : 'FAQ added')
@@ -108,7 +98,7 @@ export default function AddEditFaqModal({ cooperativeId, entry, categories, onCl
         <Alert>{error}</Alert>
 
         <div className="flex justify-end gap-3">
-          <Button type="button" variant="outline" dim={false} onClick={onClose}>
+          <Button type="button" variant="outline" dim={false} onClick={onClose} disabled={loading}>
             Cancel
           </Button>
           <Button type="submit" disabled={loading}>

@@ -270,15 +270,14 @@ export default function MasterTicketDetailPage() {
     setLinemenError('')
     const supabase = createClient()
 
-    const { error: assignError } = await supabase.from('job_assignments').insert({
-      master_id: id,
-      lineman_id: linemanId,
-      status: 'assigned',
-      assigned_at: new Date().toISOString(),
+    const { error: assignError } = await supabase.rpc('assign_lineman', {
+      p_report_id: null,
+      p_master_id: id,
+      p_lineman_id: linemanId,
     })
 
     if (assignError) {
-      toast.error(assignError.message)
+      toast.error(assignError)
       setLinemenError(assignError.message)
       setAssigning(false)
       return

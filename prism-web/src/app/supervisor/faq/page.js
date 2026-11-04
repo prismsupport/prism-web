@@ -39,6 +39,7 @@ export default function FaqManagementPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingEntry, setEditingEntry] = useState(null);
   const [deletingEntry, setDeletingEntry] = useState(null);
+  const [archiving, setArchiving] = useState(false);
   const [answeringInquiry, setAnsweringInquiry] = useState(null);
   const [searchText, setSearchText] = useState("");
   const { isUnread, markNotificationRead } = useUnreadSupervisorNotifications([
@@ -113,21 +114,23 @@ export default function FaqManagementPage() {
   }
 
   // Archive = hide it from the chatbot, but keep the entry in the database.
-  async function handleArchiveConfirmed() {
-    const supabase = createClient();
-    const { data, error: archiveError } = await supabase
-      .from("faq_entries")
-      .update({ archived_at: new Date().toISOString() })
-      .eq("faq_id", deletingEntry.faq_id)
-      .select();
-    if (archiveError || !data?.length) {
-      toast.error(archiveError?.message || "Couldn't archive this entry.");
-    } else {
-      toast.success("FAQ entry archived");
-    }
-    setDeletingEntry(null);
-    loadEverything();
-  }
+   async function handleArchiveConfirmed() {
+     setArchiving(true);
+     const supabase = createClient();
+     const { data, error: archiveError } = await supabase
+       .from("faq_entries")
+       .update({ archived_at: new Date().toISOString() })
+       .eq("faq_id", deletingEntry.faq_id)
+       .select();
+     setArchiving(false);
+     if (archiveError || !data?.length) {
+       toast.error(archiveError || "Couldn't archive this entry.");
+       return;
+     }
+     toast.success("FAQ entry archived");
+     setDeletingEntry(null);
+     loadEverything();
+   }
 
   async function handleRestore(entry) {
     const supabase = createClient();
@@ -329,6 +332,7 @@ export default function FaqManagementPage() {
         <ConfirmDialog
           title="Archive FAQ Entry"
           confirmLabel="Archive"
+          loading={archiving}
           onConfirm={handleArchiveConfirmed}
           onClose={() => setDeletingEntry(null)}
         >

@@ -174,6 +174,22 @@ export default function AdvisoryFormModal({ cooperativeId, advisory, onClose, on
 
     let advisoryId = advisory?.advisory_id
     let photoPathToSave = removePhoto ? null : existingPhotoPath
+    let uploadedPath = null
+    let photoSaved = false
+    let oldPhotoToDelete = null
+    const oldTargetIds = (advisory?.targets || []).map((t) => t.target_id).filter(Boolean)
+
+    // Undo what a failed save left behind, then tell the supervisor what happened.
+    async function abort(err, note) {
+      if (uploadedPath && (!isEditing || !photoSaved)) {
+        await supabase.storage.from('advisory-photos').remove([uploadedPath])
+      }
+      if (!isEditing && advisoryId) {
+        await supabase.from('advisories').delete().eq('advisory_id', advisoryId)
+      }
+      toast.error(note || err)
+      setLoading(false)
+    }
 
     if (isEditing) {
       const { error: updateError } = await supabase
@@ -182,12 +198,10 @@ export default function AdvisoryFormModal({ cooperativeId, advisory, onClose, on
         .eq('advisory_id', advisoryId)
 
       if (updateError) {
-        setError(updateError.message)
+        toast.error(updateError)
         setLoading(false)
         return
       }
-
-      await supabase.from('advisory_target').delete().eq('advisory_id', advisoryId)
     } else {
       const {
         data: { user },
@@ -208,7 +222,7 @@ export default function AdvisoryFormModal({ cooperativeId, advisory, onClose, on
         .single()
 
       if (insertError) {
-        setError(insertError.message)
+        toast.error(insertError)
         setLoading(false)
         return
       }
@@ -216,7 +230,6 @@ export default function AdvisoryFormModal({ cooperativeId, advisory, onClose, on
       advisoryId = newAdvisory.advisory_id
     }
 
-    // Handle photo upload / removal now that advisoryId is available
     if (newPhotoFile) {
       const filePath = `${cooperativeId}/${advisoryId}-${Date.now()}-${newPhotoFile.name}`
 
@@ -225,19 +238,19 @@ export default function AdvisoryFormModal({ cooperativeId, advisory, onClose, on
         .upload(filePath, newPhotoFile, { upsert: false })
 
       if (uploadError) {
-        setError(uploadError.message)
-        setLoading(false)
-        return
+        return abort(
+          uploadError,
+          isEditing
+            ? 'The photo could not be uploaded. The advisory details were saved. Please try the photo again.'
+            : 'The photo could not be uploaded. Nothing was saved. Please try again.'
+        )
       }
 
-      // Clean up the previous photo if this edit replaces it
-      if (isEditing && existingPhotoPath) {
-        await supabase.storage.from('advisory-photos').remove([existingPhotoPath])
-      }
-
+      uploadedPath = filePath
+      if (isEditing && existingPhotoPath) oldPhotoToDelete = existingPhotoPath
       photoPathToSave = filePath
     } else if (removePhoto && isEditing && existingPhotoPath) {
-      await supabase.storage.from('advisory-photos').remove([existingPhotoPath])
+      oldPhotoToDelete = existingPhotoPath
       photoPathToSave = null
     }
 
@@ -248,12 +261,22 @@ export default function AdvisoryFormModal({ cooperativeId, advisory, onClose, on
         .eq('advisory_id', advisoryId)
 
       if (photoUpdateError) {
-        setError(photoUpdateError.message)
-        setLoading(false)
-        return
+        return abort(
+          photoUpdateError,
+          isEditing
+            ? 'The photo could not be saved. The advisory details were saved. Please try the photo again.'
+            : 'Nothing was saved. Please try again.'
+        )
       }
+      photoSaved = true
     }
 
+    // Only now is it safe to remove the previous photo
+    if (oldPhotoToDelete) {
+      await supabase.storage.from('advisory-photos').remove([oldPhotoToDelete])
+    }
+
+    // New targets go in first; old ones are removed only after that succeeds
     const targetRows = targets.map((t) => ({
       advisory_id: advisoryId,
       scope_type: t.scope_type,
@@ -263,13 +286,30 @@ export default function AdvisoryFormModal({ cooperativeId, advisory, onClose, on
     const { error: targetError } = await supabase.from('advisory_target').insert(targetRows)
 
     if (targetError) {
-      setError(targetError.message)
-      setLoading(false)
-      return
+      return abort(
+        targetError,
+        isEditing
+          ? 'The advisory details were saved, but the target areas could not be updated. The old target areas are unchanged. Please try again.'
+          : 'Nothing was saved. Please try again.'
+      )
     }
 
-    toast.success(isEditing ? "Advisory updated" : "Advisory published")
+    if (isEditing && oldTargetIds.length > 0) {
+      const { error: cleanupError } = await supabase
+        .from('advisory_target')
+        .delete()
+        .in('target_id', oldTargetIds)
 
+      if (cleanupError) {
+        toast.error(
+          'Saved, but some old target areas could not be removed. Open this advisory again and save it to fix its targets.'
+        )
+        onSaved()
+        return
+      }
+    }
+
+    toast.success(isEditing ? 'Advisory updated' : 'Advisory published')
     onSaved()
   }
 
@@ -437,7 +477,7 @@ export default function AdvisoryFormModal({ cooperativeId, advisory, onClose, on
         <Alert>{error}</Alert>
 
         <div className="flex justify-end gap-3">
-          <Button type="button" variant="outline" dim={false} onClick={onClose}>
+          <Button type="button" variant="outline" dim={false} onClick={onClose} disabled={loading}>
             Cancel
           </Button>
           <Button type="submit" disabled={loading}>

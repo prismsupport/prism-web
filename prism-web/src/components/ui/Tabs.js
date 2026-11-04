@@ -19,10 +19,13 @@ const VARIANTS = {
 export default function Tabs({ tabs, value, onChange, variant = 'pill', className }) {
   const v = VARIANTS[variant]
   return (
-    <div className={className ?? v.list}>
+    <div role="tablist" className={className ?? v.list}>
       {tabs.map((t) => (
         <button
           key={t.key}
+          type="button"
+          role="tab"
+          aria-selected={value === t.key}
           onClick={() => onChange(t.key)}
           className={`${v.tab} ${value === t.key ? v.active : v.idle}`}
         >

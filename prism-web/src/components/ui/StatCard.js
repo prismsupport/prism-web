@@ -17,10 +17,10 @@ export default function StatCard({
       <p className={`text-xs font-bold ${labelTracking} text-gray-400 uppercase mb-1`}>
         {labelIndicator && (
           <span
+            role="img"
             className="mr-1.5 inline-block h-2 w-2 rounded-full bg-red-500 align-middle"
-            aria-label={`${label} has reports`}
-          >
-          </span>
+            aria-label={`${label} needs attention`}
+          />
         )}
         {label}
       </p>
@@ -35,7 +35,9 @@ export default function StatCard({
 
   return (
     <button
+      type="button"
       onClick={onClick}
+      aria-pressed={!!active}
       className={`text-left bg-white rounded-xl border ${padding} transition-all ${
         active
           ? 'border-blue-600 ring-1 ring-blue-600'
