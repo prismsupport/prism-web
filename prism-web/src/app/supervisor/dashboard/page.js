@@ -57,9 +57,10 @@ function sortedEntries(map) {
 }
 
 function sourceLabel(source) {
-  if (source === 'consumer') return 'by consumer'
-  if (source === 'supervisor') return 'by supervisor'
-  return `from ${String(source).replace(/_/g, ' ')}`
+  if (source === 'consumer') return 'reopened by consumer'
+  if (source === 'supervisor') return 'reopened by supervisor'
+  if (source === 'qa_rejection') return 'reopened after QA rejection'
+  return `reopened from ${String(source).replace(/_/g, ' ')}`
 }
 
 // Report counts per bucket: daily for 7 days, 6-day periods for 30 and 90
@@ -692,17 +693,6 @@ export default function SupervisorDashboardPage() {
 
           {tab === 'insights' && (
             <>
-              <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-4">
-            <MetricCard
-              label="Reopened tickets"
-              value={stats.reopenedCount}
-              hint={reopenHint || 'Reports filed in this period'}
-            >
-              <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
-              <path d="M3 3v5h5" />
-            </MetricCard>
-              </div>
-
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
                 <AreaBreakdown breakdown={areaBreakdown} />
 
@@ -720,17 +710,51 @@ export default function SupervisorDashboardPage() {
                 </div>
               </div>
 
-              <div className="mb-6 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-                <h2 className="mb-1 text-sm font-bold text-gray-900">Recurring Issues</h2>
-                <p className="mb-4 text-xs text-gray-400">
-                  The same category reported {RECURRING_MIN_REPORTS} or more times in the same barangay in the
-                  last {RECURRING_WINDOW_DAYS} days. This window is fixed and does not follow the period selector.
-                </p>
-                <BarList
-                  rows={recurringRows}
-                  emptyTitle="No recurring issues"
-                  emptyDescription="Nothing has been reported often enough in one barangay to count as recurring."
-                />
+              <div className="grid grid-cols-1 gap-6 mb-6 lg:grid-cols-4">
+                <div className="h-full rounded-2xl border border-gray-200 bg-white p-6 shadow-sm lg:col-span-3">
+                  <h2 className="mb-1 text-sm font-bold text-gray-900">Recurring Issues</h2>
+                  <p className="mb-4 text-xs text-gray-400">
+                    The same category reported {RECURRING_MIN_REPORTS} or more times in the same barangay in the
+                    last {RECURRING_WINDOW_DAYS} days. This window is fixed and does not follow the period selector.
+                  </p>
+                  <BarList
+                    rows={recurringRows}
+                    emptyTitle="No recurring issues"
+                    emptyDescription="Nothing has been reported often enough in one barangay to count as recurring."
+                  />
+                </div>
+
+                <div className="flex h-full flex-col rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-xs font-bold uppercase tracking-wide text-gray-400">Reopened tickets</p>
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-700">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="h-5 w-5"
+                      >
+                        <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
+                        <path d="M3 3v5h5" />
+                      </svg>
+                    </span>
+                  </div>
+                  <div className="flex flex-1 flex-col justify-center py-4">
+                    <p className="font-display text-4xl font-extrabold tabular-nums text-gray-900">
+                      {stats.reopenedCount}
+                    </p>
+                    <p className="mt-2 text-xs text-gray-400">
+                      {reopenHint || 'Reports filed in this period'}
+                    </p>
+                  </div>
+                  <p className="border-t border-gray-100 pt-4 text-xs text-gray-400">
+                    Tickets reopened after being marked resolved.
+                  </p>
+                </div>
               </div>
             </>
           )}

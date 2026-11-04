@@ -9,7 +9,8 @@ import BackButton from '@/components/ui/BackButton'
 import PageHeader from '@/components/ui/PageHeader'
 import Alert from '@/components/ui/Alert'
 import DataTable from '@/components/ui/DataTable'
-import { FilterSelect } from '@/components/ui/FilterBar'
+import { FilterBar, FilterSelect } from '@/components/ui/FilterBar'
+import SearchInput from '@/components/ui/SearchInput'
 import StatCard, { StatCardGrid } from '@/components/ui/StatCard'
 import { computeStageTimes, averageStages, formatDuration } from '@/lib/stageTimes'
 
@@ -66,6 +67,7 @@ function sortRows(rows, key) {
 export default function LinemanPerformancePage() {
   const [periodIndex, setPeriodIndex] = useState(0)
   const [sortKey, setSortKey] = useState('rating')
+  const [searchText, setSearchText] = useState('')
   const [linemen, setLinemen] = useState([])
   const [overall, setOverall] = useState(null)
   const [selected, setSelected] = useState(null)
@@ -186,7 +188,16 @@ export default function LinemanPerformancePage() {
     setLoading(false)
   }
 
-  const sorted = sortRows(linemen, sortKey)
+  const term = searchText.trim().toLowerCase()
+  const sorted = sortRows(linemen, sortKey).filter(
+    (l) =>
+      !term ||
+      [`${l.first_name} ${l.last_name}`, l.areaOffice]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+        .includes(term)
+  )
 
   return (
     <div>
@@ -196,28 +207,6 @@ export default function LinemanPerformancePage() {
         className="mt-4"
         title="Lineman Performance"
         description="Jobs completed, repair time, and consumer satisfaction ratings for each lineman."
-        actions={
-          <div className="flex items-center gap-4">
-            <FilterSelect
-              label="PERIOD"
-              value={periodIndex}
-              onChange={(value) => setPeriodIndex(Number(value))}
-            >
-              {PERIODS.map((p, i) => (
-                <option key={p.label} value={i}>
-                  {p.label}
-                </option>
-              ))}
-            </FilterSelect>
-            <FilterSelect label="SORT" value={sortKey} onChange={setSortKey}>
-              {SORTS.map((s) => (
-                <option key={s.key} value={s.key}>
-                  {s.label}
-                </option>
-              ))}
-            </FilterSelect>
-          </div>
-        }
       />
 
       <Alert>{error}</Alert>
@@ -256,11 +245,37 @@ export default function LinemanPerformancePage() {
         </StatCardGrid>
       )}
 
+      <FilterBar>
+        <SearchInput
+          value={searchText}
+          onChange={setSearchText}
+          placeholder="Search lineman name or area office…"
+        />
+        <FilterSelect
+          label="PERIOD"
+          value={periodIndex}
+          onChange={(value) => setPeriodIndex(Number(value))}
+        >
+          {PERIODS.map((p, i) => (
+            <option key={p.label} value={i}>
+              {p.label}
+            </option>
+          ))}
+        </FilterSelect>
+        <FilterSelect label="SORT" value={sortKey} onChange={setSortKey}>
+          {SORTS.map((s) => (
+            <option key={s.key} value={s.key}>
+              {s.label}
+            </option>
+          ))}
+        </FilterSelect>
+      </FilterBar>
+
       <DataTable
         columns={COLUMNS}
         loading={loading}
         isEmpty={sorted.length === 0}
-        empty="No lineman accounts yet."
+        empty={term ? 'No linemen match your search.' : 'No lineman accounts yet.'}
       >
         {sorted.map((l) => (
           <tr key={l.id} className="border-b border-gray-100 last:border-0">

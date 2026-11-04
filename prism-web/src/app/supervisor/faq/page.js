@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { getMyCooperativeId } from "@/lib/supabase/getCooperativeId";
 import { toast } from "@/lib/toast";
+import SearchInput from "@/components/ui/SearchInput";
 import usePagination from "@/lib/usePagination";
 import PageHeader from "@/components/ui/PageHeader";
 import Alert from "@/components/ui/Alert";
@@ -39,6 +40,7 @@ export default function FaqManagementPage() {
   const [editingEntry, setEditingEntry] = useState(null);
   const [deletingEntry, setDeletingEntry] = useState(null);
   const [answeringInquiry, setAnsweringInquiry] = useState(null);
+  const [searchText, setSearchText] = useState("");
   const { isUnread, markNotificationRead } = useUnreadSupervisorNotifications([
     "faq_inquiries",
   ]);
@@ -144,15 +146,37 @@ export default function FaqManagementPage() {
   const activeEntries = entries.filter((e) => !e.archived_at);
   const archivedEntries = entries.filter((e) => e.archived_at);
 
-  const filteredEntries =
+  const tabEntries =
     activeTab === "archived"
       ? archivedEntries
       : activeTab === "all" || activeTab === "unanswered"
         ? activeEntries
         : activeEntries.filter((e) => e.category === activeTab);
 
+  const term = searchText.trim().toLowerCase();
+
+  const filteredEntries = tabEntries.filter(
+    (e) =>
+      !term ||
+      [e.question, e.answer, e.question_tl, e.answer_tl, e.keywords, e.category]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(term)
+  );
+
+  const filteredInquiries = inquiries.filter(
+    (i) =>
+      !term ||
+      [i.question, i.consumer?.first_name, i.consumer?.last_name]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(term)
+  );
+
   const entriesPg = usePagination(filteredEntries);
-  const inquiriesPg = usePagination(inquiries);
+  const inquiriesPg = usePagination(filteredInquiries);
 
   const tabs = [
     { key: "all", label: "All Categories" },
@@ -207,14 +231,32 @@ export default function FaqManagementPage() {
 
         <div className="border-b border-gray-200 mt-3" />
 
+        <div className="px-5 py-4 border-b border-gray-100">
+          <SearchInput
+            value={searchText}
+            onChange={(v) => {
+              setSearchText(v);
+              entriesPg.setPage(1);
+              inquiriesPg.setPage(1);
+            }}
+            placeholder={
+              activeTab === "unanswered"
+                ? "Search pending questions or consumer name…"
+                : "Search questions, answers, or keywords…"
+            }
+          />
+        </div>
+
         <Alert className="m-5">{error}</Alert>
 
         {loading && <InlineLoading className="p-5" />}
 
         {!loading && activeTab === "unanswered" && (
           <div>
-            {inquiries.length === 0 && (
-              <p className="text-sm text-gray-500 p-5">No pending inquiries.</p>
+            {filteredInquiries.length === 0 && (
+              <p className="text-sm text-gray-500 p-5">
+                {term ? "No pending inquiries match your search." : "No pending inquiries."}
+              </p>
             )}
             {inquiriesPg.pageItems.map((inq) => (
               <FaqInquiryRow
@@ -236,14 +278,18 @@ export default function FaqManagementPage() {
             {filteredEntries.length === 0 && (
               <EmptyState
                 title={
-                  activeTab === "archived"
-                    ? "No archived FAQ entries"
-                    : "No FAQ entries yet"
+                  term
+                    ? "No FAQ entries match your search"
+                    : activeTab === "archived"
+                      ? "No archived FAQ entries"
+                      : "No FAQ entries yet"
                 }
                 description={
-                  activeTab === "archived"
-                    ? "FAQ entries you archive will show up here."
-                    : "Add a question and answer for your consumers, or answer a pending inquiry."
+                  term
+                    ? "Try different words, or clear the search box."
+                    : activeTab === "archived"
+                      ? "FAQ entries you archive will show up here."
+                      : "Add a question and answer for your consumers, or answer a pending inquiry."
                 }
               />
             )}
