@@ -24,8 +24,8 @@ export default function SupervisorDetailsModal({
   const isSelf = supervisor.id === currentUserId
   const [featureAccess, setFeatureAccess] = useState(supervisor.feature_access || [])
   const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
   const [showTransferConfirm, setShowTransferConfirm] = useState(false)
+  const [toggling, setToggling] = useState(false)
 
   function toggleFeature(key) {
     setFeatureAccess((prev) =>
@@ -35,7 +35,6 @@ export default function SupervisorDetailsModal({
 
   async function handleSaveAccess() {
     setSaving(true)
-    setError('')
     const supabase = createClient()
 
     const { error: updateError } = await supabase
@@ -44,8 +43,7 @@ export default function SupervisorDetailsModal({
       .eq('profile_id', supervisor.id)
 
     if (updateError) {
-      toast.error(updateError.message)
-      setError(updateError.message)
+      toast.error(updateError)
       setSaving(false)
       return
     }
@@ -54,42 +52,47 @@ export default function SupervisorDetailsModal({
     onSaved()
   }
 
-  async function handleTransferOwnership() {
-    setSaving(true)
-    setError('')
-    const supabase = createClient()
+   async function handleTransferOwnership() {
+     setSaving(true)
+     const supabase = createClient()
 
-    // Two sequential updates: strip ownership from the current owner,
-    // grant it to this supervisor. Not wrapped in a DB transaction —
-    // acceptable here since a partial failure just leaves the old owner
-    // still marked as owner, which is a safe state to retry from.
-    const { error: demoteError } = await supabase
-      .from('supervisor')
-      .update({ is_owner: false })
-      .eq('profile_id', currentUserId)
+     // Step 1: remove ownership from the current owner
+     const { error: demoteError } = await supabase
+       .from('supervisor')
+       .update({ is_owner: false })
+       .eq('profile_id', currentUserId)
 
-    if (demoteError) {
-      toast.error(demoteError.message)
-      setError(demoteError.message)
-      setSaving(false)
-      return
-    }
+     if (demoteError) {
+       toast.error(demoteError)
+       setSaving(false)
+       return
+     }
 
-    const { error: promoteError } = await supabase
-      .from('supervisor')
-      .update({ is_owner: true, feature_access: [] })
-      .eq('profile_id', supervisor.id)
+     // Step 2: give ownership to this supervisor
+     const { error: promoteError } = await supabase
+       .from('supervisor')
+       .update({ is_owner: true, feature_access: [] })
+       .eq('profile_id', supervisor.id)
 
-    if (promoteError) {
-      toast.error(promoteError.message)
-      setError(promoteError.message)
-      setSaving(false)
-      return
-    }
+     if (promoteError) {
+       // Put the current owner back so the cooperative is never left without one
+       const { error: restoreError } = await supabase
+         .from('supervisor')
+         .update({ is_owner: true })
+         .eq('profile_id', currentUserId)
 
-    toast.success('Ownership transferred')
-    onSaved()
-  }
+       toast.error(
+         restoreError
+           ? 'Ownership could not be transferred, and your owner access could not be restored. Please refresh and check the Supervisors tab.'
+           : 'Ownership was not transferred. Nothing was changed. Please try again.'
+       )
+       setSaving(false)
+       return
+     }
+
+     toast.success('Ownership transferred')
+     onSaved()
+   }
 
   return (
     <Modal title="Supervisor Details" onClose={onClose}>
@@ -147,12 +150,6 @@ export default function SupervisorDetailsModal({
         </div>
       )}
 
-      {error && (
-        <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-4">
-          {error}
-        </p>
-      )}
-
       {!isSelf && !supervisor.is_owner && (
         <div className="mb-4">
           {!showTransferConfirm ? (
@@ -190,18 +187,23 @@ export default function SupervisorDetailsModal({
         </div>
       )}
 
-      {!isSelf && (
-        <button
-          onClick={() => onToggleActive(supervisor.id, supervisor.is_active)}
-          className={`w-full py-2.5 rounded-lg text-sm font-semibold transition-colors ${
-            supervisor.is_active
-              ? 'bg-red-50 hover:bg-red-100 text-red-700'
-              : 'bg-blue-700 hover:bg-blue-800 text-white'
-          }`}
-        >
-          {supervisor.is_active ? 'Deactivate Account' : 'Reactivate Account'}
-        </button>
-      )}
+   {!isSelf && (
+     <button
+       disabled={toggling}
+       onClick={async () => {
+         setToggling(true)
+         await onToggleActive(supervisor.id, supervisor.is_active)
+         setToggling(false)
+       }}
+       className={`w-full py-2.5 rounded-lg text-sm font-semibold transition-colors disabled:opacity-60 ${
+         supervisor.is_active
+           ? 'bg-red-50 hover:bg-red-100 text-red-700'
+           : 'bg-blue-700 hover:bg-blue-800 text-white'
+       }`}
+     >
+       {toggling ? 'Working…' : supervisor.is_active ? 'Deactivate Account' : 'Reactivate Account'}
+     </button>
+   )}
     </Modal>
   )
 }

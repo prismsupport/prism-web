@@ -8,6 +8,7 @@ import Card from '@/components/ui/Card'
 import CooperativeStatusActions from '@/components/superadmin/CooperativeStatusActions'
 import CooperativeStatusHistory from '@/components/superadmin/CooperativeStatusHistory'
 import BackButton from '@/components/ui/BackButton'
+import Alert from '@/components/ui/Alert';
 import { PageLoading } from "@/components/ui/Skeleton";
 import { toast } from '@/lib/toast'
 
@@ -272,11 +273,7 @@ export default function CooperativeDetailPage() {
             )}
           </dl>
 
-          {error && (
-            <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mt-4">
-              {error}
-            </p>
-          )}
+          <Alert className="mt-4">{error}</Alert>
 
           <CooperativeStatusActions
             isPending={isPending}

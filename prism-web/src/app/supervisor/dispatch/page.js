@@ -13,6 +13,7 @@ import DispatchTicketRow from "@/components/dispatch/DispatchTicketRow";
 import StatusNamesModal from "@/components/dispatch/StatusNamesModal";
 import ManagePriorityLevelsModal from "@/components/dispatch/ManagePriorityLevelsModal";
 import OfficeHoursModal from "@/components/dispatch/OfficeHoursModal";
+import Alert from '@/components/ui/Alert';
 import { usePermissions } from "@/lib/supervisor/PermissionsContext";
 import {
   useSupervisorNotificationRefresh,
@@ -456,11 +457,7 @@ function DispatchContent() {
         onSettings={() => setShowSettings(true)}
       />
 
-      {error && (
-        <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-4">
-          {error}
-        </p>
-      )}
+      <Alert>{error}</Alert>
 
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">

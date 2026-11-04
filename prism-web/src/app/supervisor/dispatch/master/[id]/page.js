@@ -20,6 +20,7 @@ import { PageLoading } from "@/components/ui/Skeleton";
 import { toast } from '@/lib/toast'
 import ReopenTicketModal from '@/components/dispatch/ReopenTicketModal'
 import ReopenReasonNote from '@/components/dispatch/ReopenReasonNote'
+import Alert from '@/components/ui/Alert';
 import { issueLabel } from '@/lib/issueCodes'
 
 export default function MasterTicketDetailPage() {
@@ -332,9 +333,7 @@ export default function MasterTicketDetailPage() {
 
   if (error || !master) {
     return (
-      <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
-        {error || 'Master ticket not found.'}
-      </p>
+      <Alert className="">{error || 'Master ticket not found.'}</Alert>
     )
   }
 
@@ -457,11 +456,7 @@ export default function MasterTicketDetailPage() {
             </div>
           </div>
 
-          {error && (
-            <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
-              {error}
-            </p>
-          )}
+          <Alert className="">{error}</Alert>
 
           {assignment?.reopen_reason && (
             <ReopenReasonNote source={assignment.reopen_source} reason={assignment.reopen_reason} />

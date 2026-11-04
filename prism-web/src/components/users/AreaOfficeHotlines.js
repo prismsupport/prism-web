@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import Alert from '@/components/ui/Alert'
 import { usePermissions } from '@/lib/supervisor/PermissionsContext'
 import { toast } from '@/lib/toast'
 
@@ -98,11 +99,7 @@ export default function AreaOfficeHotlines({ areaOffices }) {
         </div>
       )}
 
-      {error && (
-        <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mt-3">
-          {error}
-        </p>
-      )}
+      <Alert className="mt-3">{error}</Alert>
 
       {isOwner && !loading && (
         <div className="flex justify-end mt-3">

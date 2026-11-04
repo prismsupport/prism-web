@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import Alert from '@/components/ui/Alert';
 import ReportMap from '@/components/ui/ReportMap'
 import SuggestionConfidenceBanner from '@/components/dispatch/SuggestionConfidenceBanner'
 import ClusterMemberList from '@/components/dispatch/ClusterMemberList'
@@ -232,9 +233,7 @@ export default function ClusterReviewPage() {
   if (error) {
     return (
       <div>
-        <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-4">
-          {error}
-        </p>
+        <Alert className="">{error}</Alert>
         <BackToDispatchLink />
       </div>
     )
@@ -271,11 +270,7 @@ export default function ClusterReviewPage() {
           onToggleChecked={handleToggleChecked}
         />
 
-        {error && (
-          <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
-            {error}
-          </p>
-        )}
+        <Alert>{error}</Alert>
 
         <div className="flex gap-3">
           <button

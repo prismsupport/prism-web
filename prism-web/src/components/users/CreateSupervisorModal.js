@@ -2,6 +2,8 @@
 
 import { useState } from 'react'
 import Modal from '@/components/ui/Modal'
+import Alert from '@/components/ui/Alert'
+import Button from '@/components/ui/Button'
 import FormSection from '@/components/ui/FormSection'
 import FormField from '@/components/ui/FormField'
 import { toast } from '@/lib/toast'
@@ -21,7 +23,6 @@ export default function CreateSupervisorModal({ cooperativeId, onClose, onCreate
     password: '',
   })
   const [featureAccess, setFeatureAccess] = useState([])
-  const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
   function handleChange(e) {
@@ -36,19 +37,23 @@ export default function CreateSupervisorModal({ cooperativeId, onClose, onCreate
 
   async function handleSubmit(e) {
     e.preventDefault()
-    setError('')
     setLoading(true)
 
-    const res = await fetch('/api/supervisor/create-supervisor', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ cooperativeId, ...form, featureAccess }),
-    })
-    const result = await res.json()
+    try {
+      const res = await fetch('/api/supervisor/create-supervisor', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cooperativeId, ...form, featureAccess }),
+      })
+      const result = await res.json().catch(() => ({}))
 
-    if (!res.ok) {
-      toast.error(result.error || 'Failed to create account.')
-      setError(result.error || 'Failed to create account.')
+      if (!res.ok) {
+        toast.error(result.error || 'Failed to create the account. Nothing was saved.')
+        setLoading(false)
+        return
+      }
+    } catch (err) {
+      toast.error(err)
       setLoading(false)
       return
     }
@@ -103,7 +108,7 @@ export default function CreateSupervisorModal({ cooperativeId, onClose, onCreate
           <div className="flex items-center gap-2 mb-3 pb-2 border-b border-gray-100">
             <h3 className="font-semibold text-gray-900 text-sm">Feature Access</h3>
           </div>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {FEATURES.map((f) => (
               <label
                 key={f.key}
@@ -131,27 +136,13 @@ export default function CreateSupervisorModal({ cooperativeId, onClose, onCreate
           onChange={handleChange}
         />
 
-        {error && (
-          <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mt-4 mb-4">
-            {error}
-          </p>
-        )}
-
         <div className="flex justify-end gap-3 mt-4">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2.5 rounded-lg text-sm font-semibold text-gray-600 border border-gray-200 hover:bg-gray-50"
-          >
+          <Button type="button" variant="outline" dim={false} onClick={onClose} disabled={loading}>
             Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={loading}
-            className="px-4 py-2.5 rounded-lg text-sm font-semibold text-white bg-blue-700 hover:bg-blue-800 disabled:opacity-60"
-          >
+          </Button>
+          <Button type="submit" disabled={loading}>
             {loading ? 'Creating…' : 'Create Account'}
-          </button>
+          </Button>
         </div>
       </form>
     </Modal>

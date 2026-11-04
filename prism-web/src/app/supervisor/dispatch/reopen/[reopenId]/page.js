@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import Alert from '@/components/ui/Alert'
 import TicketDetailHeader from '@/components/dispatch/TicketDetailHeader'
 import BackToDispatchLink from '@/components/dispatch/BackToDispatchLink'
 import ReporterInfo from '@/components/dispatch/ReporterInfo'
@@ -226,9 +227,7 @@ export default function ReopenReviewPage() {
 
   if (error && !reopen) {
     return (
-      <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
-        {error}
-      </p>
+      <Alert className="">{error}</Alert>
     )
   }
 
@@ -315,11 +314,7 @@ export default function ReopenReviewPage() {
         </div>
       )}
 
-      {error && (
-        <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mt-6">
-          {error}
-        </p>
-      )}
+      <Alert className="mt-6">{error}</Alert>
 
       {!showRejectBox ? (
         <div className="flex gap-3 mt-6 max-w-2xl">

@@ -57,7 +57,6 @@ export default function ServiceAreaFormModal({
 
       if (updateError) {
         toast.error(updateError.message)
-        setError(updateError.message)
         setLoading(false)
         return
       }
@@ -69,7 +68,6 @@ export default function ServiceAreaFormModal({
 
       if (insertError) {
         toast.error(insertError.message)
-        setError(insertError.message)
         setLoading(false)
         return
       }

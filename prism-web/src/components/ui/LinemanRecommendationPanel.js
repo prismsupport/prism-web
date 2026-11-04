@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { formatLastSeen } from '@/lib/lineman/duty'
 import { useStatusLabels } from '@/lib/workflow/StatusLabelsContext'
 import Avatar from '@/components/ui/Avatar'
+import Alert from '@/components/ui/Alert'
 
 const REASON_LABEL = {
   on_duty: 'On duty',
@@ -117,11 +118,7 @@ export default function LinemanRecommendationPanel({
       </p>
 
       {loading && <p className="text-sm text-gray-500">Loading recommendations…</p>}
-      {error && (
-        <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-3">
-          {error}
-        </p>
-      )}
+      <Alert className="mb-3">{error}</Alert>
       {!loading && ranked.length === 0 && (
         <p className="text-sm text-gray-500">No lineman accounts found.</p>
       )}

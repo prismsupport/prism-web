@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import Alert from '@/components/ui/Alert'
 import Card from '@/components/ui/Card'
 import FormSection from '@/components/ui/FormSection'
 import FormField from '@/components/ui/FormField'
@@ -380,11 +381,7 @@ export default function SupervisorProfilePage() {
                 <FormField label="Email Address" value={form.email} disabled />
               </FormSection>
 
-              {error && (
-                <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-4">
-                  {error}
-                </p>
-              )}
+              <Alert>{error}</Alert>
               {success && (
                 <p className="text-sm text-green-700 bg-green-50 border border-green-100 rounded-lg px-3 py-2 mb-4">
                   {success}
@@ -435,11 +432,7 @@ export default function SupervisorProfilePage() {
                     />
                   </div>
 
-                  {emailError && (
-                    <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
-                      {emailError}
-                    </p>
-                  )}
+                  <Alert className="">{emailError}</Alert>
                   {emailSuccess && (
                     <p className="text-sm text-green-700 bg-green-50 border border-green-100 rounded-lg px-3 py-2">
                       {emailSuccess}
@@ -488,11 +481,7 @@ export default function SupervisorProfilePage() {
                     </div>
                   </div>
 
-                  {passwordError && (
-                    <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
-                      {passwordError}
-                    </p>
-                  )}
+                  <Alert className="">{passwordError}</Alert>
                   {passwordSuccess && (
                     <p className="text-sm text-green-700 bg-green-50 border border-green-100 rounded-lg px-3 py-2">
                       {passwordSuccess}

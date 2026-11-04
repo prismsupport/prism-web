@@ -82,7 +82,7 @@ export default function ProvideAnswerModal({ inquiry, cooperativeId, categories,
       .eq('faq_inquiries_id', inquiry.faq_inquiries_id)
 
     if (inquiryError) {
-      setError(inquiryError.message)
+      toast.error(inquiryError)
       setLoading(false)
       return
     }
@@ -108,7 +108,9 @@ export default function ProvideAnswerModal({ inquiry, cooperativeId, categories,
       if (entryError) {
         // The reply was already sent. Pressing the button again is safe: it
         // won't notify the consumer twice, it only retries the FAQ entry.
-        setError(`The reply was sent, but the FAQ entry could not be saved: ${entryError.message}`)
+        toast.error(
+          `The reply was sent, but the FAQ entry could not be saved: ${entryError.message}. Press the button again to retry the FAQ entry only. The consumer will not be notified twice.`
+        )
         setLoading(false)
         return
       }
@@ -224,7 +226,7 @@ export default function ProvideAnswerModal({ inquiry, cooperativeId, categories,
         <Alert>{error}</Alert>
 
         <div className="flex justify-end gap-3">
-          <Button type="button" variant="outline" dim={false} onClick={onClose}>
+          <Button type="button" variant="outline" dim={false} onClick={onClose} disabled={loading}>
             Cancel
           </Button>
           <Button type="submit" disabled={loading}>

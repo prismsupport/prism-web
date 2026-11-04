@@ -18,6 +18,7 @@ import StageBreakdown from '@/components/dashboard/StageBreakdown'
 import { computeStageTimes, averageStages } from '@/lib/stageTimes'
 import AreaBreakdown from '@/components/dashboard/AreaBreakdown'
 import BarList from '@/components/dashboard/BarList'
+import Alert from '@/components/ui/Alert';
 import { issueLabel } from '@/lib/issueCodes'
 import { loadRecentIssueReports, buildRecurringGroups, RECURRING_MIN_REPORTS, RECURRING_WINDOW_DAYS } from '@/lib/recurring'
 
@@ -519,9 +520,7 @@ export default function SupervisorDashboardPage() {
 
   if (!data) {
     return (
-      <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
-        {error || 'Unable to load the dashboard.'}
-      </p>
+      <Alert className="">{error || 'Unable to load the dashboard.'}</Alert>
     )
   }
 
@@ -586,11 +585,7 @@ export default function SupervisorDashboardPage() {
         </div>
       </div>
 
-      {error && (
-        <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-4">
-          {error}
-        </p>
-      )}
+      <Alert>{error}</Alert>
 
       {data.truncated && (
         <p className="text-sm text-amber-800 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 mb-4">
