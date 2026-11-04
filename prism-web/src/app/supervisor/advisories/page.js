@@ -22,12 +22,11 @@ import ArchiveIcon from '@/components/ui/icons/ArchiveIcon'
 
 const COLUMNS = [
   'Advisory Title',
-  'Date',
-  'Start Time',
-  'End Time',
-  'Status',
-  'Affected Scope',
-  'Actions',
+  { label: 'Date', className: 'text-center whitespace-nowrap' },
+  { label: 'Time', className: 'text-center whitespace-nowrap' },
+  { label: 'Status', className: 'text-center' },
+  { label: 'Affected Scope', className: 'text-center' },
+  { label: 'Actions', className: 'text-center' },
 ]
 
 function computeStatus(advisory) {

@@ -12,6 +12,7 @@ import DataTable from '@/components/ui/DataTable'
 import { FilterBar, FilterSelect } from '@/components/ui/FilterBar'
 import SearchInput from '@/components/ui/SearchInput'
 import StatCard, { StatCardGrid } from '@/components/ui/StatCard'
+import ViewAction from '@/components/ui/ViewAction'
 import { computeStageTimes, averageStages, formatDuration } from '@/lib/stageTimes'
 
 const PERIODS = [
@@ -28,15 +29,15 @@ const SORTS = [
 ]
 
 const COLUMNS = [
-  'Lineman',
-  'Area Office',
-  'Jobs Completed',
-  'Avg. Repair Time',
-  'Avg. Travel',
-  'Avg. On-site',
-  'Avg. Rating',
-  'Ratings',
-  'Actions',
+  { label: 'Lineman', className: 'text-center' },
+  { label: 'Area Office', className: 'text-center' },
+  { label: 'Jobs Completed', className: 'text-center' },
+  { label: 'Avg. Repair Time', className: 'text-center' },
+  { label: 'Avg. Travel', className: 'text-center' },
+  { label: 'Avg. On-site', className: 'text-center' },
+  { label: 'Avg. Rating', className: 'text-center' },
+  { label: 'Ratings', className: 'text-center' },
+  { label: 'Action', className: 'text-center' },
 ]
 
 function compareNullable(a, b, descending) {
@@ -68,6 +69,7 @@ export default function LinemanPerformancePage() {
   const [periodIndex, setPeriodIndex] = useState(0)
   const [sortKey, setSortKey] = useState('rating')
   const [searchText, setSearchText] = useState('')
+  const [areaOfficeFilter, setAreaOfficeFilter] = useState('All Area Offices')
   const [linemen, setLinemen] = useState([])
   const [overall, setOverall] = useState(null)
   const [selected, setSelected] = useState(null)
@@ -189,15 +191,23 @@ export default function LinemanPerformancePage() {
   }
 
   const term = searchText.trim().toLowerCase()
-  const sorted = sortRows(linemen, sortKey).filter(
-    (l) =>
+  const areaOfficeOptions = [...new Set(linemen.map((l) => l.areaOffice).filter(Boolean))].sort((a, b) =>
+    a.localeCompare(b)
+  )
+  const filtered = linemen.filter((l) => {
+    const matchesAreaOffice =
+      areaOfficeFilter === 'All Area Offices' || l.areaOffice === areaOfficeFilter
+    const matchesSearch =
       !term ||
       [`${l.first_name} ${l.last_name}`, l.areaOffice]
         .filter(Boolean)
         .join(' ')
         .toLowerCase()
         .includes(term)
-  )
+
+    return matchesAreaOffice && matchesSearch
+  })
+  const sorted = sortRows(filtered, sortKey)
 
   return (
     <div>
@@ -269,6 +279,18 @@ export default function LinemanPerformancePage() {
             </option>
           ))}
         </FilterSelect>
+        <FilterSelect
+          label="AREA OFFICE"
+          value={areaOfficeFilter}
+          onChange={setAreaOfficeFilter}
+        >
+          <option value="All Area Offices">All Area Offices</option>
+          {areaOfficeOptions.map((areaOffice) => (
+            <option key={areaOffice} value={areaOffice}>
+              {areaOffice}
+            </option>
+          ))}
+        </FilterSelect>
       </FilterBar>
 
       <DataTable
@@ -279,18 +301,18 @@ export default function LinemanPerformancePage() {
       >
         {sorted.map((l) => (
           <tr key={l.id} className="border-b border-gray-100 last:border-0">
-            <td className="px-5 py-4 font-medium text-gray-900">
+            <td className="px-5 py-4 text-center font-medium text-gray-900">
               {l.first_name} {l.last_name}
               {!l.is_active && (
                 <span className="ml-2 text-xs font-semibold text-gray-400">Inactive</span>
               )}
             </td>
-            <td className="px-5 py-4 text-gray-600">{l.areaOffice || '—'}</td>
-            <td className="px-5 py-4 text-gray-600">{l.jobsCompleted}</td>
-            <td className="px-5 py-4 text-gray-600">{formatMinutes(l.avgRepair)}</td>
-            <td className="px-5 py-4 text-gray-600">{formatDuration(l.avgTravel)}</td>
-            <td className="px-5 py-4 text-gray-600">{formatDuration(l.avgOnSite)}</td>
-            <td className="px-5 py-4">
+            <td className="px-5 py-4 text-center text-gray-600">{l.areaOffice || '—'}</td>
+            <td className="px-5 py-4 text-center text-gray-600">{l.jobsCompleted}</td>
+            <td className="px-5 py-4 text-center text-gray-600">{formatMinutes(l.avgRepair)}</td>
+            <td className="px-5 py-4 text-center text-gray-600">{formatDuration(l.avgTravel)}</td>
+            <td className="px-5 py-4 text-center text-gray-600">{formatDuration(l.avgOnSite)}</td>
+            <td className="px-5 py-4 text-center">
               {l.ratingCount > 0 ? (
                 <span className="font-semibold text-gray-900">
                   <span className="text-amber-500">★</span> {l.ratingAverage.toFixed(1)}
@@ -299,14 +321,12 @@ export default function LinemanPerformancePage() {
                 <span className="text-xs text-gray-400">No ratings</span>
               )}
             </td>
-            <td className="px-5 py-4 text-gray-600">{l.ratingCount}</td>
-            <td className="px-5 py-4">
-              <button
+            <td className="px-5 py-4 text-center text-gray-600">{l.ratingCount}</td>
+            <td className="px-5 py-4 text-center">
+              <ViewAction
                 onClick={() => setSelected(l)}
-                className="bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
-              >
-                View
-              </button>
+                label={`View performance details for ${l.first_name} ${l.last_name}`}
+              />
             </td>
           </tr>
         ))}

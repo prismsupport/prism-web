@@ -1,7 +1,7 @@
 import StatusPill from "@/components/ui/StatusPill"
 import Badge from "@/components/ui/Badge"
-import { ButtonLink } from "@/components/ui/Button"
-import { formatDateTime, formatTime, DATETIME_FULL } from "@/lib/format"
+import ViewAction from "@/components/ui/ViewAction"
+import { formatDate, formatTime } from "@/lib/format"
 
 export default function DispatchTicketRow({
   ticket,
@@ -21,13 +21,18 @@ export default function DispatchTicketRow({
   const detailHref = isMaster
     ? `/supervisor/dispatch/master/${ticket.master_id}`
     : `/supervisor/dispatch/report/${ticket.report_id}`;
+  const updatedAt =
+    assignment?.updated_at ||
+    assignment?.assigned_at ||
+    ticket.updated_at ||
+    ticket.created_at;
 
   return (
     <tr className="border-b border-gray-100 last:border-0">
       <td className="px-5 py-4">
         <p className="font-semibold text-gray-900">
           {isUnread && (
-            <span className="inline-block w-2 h-2 mr-2 rounded-full bg-red-500 align-middle" />
+            <span className="inline-block w-1.5 h-1.5 mr-1.5 rounded-full bg-red-500 align-middle" />
           )}
           {isMaster ? ticket.master_ticket : ticket.ticket_number}
           {isMaster && (
@@ -42,14 +47,14 @@ export default function DispatchTicketRow({
           )}
         </p>
         {isClustered && (
-          <p className="text-xs text-green-600 font-medium flex items-center gap-1 mt-0.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-green-600" />
+          <p className="text-[11px] text-green-600 font-medium flex items-center gap-1 mt-0.5">
+            <span className="w-1 h-1 rounded-full bg-green-600" />
             Highly Likely Duplicate
           </p>
         )}
         {isOverdue && (
-          <p className="text-xs text-red-600 font-medium flex items-center gap-1 mt-0.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-red-600" />
+          <p className="text-[11px] text-red-600 font-medium flex items-center gap-1 mt-0.5">
+            <span className="w-1 h-1 rounded-full bg-red-600" />
             Response Time Exceeded
           </p>
         )}
@@ -68,15 +73,9 @@ export default function DispatchTicketRow({
       </td>
       <td className="px-5 py-4">
         <p className="font-medium text-gray-900">
-          {isMaster
-            ? `${ticket.barangay}, ${ticket.municipality}`
-            : ticket.nearest_landmark || `${ticket.barangay}, ${ticket.municipality}`}
+          {ticket.barangay}, {ticket.municipality}
         </p>
-        <p className="text-xs text-gray-400">
-          {!isMaster && `Zone ${ticket.zone || "—"}, `}
-          {ticket.barangay}, {ticket.municipality} •{" "}
-          {formatTime(ticket.created_at)}
-        </p>
+        <p className="text-xs text-gray-400">Reported {formatTime(ticket.created_at)}</p>
       </td>
       <td className="px-5 py-4">
         <StatusPill status={bucket} labelOf={status} />
@@ -84,24 +83,23 @@ export default function DispatchTicketRow({
       <td className="px-5 py-4 text-gray-700">
         {assignment ? assigneeName || "Assigned" : "Unassigned"}
       </td>
-      <td className="px-5 py-4 text-gray-600">
-        {formatDateTime(
-          assignment?.updated_at ||
-            assignment?.assigned_at ||
-            ticket.updated_at ||
-            ticket.created_at,
-          DATETIME_FULL,
-        )}
+      <td className="px-5 py-4 text-center text-gray-600">
+        <span className="block">{formatTime(updatedAt)}</span>
+        <span className="block">
+          {formatDate(updatedAt, {
+            month: "2-digit",
+            day: "2-digit",
+            year: "numeric",
+          }).replace(/\//g, "-")}
+        </span>
       </td>
       <td className="px-5 py-4 text-center">
-        <ButtonLink
+        <ViewAction
           href={detailHref}
           onClick={onOpen}
-          size="row"
-          variant={isReviewable ? "primary" : "neutral"}
+          label={isReviewable ? "Review ticket" : "View ticket details"}
         >
-          {isReviewable ? "Review" : "View Details"}
-        </ButtonLink>
+        </ViewAction>
       </td>
     </tr>
   );

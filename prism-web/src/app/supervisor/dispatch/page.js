@@ -474,7 +474,7 @@ function DispatchContent() {
               <th className="px-5 py-3 font-semibold">Job Order Status</th>
               <th className="px-5 py-3 font-semibold">Assignee</th>
               <th className="px-5 py-3 font-semibold">Last Updated</th>
-              <th className="px-5 py-3 font-semibold">Actions</th>
+              <th className="px-5 py-3 font-semibold">Action</th>
             </tr>
           </thead>
           <tbody>

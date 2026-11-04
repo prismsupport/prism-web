@@ -1,7 +1,7 @@
 import { summarizeSchedule } from '@/lib/lineman/schedule'
 import { formatLastSeen, DUTY_BADGES } from '@/lib/lineman/duty'
-import Button from '@/components/ui/Button'
 import Badge from '@/components/ui/Badge'
+import ViewAction from '@/components/ui/ViewAction'
 
 export default function LinemanRow({ lineman, duty, onSelect }) {
   const shifts = summarizeSchedule(lineman.schedule)
@@ -9,10 +9,10 @@ export default function LinemanRow({ lineman, duty, onSelect }) {
 
   return (
     <tr className="border-b border-gray-100 last:border-0">
-      <td className="px-5 py-4 font-medium text-gray-900">
+      <td className="px-5 py-4 text-center font-medium text-gray-900">
         {lineman.first_name} {lineman.last_name}
       </td>
-      <td className="px-5 py-4 text-gray-600">{lineman.assigned_area_office || '—'}</td>
+      <td className="px-5 py-4 text-center text-gray-600">{lineman.assigned_area_office || '—'}</td>
       <td className="px-5 py-4 text-center">
         {shifts.length === 0 ? (
           <span className="text-xs text-gray-400">No schedule set</span>
@@ -29,7 +29,7 @@ export default function LinemanRow({ lineman, duty, onSelect }) {
           </div>
         )}
       </td>
-      <td className="px-5 py-4">
+      <td className="px-5 py-4 text-center">
         {!lineman.is_active ? (
           <span className="text-xs text-gray-400">Deactivated</span>
         ) : badge ? (
@@ -48,11 +48,9 @@ export default function LinemanRow({ lineman, duty, onSelect }) {
           <span className="text-xs text-gray-400">—</span>
         )}
       </td>
-      <td className="px-5 py-4 text-gray-600">{lineman.phone_number}</td>
-      <td className="px-5 py-4">
-        <Button type="button" variant="neutral" size="row" dim={false} onClick={() => onSelect(lineman)}>
-          View Details
-        </Button>
+      <td className="px-5 py-4 text-center text-gray-600">{lineman.phone_number}</td>
+      <td className="px-5 py-4 text-center">
+        <ViewAction onClick={() => onSelect(lineman)} label="View lineman details" />
       </td>
     </tr>
   )

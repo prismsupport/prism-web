@@ -19,14 +19,15 @@ export default function AdvisoryRow({ advisory, archived = false, onEdit, onDele
           <span className="font-semibold text-gray-900">{advisory.title}</span>
         </div>
       </td>
-      <td className="px-5 py-4 text-gray-600">{formatDate(advisory.date)}</td>
-      <td className="px-5 py-4 text-gray-600">{formatClockTime(advisory.start_time)}</td>
-      <td className="px-5 py-4 text-gray-600">{formatClockTime(advisory.end_time)}</td>
-      <td className="px-5 py-4">
+      <td className="px-5 py-4 text-center text-gray-600 whitespace-nowrap">{formatDate(advisory.date)}</td>
+      <td className="px-5 py-4 text-center text-gray-600 whitespace-nowrap">
+        {formatClockTime(advisory.start_time)} - {formatClockTime(advisory.end_time)}
+      </td>
+      <td className="px-5 py-4 text-center">
         <StatusPill status={advisory.computedStatus} />
       </td>
-      <td className="px-5 py-4">
-        <div className="flex flex-wrap gap-1">
+      <td className="px-5 py-4 text-center">
+        <div className="flex flex-wrap justify-center gap-1">
           {advisory.targets.map((t) => (
             <Badge key={t.target_id} bold={false}>
               {t.scope_type === 'entire_cooperative' ? 'Entire Cooperative' : t.target_value}
@@ -34,13 +35,14 @@ export default function AdvisoryRow({ advisory, archived = false, onEdit, onDele
           ))}
         </div>
       </td>
-      <td className="px-5 py-4">
+      <td className="px-5 py-4 text-center">
         {archived ? (
           <Button type="button" variant="neutral" size="row" dim={false} onClick={() => onRestore(advisory)}>
             Restore
           </Button>
         ) : (
           <RowActions
+            className="justify-center"
             archive
             onEdit={() => onEdit(advisory)}
             onDelete={() => onDelete(advisory)}

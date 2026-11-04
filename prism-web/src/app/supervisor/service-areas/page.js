@@ -20,7 +20,15 @@ import ServiceAreaRow from '@/components/service-areas/ServiceAreaRow'
 import ManageAreaOfficesModal from '@/components/users/ManageAreaOfficesModal'
 import ArchiveIcon from '@/components/ui/icons/ArchiveIcon'
 
-const COLUMNS = ['Barangay', 'Municipality', 'Province', 'Feeder', 'Substation', 'Area Office', 'Actions']
+const COLUMNS = [
+  'Barangay',
+  'Municipality',
+  'Province',
+  'Feeder',
+  'Substation',
+  'Area Office',
+  'Actions',
+].map((label) => ({ label, className: 'text-center' }))
 
 export default function ServiceAreasPage() {
   const [cooperativeId, setCooperativeId] = useState(null)

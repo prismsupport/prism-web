@@ -1,5 +1,5 @@
-import Button from '@/components/ui/Button'
 import Badge from '@/components/ui/Badge'
+import ViewAction from '@/components/ui/ViewAction'
 
 const FEATURE_LABELS = {
   dispatch: 'Dispatch',
@@ -13,7 +13,7 @@ export default function SupervisorRow({ supervisor, currentUserId, onSelect }) {
 
   return (
     <tr className="border-b border-gray-100 last:border-0">
-      <td className="px-5 py-4 font-medium text-gray-900">
+      <td className="px-5 py-4 text-center font-medium text-gray-900">
         {supervisor.first_name} {supervisor.last_name}
         {isSelf && <span className="ml-2 text-xs text-gray-400">(You)</span>}
       </td>
@@ -34,11 +34,9 @@ export default function SupervisorRow({ supervisor, currentUserId, onSelect }) {
           <span className="text-xs text-gray-400">No access granted</span>
         )}
       </td>
-      <td className="px-5 py-4 text-gray-600">{supervisor.phone_number}</td>
-      <td className="px-5 py-4">
-        <Button type="button" variant="neutral" size="row" dim={false} onClick={() => onSelect(supervisor)}>
-          View Details
-        </Button>
+      <td className="px-5 py-4 text-center text-gray-600">{supervisor.phone_number}</td>
+      <td className="px-5 py-4 text-center">
+        <ViewAction onClick={() => onSelect(supervisor)} label="View supervisor details" />
       </td>
     </tr>
   )

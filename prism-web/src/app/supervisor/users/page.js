@@ -35,22 +35,22 @@ const LINEMAN_COLUMNS = [
   'Shift',
   'Duty Status',
   'Contact Number',
-  'Actions',
-]
+  'Action',
+].map((label) => ({ label, className: 'text-center' }))
 const CONSUMER_COLUMNS = [
   'Name',
   'Contact Number',
   'Zone',
   'Barangay',
   'Municipality',
-  { label: 'Actions', className: 'text-center' },
-]
+  'Action',
+].map((label) => ({ label, className: 'text-center' }))
 const SUPERVISOR_COLUMNS = [
   'Name',
-  { label: 'Access', className: 'text-center' },
+  'Access',
   'Contact Number',
-  'Actions',
-]
+  'Action',
+].map((label) => ({ label, className: 'text-center' }))
 
 export default function UsersPage() {
   const [activeTab, setActiveTab] = useState('lineman')
