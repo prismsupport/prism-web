@@ -14,22 +14,27 @@ import {
   useStatusLabels,
 } from '@/lib/workflow/StatusLabelsContext'
 
-const ROWS = [
-  { code: 'pending', used: 'Ticket', help: 'Report received, no lineman assigned yet' },
-  { code: 'dispatched', used: 'Ticket', help: 'A lineman has been assigned' },
-  { code: 'in_progress', used: 'Ticket and job step', help: 'The repair is underway' },
-  { code: 'qa_review', used: 'Ticket', help: 'Marked fixed, waiting for supervisor review' },
-  { code: 'resolved', used: 'Ticket and job step', help: 'Approved and closed' },
-  { code: 'cancelled', used: 'Ticket', help: 'Report declined by a supervisor' },
-  { code: 'assigned', used: 'Job step', help: 'Lineman assigned, not on the move yet' },
-  { code: 'on_the_way', used: 'Job step', help: 'Lineman is travelling to the site' },
-  { code: 'arrived_at_site', used: 'Job step', help: 'Lineman is at the site' },
-  { code: 'fixed', used: 'Job step', help: 'Lineman marked the repair as done' },
-]
+// help text shows on hover (title) instead of taking a line on every row
+const HELP = {
+  pending: 'Report received, no lineman assigned yet',
+  dispatched: 'A lineman has been assigned',
+  in_progress: 'The repair is underway (ticket status and job step)',
+  qa_review: 'Marked fixed, waiting for supervisor review',
+  resolved: 'Approved and closed (ticket status and job step)',
+  cancelled: 'Report declined by a supervisor',
+  assigned: 'Lineman assigned, not on the move yet',
+  on_the_way: 'Lineman is travelling to the site',
+  arrived_at_site: 'Lineman is at the site',
+  fixed: 'Lineman marked the repair as done',
+}
+
+const TICKET_ROWS = TICKET_STATUS_CODES
+const JOB_ONLY_ROWS = JOB_STATUS_CODES.filter((c) => !TICKET_STATUS_CODES.includes(c))
+const ALL_CODES = [...TICKET_ROWS, ...JOB_ONLY_ROWS]
 
 function findProblem(values) {
-  for (const row of ROWS) {
-    const text = values[row.code].trim()
+  for (const code of ALL_CODES) {
+    const text = values[code].trim()
     if (text.length < 1) return 'Every status needs a name.'
     if (text.length > 30) return 'Names can be at most 30 characters.'
   }
@@ -72,8 +77,8 @@ export default function StatusNamesModal({ onClose }) {
     setError('')
 
     const payload = {}
-    ROWS.forEach((r) => {
-      payload[r.code] = values[r.code].trim()
+    ALL_CODES.forEach((code) => {
+      payload[code] = values[code].trim()
     })
 
     const supabase = createClient()
@@ -90,53 +95,62 @@ export default function StatusNamesModal({ onClose }) {
     onClose()
   }
 
+  function renderRow(code) {
+    const changed = values[code] !== DEFAULT_STATUS_LABELS[code]
+    return (
+      <div key={code} className="border border-gray-200 rounded-lg p-2.5" title={HELP[code]}>
+        <div className="flex items-center gap-2">
+          <div className="w-32 shrink-0">
+            <StatusPill status={code} label={values[code].trim() || '—'} />
+          </div>
+          <input
+            value={values[code]}
+            maxLength={30}
+            onChange={(e) => setValue(code, e.target.value)}
+            aria-label={`Name for ${DEFAULT_STATUS_LABELS[code]}`}
+            className="min-w-0 flex-1 px-3 py-1.5 rounded-lg border border-gray-200 bg-gray-50 text-sm"
+          />
+        </div>
+        <div className="flex items-center justify-between mt-1 pl-[8.5rem]">
+          <span className="text-xs text-gray-400">Default: {DEFAULT_STATUS_LABELS[code]}</span>
+          {changed && (
+            <button
+              type="button"
+              onClick={() => setValue(code, DEFAULT_STATUS_LABELS[code])}
+              className="text-xs font-semibold text-blue-700"
+            >
+              Reset
+            </button>
+          )}
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <Modal title="Status Names" onClose={onClose} size="xl">
+    <Modal title="Status Names" onClose={onClose} size="xxl" stickyHeader>
       <p className="text-sm text-gray-500 mb-4 -mt-2">
-        Rename how statuses appear for your cooperative. Colors and the underlying workflow
-        stay the same, so nothing about how tickets move changes.
+        Rename how statuses appear for your cooperative. Colors and the underlying workflow stay
+        the same. Hover a row for what it means.
       </p>
 
-      <div className="space-y-3 mb-4">
-        {ROWS.map((row) => {
-          const changed = values[row.code] !== DEFAULT_STATUS_LABELS[row.code]
-          return (
-            <div
-              key={row.code}
-              className="grid grid-cols-1 md:grid-cols-[1fr_220px] gap-3 items-center border border-gray-200 rounded-lg p-3"
-            >
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <StatusPill status={row.code} label={values[row.code].trim() || '—'} />
-                  <span className="text-xs text-gray-400">{row.used}</span>
-                </div>
-                <p className="text-xs text-gray-500">{row.help}</p>
-              </div>
-              <div>
-                <input
-                  value={values[row.code]}
-                  maxLength={30}
-                  onChange={(e) => setValue(row.code, e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg border border-gray-200 bg-gray-50 text-sm"
-                />
-                <div className="flex items-center justify-between mt-1">
-                  <span className="text-xs text-gray-400">
-                    Default: {DEFAULT_STATUS_LABELS[row.code]}
-                  </span>
-                  {changed && (
-                    <button
-                      type="button"
-                      onClick={() => setValue(row.code, DEFAULT_STATUS_LABELS[row.code])}
-                      className="text-xs font-semibold text-blue-700"
-                    >
-                      Reset
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-          )
-        })}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 mb-4">
+        <div>
+          <p className="text-xs font-bold tracking-wide text-gray-500 uppercase mb-2">
+            Ticket statuses
+          </p>
+          <div className="space-y-2">{TICKET_ROWS.map(renderRow)}</div>
+        </div>
+        <div>
+          <p className="text-xs font-bold tracking-wide text-gray-500 uppercase mb-2">
+            Job steps only
+          </p>
+          <div className="space-y-2">{JOB_ONLY_ROWS.map(renderRow)}</div>
+          <p className="text-xs text-gray-400 mt-3">
+            In Progress and Resolved are also job steps, so they use the name set under Ticket
+            statuses.
+          </p>
+        </div>
       </div>
 
       <Alert>{error}</Alert>

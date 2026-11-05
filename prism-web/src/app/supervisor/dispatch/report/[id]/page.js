@@ -25,6 +25,8 @@ import ReopenReasonNote from '@/components/dispatch/ReopenReasonNote'
 import StageTimesCard from '@/components/dispatch/StageTimesCard'
 import { issueLabel } from '@/lib/issueCodes'
 import { recurringSinceIso, RECURRING_MIN_REPORTS, RECURRING_WINDOW_DAYS } from '@/lib/recurring'
+import TicketTabs, { TabDot } from '@/components/dispatch/TicketTabs'
+import StickyActionBar from '@/components/dispatch/StickyActionBar'
 
 export default function ReportReviewPage() {
   const { id } = useParams()
@@ -55,7 +57,8 @@ export default function ReportReviewPage() {
 
   const [dispatchedInfo, setDispatchedInfo] = useState(null)
     const [showReopenModal, setShowReopenModal] = useState(false)
-  const [linemanDetailsOpen, setLinemanDetailsOpen] = useState(false)
+  const [linemanDetailsOpen, setLinemanDetailsOpen] = useState(true)
+  const [tab, setTab] = useState(null)
 
   useEffect(() => {
     loadReport()
@@ -321,6 +324,13 @@ export default function ReportReviewPage() {
 
   const isPending = report.status === 'pending' && !assignment
   const currentStatus = assignment ? assignment.status : report.status
+  const activeTab = tab ?? (assignment?.status === 'fixed' ? 'job' : 'details')
+  const tabs = [
+    { key: 'details', label: 'Details' },
+    { key: 'job', label: <>Job Order<TabDot show={assignment?.status === 'fixed'} /></> },
+    { key: 'history', label: <>Time &amp; History{pastAttempts.length > 0 ? ` (${pastAttempts.length})` : ''}</> },
+  ]
+  const compactLayout = !showMap
 
   return (
     <div
@@ -355,17 +365,30 @@ export default function ReportReviewPage() {
           onAssign={handleAssignLineman}
           onBack={() => setShowAssignPanel(false)}
           assigning={assigning}
+          compact={!showMap}
         />
       ) : (
-        <div className="overflow-y-auto space-y-6">
-          <div className="relative bg-white rounded-xl border border-gray-200 p-6">
+        <div className="overflow-y-auto space-y-4">
+          <Alert className="">{error}</Alert>
+          {assignment?.reopen_reason && (
+            <ReopenReasonNote source={assignment.reopen_source} reason={assignment.reopen_reason} />
+          )}
+          <TicketTabs
+            tabs={tabs}
+            value={activeTab}
+            onChange={setTab}
+            onClose={() => router.push('/supervisor/dispatch')}
+          />
+
+          {activeTab === 'details' && (
+            <>
+          <div className="space-y-4">
+          <div className={`relative bg-white rounded-xl border border-gray-200 p-6 ${compactLayout ? 'max-h-[calc(100vh-15rem)] overflow-y-auto' : ''}`}>
             <div className="flex items-start justify-between gap-4">
               <TicketDetailHeader
                 ticketNumber={report.ticket_number}
                 reporterName={reporterName}
                 reopened={!!report.reopened_at}
-                onClose={() => router.push('/supervisor/dispatch')}
-                closeClassName="absolute top-4 right-4"
               />
               {!showMap && (
                 <button
@@ -382,7 +405,7 @@ export default function ReportReviewPage() {
 
             <ReporterInfo reportId={report.report_id} consumerId={report.consumer_id} />
 
-            <div className="space-y-3 text-sm">
+            <div className={compactLayout ? 'grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3 text-sm' : 'space-y-3 text-sm'}>
               <div>
                 <p className="text-xs text-gray-400">Time Reported</p>
                 <p className="text-gray-900">
@@ -419,7 +442,7 @@ export default function ReportReviewPage() {
                   </p>
                 )}
               </div>
-              <div>
+              <div className={compactLayout ? 'md:col-span-2' : ''}>
                 <p className="text-xs text-gray-400">Description</p>
                 <p className="text-gray-700 bg-gray-50 rounded-lg p-3 mt-1">
                   "{report.report_details}"
@@ -435,7 +458,7 @@ export default function ReportReviewPage() {
           </div>
 
           {report.status === 'cancelled' && (
-            <div className="bg-red-50 border border-red-200 rounded-xl p-6">
+            <div className={`bg-red-50 border border-red-200 rounded-xl p-6 ${compactLayout ? 'max-h-[calc(100vh-15rem)] overflow-y-auto' : ''}`}>
               <h2 className="text-sm font-bold text-red-700 mb-2">Report Declined</h2>
               <p className="text-sm text-gray-700 bg-white rounded-lg p-3 border border-red-100">
                 {report.decline_reason || 'No reason provided.'}
@@ -448,36 +471,54 @@ export default function ReportReviewPage() {
               </p>
             </div>
           )}
-
-          <Alert className="">{error}</Alert>
-
-          {assignment?.reopen_reason && (
-            <ReopenReasonNote source={assignment.reopen_source} reason={assignment.reopen_reason} />
+          </div>
+            </>
           )}
 
-          {assignment?.status === 'fixed' && (
-            <QAReviewSection assignment={assignment} reportId={id} onReviewed={loadReport} />
+          {activeTab === 'job' && (
+            <>
+          <div className={compactLayout ? 'grid grid-cols-1 xl:grid-cols-2 gap-4 items-start' : 'space-y-4'}>
+          {(assignment?.status === 'fixed' || assignment?.status === 'resolved') && (
+            <div className={compactLayout ? 'max-h-[calc(100vh-15rem)] overflow-y-auto' : ''}>
+              <QAReviewSection
+                assignment={assignment}
+                reportId={id}
+                onReviewed={loadReport}
+                actionPortalId="ticket-action-bar"
+              />
+            </div>
           )}
 
-          {assignment && (
-            <AssignedLinemanCard
-              name={assignedLinemanName}
-              assignedAt={assignment.assigned_at}
-              expandable
-              expanded={linemanDetailsOpen}
-              onToggleExpand={() => setLinemanDetailsOpen(!linemanDetailsOpen)}
-            >
-              {assignment.status === 'resolved' && (
-                <QAReviewSection assignment={assignment} reportId={id} onReviewed={loadReport} />
-              )}
-              <JobOrderStatusLog logs={statusLogs} />
-            </AssignedLinemanCard>
+          {assignment ? (
+            <div className={compactLayout ? 'max-h-[calc(100vh-15rem)] overflow-y-auto' : ''}>
+              <AssignedLinemanCard
+                name={assignedLinemanName}
+                assignedAt={assignment.assigned_at}
+                expandable
+                expanded={linemanDetailsOpen}
+                onToggleExpand={() => setLinemanDetailsOpen(!linemanDetailsOpen)}
+              >
+                <JobOrderStatusLog logs={statusLogs} />
+              </AssignedLinemanCard>
+            </div>
+          ) : (
+            <p className="text-sm text-gray-500 bg-white rounded-xl border border-gray-200 p-6">
+              No lineman has been assigned yet.
+            </p>
           )}
-          
-          <StageTimesCard reportId={id} key={assignment?.status || 'none'} />
+          </div>
+            </>
+          )}
+
+          {activeTab === 'history' && (
+            <>
+          <div className={compactLayout ? 'grid grid-cols-1 xl:grid-cols-2 gap-4 items-start' : 'space-y-4'}>
+          <div className={compactLayout ? 'max-h-[calc(100vh-15rem)] overflow-y-auto' : ''}>
+            <StageTimesCard reportId={id} key={assignment?.status || 'none'} />
+          </div>
 
           {pastAttempts.length > 0 && (
-            <div>
+            <div className={compactLayout ? 'max-h-[calc(100vh-15rem)] overflow-y-auto' : ''}>
               <button
                 type="button"
                 onClick={() => setShowHistory(!showHistory)}
@@ -497,25 +538,26 @@ export default function ReportReviewPage() {
               )}
             </div>
           )}
-
-          {isPending && (
-            <div className="space-y-3">
-              <button
-                onClick={handleOpenAssignPanel}
-                className="w-full bg-blue-700 hover:bg-blue-800 text-white font-semibold text-sm py-3 rounded-lg transition-colors"
-              >
-                Assign Lineman
-              </button>
-              <button
-                onClick={() => setShowDeclineModal(true)}
-                className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold text-sm py-3 rounded-lg transition-colors"
-              >
-                Decline Report
-              </button>
-            </div>
+          {pastAttempts.length === 0 && (
+            <p className="text-xs text-gray-400">No earlier attempts on this ticket.</p>
+          )}
+          </div>
+            </>
           )}
 
-          <ResolveTicketBar status={assignment?.status} onReopen={() => setShowReopenModal(true)} loading={actionLoading} />
+          <StickyActionBar id="ticket-action-bar">
+            {isPending && (
+              <div className="flex gap-3">
+                <button onClick={handleOpenAssignPanel} className="flex-1 bg-blue-700 hover:bg-blue-800 text-white font-semibold text-sm py-3 rounded-lg transition-colors">
+                  Assign Lineman
+                </button>
+                <button onClick={() => setShowDeclineModal(true)} className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold text-sm py-3 rounded-lg transition-colors">
+                  Decline Report
+                </button>
+              </div>
+            )}
+            <ResolveTicketBar status={assignment?.status} onReopen={() => setShowReopenModal(true)} loading={actionLoading} />
+          </StickyActionBar>
         </div>
       )}
 

@@ -12,7 +12,14 @@ const sizes = {
 
 // warnOnClose={false} turns the unsaved-changes warning off for a modal
 // that stays open after saving.
-export default function Modal({ title, onClose, children, size = 'md', warnOnClose = true }) {
+export default function Modal({
+  title,
+  onClose,
+  children,
+  size = 'md',
+  warnOnClose = true,
+  stickyHeader = false,
+}) {
   const dialogRef = useRef(null)
   const onCloseRef = useRef(onClose)
   const warnRef = useRef(warnOnClose)
@@ -70,7 +77,11 @@ export default function Modal({ title, onClose, children, size = 'md', warnOnClo
         }}
         className={`bg-white rounded-2xl shadow-lg w-full ${sizes[size]} max-h-[90vh] overflow-y-auto focus:outline-none`}
       >
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+        <div
+          className={`flex items-center justify-between px-6 py-4 border-b border-gray-100 ${
+            stickyHeader ? 'sticky top-0 z-20 bg-white' : ''
+          }`}
+        >
           <h2 className="text-lg font-bold text-gray-900">{title}</h2>
           <button
             type="button"

@@ -22,6 +22,9 @@ import ReopenTicketModal from '@/components/dispatch/ReopenTicketModal'
 import ReopenReasonNote from '@/components/dispatch/ReopenReasonNote'
 import Alert from '@/components/ui/Alert';
 import { issueLabel } from '@/lib/issueCodes'
+import StageTimesCard from '@/components/dispatch/StageTimesCard'
+import TicketTabs, { TabDot } from '@/components/dispatch/TicketTabs'
+import StickyActionBar from '@/components/dispatch/StickyActionBar'
 
 export default function MasterTicketDetailPage() {
   const { id } = useParams()
@@ -47,9 +50,10 @@ export default function MasterTicketDetailPage() {
 
   const [dispatchedInfo, setDispatchedInfo] = useState(null)
   const [showReopenModal, setShowReopenModal] = useState(false)
-  const [linemanDetailsOpen, setLinemanDetailsOpen] = useState(false)
+  const [linemanDetailsOpen, setLinemanDetailsOpen] = useState(true)
   const [showHistory, setShowHistory] = useState(false)
   const [expandedReportId, setExpandedReportId] = useState(null)
+  const [tab, setTab] = useState(null)
 
   useEffect(() => {
     loadMaster()
@@ -338,6 +342,12 @@ export default function MasterTicketDetailPage() {
   }
 
   const currentStatus = assignment ? assignment.status : master.status
+  const activeTab = tab ?? (assignment?.status === 'fixed' ? 'job' : 'details')
+  const tabs = [
+    { key: 'details', label: 'Details' },
+    { key: 'job', label: <>Job Order<TabDot show={assignment?.status === 'fixed'} /></> },
+    { key: 'history', label: <>Time &amp; History{pastAttempts.length > 0 ? ` (${pastAttempts.length})` : ''}</> },
+  ]
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[calc(100vh-8rem)]">
@@ -366,12 +376,20 @@ export default function MasterTicketDetailPage() {
           assigning={assigning}
         />
       ) : (
-        <div className="overflow-y-auto space-y-6">
+        <div className="overflow-y-auto space-y-4">
+          <TicketTabs
+            tabs={tabs}
+            value={activeTab}
+            onChange={setTab}
+            onClose={() => router.push('/supervisor/dispatch')}
+          />
+
+          {activeTab === 'details' && (
+            <>
           <div className="bg-white rounded-xl border border-gray-200 p-6">
             <TicketDetailHeader
               ticketNumber={master.master_ticket}
               reopened={!!master.reopened_at}
-              onClose={() => router.push('/supervisor/dispatch')}
             />
 
             <TicketStatusPriority status={currentStatus} priority={master.priority} />
@@ -403,7 +421,7 @@ export default function MasterTicketDetailPage() {
                 TOTAL: {members.length}
               </span>
             </div>
-            <div className="space-y-2">
+            <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
               {members.map((m) => {
                 const isExpanded = expandedReportId === m.report_id
 
@@ -455,15 +473,24 @@ export default function MasterTicketDetailPage() {
               })}
             </div>
           </div>
+            </>
+          )}
 
           <Alert className="">{error}</Alert>
 
+          {activeTab === 'job' && (
+            <>
           {assignment?.reopen_reason && (
             <ReopenReasonNote source={assignment.reopen_source} reason={assignment.reopen_reason} />
           )}
 
-          {assignment?.status === 'fixed' && (
-            <QAReviewSection assignment={assignment} masterId={id} onReviewed={loadMaster} />
+          {(assignment?.status === 'fixed' || assignment?.status === 'resolved') && (
+            <QAReviewSection
+              assignment={assignment}
+              masterId={id}
+              onReviewed={loadMaster}
+              actionPortalId="ticket-action-bar"
+            />
           )}
 
           {assignment && (
@@ -474,13 +501,14 @@ export default function MasterTicketDetailPage() {
               expanded={linemanDetailsOpen}
               onToggleExpand={() => setLinemanDetailsOpen(!linemanDetailsOpen)}
             >
-              {(assignment.status === 'fixed' || assignment.status === 'resolved') && (
-                <QAReviewSection assignment={assignment} masterId={id} onReviewed={loadMaster} />
-              )}
               <JobOrderStatusLog logs={statusLogs} />
             </AssignedLinemanCard>
           )}
-          
+            </>
+          )}
+
+          {activeTab === 'history' && (
+            <>
           <StageTimesCard masterId={id} key={assignment?.status || 'none'} />
 
           {pastAttempts.length > 0 && (
@@ -504,7 +532,13 @@ export default function MasterTicketDetailPage() {
               )}
             </div>
           )}
+          {pastAttempts.length === 0 && (
+            <p className="text-xs text-gray-400">No earlier attempts on this ticket.</p>
+          )}
+            </>
+          )}
 
+          <StickyActionBar id="ticket-action-bar">
           {!assignment && (
             <button
               onClick={handleOpenAssignPanel}
@@ -515,6 +549,7 @@ export default function MasterTicketDetailPage() {
           )}
 
           <ResolveTicketBar status={assignment?.status} onReopen={() => setShowReopenModal(true)} loading={actionLoading} />
+          </StickyActionBar>
         </div>
       )}
 

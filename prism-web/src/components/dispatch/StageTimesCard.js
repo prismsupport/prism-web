@@ -12,9 +12,11 @@ import {
 export default function StageTimesCard({ reportId, masterId }) {
   const [attempts, setAttempts] = useState(null)
   const [threshold, setThreshold] = useState(null)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     let cancelled = false
+    setLoading(true)
 
     async function load() {
       const supabase = createClient()
@@ -29,7 +31,10 @@ export default function StageTimesCard({ reportId, masterId }) {
 
       const list = assignmentData || []
       if (list.length === 0) {
-        if (!cancelled) setAttempts([])
+        if (!cancelled) {
+          setAttempts([])
+          setLoading(false)
+        }
         return
       }
 
@@ -70,6 +75,7 @@ export default function StageTimesCard({ reportId, masterId }) {
       if (cancelled) return
       setThreshold(settingsRes.data?.response_time_threshold_minutes ?? null)
       setAttempts(built)
+      setLoading(false)
     }
 
     load()
@@ -77,6 +83,20 @@ export default function StageTimesCard({ reportId, masterId }) {
       cancelled = true
     }
   }, [reportId, masterId])
+
+  if (loading) {
+    return (
+      <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <div className="flex items-center gap-2 text-sm font-bold text-gray-900">
+          <span
+            className="h-4 w-4 animate-spin rounded-full border-2 border-gray-200 border-t-blue-600"
+            aria-hidden="true"
+          />
+          Loading time per stage…
+        </div>
+      </div>
+    )
+  }
 
   if (!attempts || attempts.length === 0) return null
 

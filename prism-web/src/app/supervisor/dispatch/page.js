@@ -466,11 +466,11 @@ function DispatchContent() {
             <tr className="bg-gray-50 border-b border-gray-200 text-left text-xs text-gray-500 uppercase tracking-wide">
               <th className="px-5 py-3 font-semibold">Ticket ID</th>
               <th className="px-5 py-3 font-semibold">Category</th>
-              <th className="px-5 py-3 font-semibold">Priority</th>
+              <th className="px-5 py-3 font-semibold text-center">Priority</th>
               <th className="px-5 py-3 font-semibold">Location</th>
-              <th className="px-5 py-3 font-semibold">Job Order Status</th>
+              <th className="px-5 py-3 font-semibold text-center">Job Order Status</th>
               <th className="px-5 py-3 font-semibold">Assignee</th>
-              <th className="px-5 py-3 font-semibold">Last Updated</th>
+              <th className="px-5 py-3 font-semibold text-center">Last Updated</th>
               <th className="px-5 py-3 font-semibold">Action</th>
             </tr>
           </thead>

@@ -49,6 +49,7 @@ export default function LinemanRecommendationPanel({
   onAssign,
   onBack,
   assigning,
+  compact = false,
 }) {
   const [selectedId, setSelectedId] = useState(null)
   const [initialPriority] = useState(priority || '')
@@ -69,7 +70,7 @@ export default function LinemanRecommendationPanel({
   const selected = ranked.find((l) => l.lineman_id === selectedId)
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-6 h-full overflow-y-auto">
+    <div className="bg-white rounded-xl border border-gray-200 p-6 pb-0 h-full overflow-y-auto">
       <h1 className="text-lg font-bold text-gray-900 mb-4">
         Smart Dispatch Recommendation
       </h1>
@@ -123,7 +124,7 @@ export default function LinemanRecommendationPanel({
         <p className="text-sm text-gray-500">No lineman accounts found.</p>
       )}
 
-      <div className="space-y-3 mb-5">
+      <div className={`${compact ? 'grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3' : 'space-y-3'} mb-5`}>
         {ranked.map((l) => {
           const isSelected = selectedId === l.lineman_id
           const isBestMatch = l.lineman_id === bestMatchId
@@ -238,27 +239,29 @@ export default function LinemanRecommendationPanel({
         })}
       </div>
 
-      {selected && !selected.is_available && (
-        <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 mb-3">
-          {availabilityNote(selected)}
-        </p>
-      )}
+      <div className="sticky bottom-0 z-10 -mx-6 rounded-xl bg-white px-9 pt-3">
+        {selected && !selected.is_available && (
+          <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 mb-3">
+            {availabilityNote(selected)}
+          </p>
+        )}
 
-      <div className="space-y-2">
-        <button
-          onClick={() => selectedId && onAssign(selectedId)}
-          disabled={!selectedId || !priorityChanged || assigning}
-          className="w-full bg-blue-700 hover:bg-blue-800 disabled:opacity-50 text-white font-semibold text-sm py-3 rounded-lg transition-colors"
-        >
-          {assigning ? 'Assigning…' : 'Assign Selected Lineman'}
-        </button>
-        <button
-          onClick={onBack}
-          disabled={assigning}
-          className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-sm py-3 rounded-lg transition-colors"
-        >
-          Back
-        </button>
+        <div className="space-y-2 pb-1">
+          <button
+            onClick={() => selectedId && onAssign(selectedId)}
+            disabled={!selectedId || !priorityChanged || assigning}
+            className="w-full bg-blue-700 hover:bg-blue-800 disabled:opacity-50 text-white font-semibold text-sm py-3 rounded-lg transition-colors"
+          >
+            {assigning ? 'Assigning…' : 'Assign Selected Lineman'}
+          </button>
+          <button
+            onClick={onBack}
+            disabled={assigning}
+            className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-sm py-3 rounded-lg transition-colors"
+          >
+            Back
+          </button>
+        </div>
       </div>
     </div>
   )

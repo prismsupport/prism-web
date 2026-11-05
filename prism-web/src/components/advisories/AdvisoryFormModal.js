@@ -319,15 +319,19 @@ export default function AdvisoryFormModal({ cooperativeId, advisory, onClose, on
     <Modal
       title={isEditing ? 'Edit Advisory' : 'Create New Advisory'}
       onClose={onClose}
+      size="xxl"
     >
       <p className="text-sm text-gray-500 mb-4 -mt-2">
         Provide details about the service interruption or maintenance schedule.
       </p>
 
       <form onSubmit={handleSubmit}>
-        <FormInput
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
+          <div>
+        <FormTextarea
           label="Advisory Title"
           required
+          rows={3}
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="e.g. Power Advisory"
@@ -369,7 +373,9 @@ export default function AdvisoryFormModal({ cooperativeId, advisory, onClose, on
           onChange={(e) => setDescription(e.target.value)}
           placeholder="Enter the reason for this power advisory..."
         />
+          </div>
 
+          <div>
         <div className="mb-5">
           <label className="block text-sm font-medium text-gray-700 mb-1.5">
             Photo Attachment <span className="text-gray-400 font-normal">(optional)</span>
@@ -380,7 +386,7 @@ export default function AdvisoryFormModal({ cooperativeId, advisory, onClose, on
               <img
                 src={photoPreviewToShow}
                 alt="Advisory attachment preview"
-                className="w-full max-h-56 object-cover rounded-lg border border-gray-200"
+                className="w-full max-h-40 object-contain rounded-lg border border-gray-200"
               />
               <button
                 type="button"
@@ -413,7 +419,7 @@ export default function AdvisoryFormModal({ cooperativeId, advisory, onClose, on
         <div className="border-t border-gray-100 pt-4 mb-4">
           <h3 className="font-semibold text-gray-900 text-sm mb-3">Target Scope</h3>
 
-          <div className="space-y-2">
+          <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
             {targets.map((t, i) => (
               <div key={i} className="flex items-center gap-2">
                 <select
@@ -472,6 +478,8 @@ export default function AdvisoryFormModal({ cooperativeId, advisory, onClose, on
           >
             + Add Another Scope
           </button>
+        </div>
+          </div>
         </div>
 
         <Alert>{error}</Alert>

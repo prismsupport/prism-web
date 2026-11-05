@@ -13,6 +13,12 @@ const VARIANTS = {
     active: 'border-blue-700 text-blue-700',
     idle: 'border-transparent text-gray-500 hover:text-gray-700',
   },
+  underlineCompact: {
+    list: 'flex gap-6 border-b border-gray-200',
+    tab: 'pb-1 text-sm font-semibold border-b-2 -mb-px transition-colors',
+    active: 'border-blue-700 text-blue-700',
+    idle: 'border-transparent text-gray-500 hover:text-gray-700',
+  },
 }
 
 // tabs: [{ key, label }]  (label can be a node, e.g. text + count badge)

@@ -68,7 +68,7 @@ export default function DispatchTicketRow({
           </p>
         )}
       </td>
-      <td className="px-5 py-4">
+      <td className="px-5 py-4 text-center">
         <StatusPill kind="priority" status={ticket.priority} />
       </td>
       <td className="px-5 py-4">
@@ -77,7 +77,7 @@ export default function DispatchTicketRow({
         </p>
         <p className="text-xs text-gray-400">Reported {formatTime(ticket.created_at)}</p>
       </td>
-      <td className="px-5 py-4">
+      <td className="px-5 py-4 text-center">
         <StatusPill status={bucket} labelOf={status} />
       </td>
       <td className="px-5 py-4 text-gray-700">

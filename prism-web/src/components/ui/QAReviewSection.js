@@ -1,5 +1,6 @@
 'use client'
 
+import { createPortal } from 'react-dom'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { reopenAssignment } from '@/lib/dispatch/reopenAssignment'
@@ -8,8 +9,15 @@ import { useStatusLabels } from '@/lib/workflow/StatusLabelsContext'
 import Alert from '@/components/ui/Alert'
 import Button from '@/components/ui/Button'
 import ReasonBox from '@/components/ui/ReasonBox'
+import StickyActionBar from '@/components/dispatch/StickyActionBar'
 
-export default function QAReviewSection({ assignment, reportId, masterId, onReviewed }) {
+export default function QAReviewSection({
+  assignment,
+  reportId,
+  masterId,
+  onReviewed,
+  actionPortalId,
+}) {
   const { statusLabel } = useStatusLabels()
   const [photoUrl, setPhotoUrl] = useState(null)
   const [voiceUrl, setVoiceUrl] = useState(null)
@@ -18,6 +26,12 @@ export default function QAReviewSection({ assignment, reportId, masterId, onRevi
   const [remarks, setRemarks] = useState('')
   const [error, setError] = useState('')
   const [actionLoading, setActionLoading] = useState(false)
+  const [actionTarget, setActionTarget] = useState(null)
+
+  useEffect(() => {
+    if (!actionPortalId) return
+    setActionTarget(document.getElementById(actionPortalId))
+  }, [actionPortalId])
 
   useEffect(() => {
     async function loadMedia() {
@@ -131,6 +145,37 @@ export default function QAReviewSection({ assignment, reportId, masterId, onRevi
     onReviewed()
   }
 
+  const actionContent = assignment.status === 'resolved' ? (
+    <p className="text-sm text-green-700 bg-green-50 border border-green-100 rounded-lg px-3 py-2 font-medium">
+      ✓ Approved and marked as {statusLabel('resolved')}
+    </p>
+  ) : !showRejectBox ? (
+    <div className="flex gap-3">
+      <Button variant="success" size="split" onClick={handleApprove} disabled={actionLoading}>
+        {actionLoading ? 'Approving…' : 'Approve & Close Ticket'}
+      </Button>
+      <Button
+        variant="dangerSoft"
+        size="split"
+        dim={false}
+        onClick={() => setShowRejectBox(true)}
+        disabled={actionLoading}
+      >
+        Reject
+      </Button>
+    </div>
+  ) : (
+    <ReasonBox
+      value={remarks}
+      onChange={setRemarks}
+      placeholder="Explain what needs to be corrected…"
+      confirmLabel={actionLoading ? 'Submitting…' : 'Confirm Rejection'}
+      onConfirm={handleReject}
+      onCancel={() => setShowRejectBox(false)}
+      loading={actionLoading}
+    />
+  )
+
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-6">
       <h2 className="text-sm font-bold text-gray-900 mb-3">
@@ -177,34 +222,11 @@ export default function QAReviewSection({ assignment, reportId, masterId, onRevi
       <Alert>{error}</Alert>
 
       {assignment.status === 'resolved' ? (
-        <p className="text-sm text-green-700 bg-green-50 border border-green-100 rounded-lg px-3 py-2 font-medium">
-          ✓ Approved and marked as {statusLabel('resolved')}
-        </p>
-      ) : !showRejectBox ? (
-        <div className="flex gap-3">
-          <Button variant="success" size="split" onClick={handleApprove} disabled={actionLoading}>
-            {actionLoading ? 'Approving…' : 'Approve & Close Ticket'}
-          </Button>
-          <Button
-            variant="dangerSoft"
-            size="split"
-            dim={false}
-            onClick={() => setShowRejectBox(true)}
-            disabled={actionLoading}
-          >
-            Reject
-          </Button>
-        </div>
+        actionContent
+      ) : actionTarget ? (
+        createPortal(actionContent, actionTarget)
       ) : (
-        <ReasonBox
-          value={remarks}
-          onChange={setRemarks}
-          placeholder="Explain what needs to be corrected…"
-          confirmLabel={actionLoading ? 'Submitting…' : 'Confirm Rejection'}
-          onConfirm={handleReject}
-          onCancel={() => setShowRejectBox(false)}
-          loading={actionLoading}
-        />
+        <StickyActionBar>{actionContent}</StickyActionBar>
       )}
     </div>
   )
