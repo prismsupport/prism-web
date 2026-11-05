@@ -115,7 +115,7 @@ function AttentionCard({ label, count, href, color }) {
   return (
     <Link
       href={href}
-      className={`bg-white rounded-xl border p-4 transition-colors ${
+      className={`bg-white rounded-xl border p-3 transition-colors ${
         active
           ? 'border-gray-300 hover:border-blue-600'
           : 'border-gray-200 opacity-70 hover:opacity-100'
@@ -634,16 +634,17 @@ export default function SupervisorDashboardPage() {
 
           {tab === 'overview' && (
             <>
-              <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-4">
+              <div className="mb-4 grid grid-cols-2 gap-4 md:grid-cols-4">
             <MetricCard
               label="Total outage reports"
               value={stats.totalReports}
               hint={stats.declinedReports > 0 ? `${stats.declinedReports} declined` : undefined}
+              compact
             >
               <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
               <rect width="8" height="4" x="8" y="2" rx="1" />
             </MetricCard>
-            <MetricCard tone="green" label="Reports resolved" value={stats.resolvedReports}>
+            <MetricCard tone="green" label="Reports resolved" value={stats.resolvedReports} compact>
               <circle cx="12" cy="12" r="10" />
               <path d="m9 12 2 2 4-4" />
             </MetricCard>
@@ -652,6 +653,7 @@ export default function SupervisorDashboardPage() {
               label="Unresolved tickets"
               value={unresolvedNow}
               hint="Current: not yet resolved"
+              compact
             >
               <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
               <rect width="8" height="4" x="8" y="2" rx="1" />
@@ -665,24 +667,37 @@ export default function SupervisorDashboardPage() {
                   ? `Target ${formatMinutes(stats.targetMinutes)} · ${stats.resolutionCount} resolved`
                   : 'No resolution target set (Dispatch page)'
               }
+              compact
             >
               <circle cx="12" cy="12" r="10" />
               <path d="m9 12 2 2 4-4" />
             </MetricCard>
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-                            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-4">
+                            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
               <h2 className="text-sm font-bold text-gray-900 mb-1">Dispatch Status Overview</h2>
               <p className="text-xs text-gray-400 mb-4">Current, all tickets</p>
               <StatusBreakdown cards={STATUS_CARDS} counts={statusCounts} />
             </div>
-                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
             <h2 className="text-sm font-bold text-gray-900 mb-1">Report Trend</h2>
             <p className="text-xs text-gray-400 mb-4">{trendSubtitle(rangeKey)}</p>
             <TrendChart data={trend} />
                 </div>
               </div>
+
+              {can.advisories && advisoryCounts && (
+                <div className="mb-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+                  <h2 className="mb-4 text-sm font-bold text-gray-900">Advisories Summary</h2>
+                  <div className="grid grid-cols-4 gap-4">
+                    <div><p className="text-xs text-gray-400">All</p><p className="text-xl font-bold text-blue-700">{advisoryCounts.all}</p></div>
+                    <div><p className="text-xs text-gray-400">Upcoming</p><p className="text-xl font-bold text-amber-600">{advisoryCounts.upcoming}</p></div>
+                    <div><p className="text-xs text-gray-400">Active</p><p className="text-xl font-bold text-green-600">{advisoryCounts.active}</p></div>
+                    <div><p className="text-xs text-gray-400">Completed</p><p className="text-xl font-bold text-gray-900">{advisoryCounts.completed}</p></div>
+                  </div>
+                </div>
+              )}
             </>
           )}
 
@@ -692,7 +707,7 @@ export default function SupervisorDashboardPage() {
                 <AreaBreakdown breakdown={areaBreakdown} />
 
                 {/* Most common issues */}
-                <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+                <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
                   <h2 className="mb-1 text-sm font-bold text-gray-900">Most Common Issues</h2>
                   <p className="mb-4 text-xs text-gray-400">
                     Category chosen by the consumer. Older reports show as Uncategorized.
@@ -706,7 +721,7 @@ export default function SupervisorDashboardPage() {
               </div>
 
               <div className="grid grid-cols-1 gap-6 mb-6 lg:grid-cols-4">
-                <div className="h-full rounded-2xl border border-gray-200 bg-white p-6 shadow-sm lg:col-span-3">
+                <div className="h-full rounded-2xl border border-gray-200 bg-white p-5 shadow-sm lg:col-span-3">
                   <h2 className="mb-1 text-sm font-bold text-gray-900">Recurring Issues</h2>
                   <p className="mb-4 text-xs text-gray-400">
                     The same category reported {RECURRING_MIN_REPORTS} or more times in the same barangay in the
@@ -847,30 +862,6 @@ export default function SupervisorDashboardPage() {
         </>
       )}
 
-      {/* Advisories summary */}
-      {can.advisories && advisoryCounts && (
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-          <h2 className="text-sm font-bold text-gray-900 mb-4">Advisories Summary</h2>
-          <div className="grid grid-cols-4 gap-4">
-            <div>
-              <p className="text-xs text-gray-400">All</p>
-              <p className="text-xl font-bold text-blue-700">{advisoryCounts.all}</p>
-            </div>
-            <div>
-              <p className="text-xs text-gray-400">Upcoming</p>
-              <p className="text-xl font-bold text-amber-600">{advisoryCounts.upcoming}</p>
-            </div>
-            <div>
-              <p className="text-xs text-gray-400">Active</p>
-              <p className="text-xl font-bold text-green-600">{advisoryCounts.active}</p>
-            </div>
-            <div>
-              <p className="text-xs text-gray-400">Completed</p>
-              <p className="text-xl font-bold text-gray-900">{advisoryCounts.completed}</p>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

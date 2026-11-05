@@ -143,6 +143,7 @@ export default function BillingIntegrationForm({ onConnected, secondaryAction, c
         </p>
         </div>
 
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1.5">
             Header name for the API key
@@ -154,22 +155,21 @@ export default function BillingIntegrationForm({ onConnected, secondaryAction, c
             className={INPUT_CLS}
           />
         </div>
-      </fieldset>
-
-      <fieldset className={`${compact ? 'mb-4 pt-4' : 'mb-5 pt-5'} border-t border-gray-100`}>
-        <legend className="text-sm font-bold text-gray-900 mb-3">Authentication</legend>
-        <label className="block text-sm font-medium text-gray-700 mb-1.5">API key</label>
-        <input
-          type="password"
-          autoComplete="new-password"
-          value={apiKey}
-          onChange={(e) => setApiKey(e.target.value)}
-          placeholder={saved?.hasKey ? 'Saved. Leave blank to keep it' : 'Paste the API key'}
-          className={INPUT_CLS}
-        />
-        <p className="text-xs text-gray-400 mt-1">
-          The key is stored encrypted and is never shown again after saving.
-        </p>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">API key</label>
+          <input
+            type="password"
+            autoComplete="new-password"
+            value={apiKey}
+            onChange={(e) => setApiKey(e.target.value)}
+            placeholder={saved?.hasKey ? 'Saved. Leave blank to keep it' : 'Paste the API key'}
+            className={INPUT_CLS}
+          />
+          <p className="text-xs text-gray-400 mt-1">
+            The key is stored encrypted and is never shown again after saving.
+          </p>
+        </div>
+        </div>
       </fieldset>
 
       <fieldset className={`${compact ? 'mb-4 pt-4' : 'mb-5 pt-5'} border-t border-gray-100`}>

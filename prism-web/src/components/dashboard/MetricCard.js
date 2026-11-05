@@ -5,12 +5,17 @@ const TONES = {
   gray: "bg-gray-100 text-gray-600",
 };
 
-export default function MetricCard({ label, value, hint, tone = "blue", children }) {
+// compact: smaller padding, value and icon, so more cards fit above the fold.
+export default function MetricCard({ label, value, hint, tone = "blue", compact = false, children }) {
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+    <div className={`rounded-2xl border border-gray-200 bg-white shadow-sm ${compact ? "p-4" : "p-5"}`}>
       <div className="flex items-start justify-between gap-2">
         <p className="text-xs font-bold uppercase tracking-wide text-gray-400">{label}</p>
-        <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${TONES[tone]}`}>
+        <span
+          className={`flex shrink-0 items-center justify-center rounded-xl ${TONES[tone]} ${
+            compact ? "h-7 w-7" : "h-9 w-9"
+          }`}
+        >
           <svg
             xmlns="http://www.w3.org/2000/svg"
             viewBox="0 0 24 24"
@@ -19,14 +24,20 @@ export default function MetricCard({ label, value, hint, tone = "blue", children
             strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
-            className="h-5 w-5"
+            className={compact ? "h-4 w-4" : "h-5 w-5"}
           >
             {children}
           </svg>
         </span>
       </div>
-      <p className="font-display mt-3 text-3xl font-extrabold tabular-nums text-gray-900">{value}</p>
-      {hint && <p className="mt-1 text-xs text-gray-400">{hint}</p>}
+      <p
+        className={`font-display font-extrabold tabular-nums text-gray-900 ${
+          compact ? "mt-1.5 text-2xl" : "mt-3 text-3xl"
+        }`}
+      >
+        {value}
+      </p>
+      {hint && <p className="mt-0.5 text-xs text-gray-400">{hint}</p>}
     </div>
   );
 }

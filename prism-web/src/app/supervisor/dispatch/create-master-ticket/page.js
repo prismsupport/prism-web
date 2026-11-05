@@ -12,6 +12,8 @@ import Alert from '@/components/ui/Alert'
 import Badge from '@/components/ui/Badge'
 import Button from '@/components/ui/Button'
 import DataTable from '@/components/ui/DataTable'
+import Pagination from '@/components/ui/Pagination'
+import usePagination from '@/lib/usePagination'
 import { getMatchTier, buildBreakdownFactors } from '@/lib/scoring/masterTicketScoringConfig'
 import { toast } from '@/lib/toast'
 
@@ -133,6 +135,10 @@ export default function CreateMasterTicketPage() {
   }, [anchorId, reports])
 
   function toggleReport(report) {
+    const isAnchor = selectedIds[0] === report.report_id
+    const becomesAnchor = !selectedIds.includes(report.report_id) && selectedIds.length === 0
+    if (isAnchor || becomesAnchor) pg.setPage(1)
+
     setSelectedIds((prev) => {
       if (prev.includes(report.report_id)) {
         return prev.filter((id) => id !== report.report_id)
@@ -148,6 +154,7 @@ export default function CreateMasterTicketPage() {
     const scoreB = breakdowns[b.report_id]?.total_score ?? -1
     return scoreB - scoreA
   })
+  const pg = usePagination(sortedReports)
 
   async function handleCreate() {
     if (selectedIds.length < 2) return
@@ -221,8 +228,9 @@ export default function CreateMasterTicketPage() {
         loading={loading}
         isEmpty={reports.length === 0}
         empty="No standalone reports available to merge."
+        footer={!loading && <Pagination {...pg.paginationProps} />}
       >
-        {sortedReports.map((r) => {
+        {pg.pageItems.map((r) => {
           const isSelected = selectedIds.includes(r.report_id)
           const isAnchor = r.report_id === anchorId
           const breakdown = breakdowns[r.report_id]
