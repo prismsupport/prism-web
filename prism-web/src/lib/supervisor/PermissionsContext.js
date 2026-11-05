@@ -13,6 +13,7 @@ const PAGE_RULES = [
   { prefix: '/supervisor/billing', label: 'Billing Integration', ownerOnly: true },
   { prefix: '/supervisor/dispatch', label: 'Dispatch', feature: 'dispatch' },
   { prefix: '/supervisor/lineman-performance', label: 'Lineman Performance', feature: 'dispatch' },
+  { prefix: '/supervisor/reports', label: 'Reports', feature: 'dispatch' },
   { prefix: '/supervisor/advisories', label: 'Advisories', feature: 'advisories' },
   { prefix: '/supervisor/service-areas', label: 'Service Areas', feature: 'advisories' },
   { prefix: '/supervisor/faq', label: 'FAQ', feature: 'faq' },

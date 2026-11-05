@@ -29,6 +29,14 @@ const ICONS = {
       <path d="M8 16h.01" />
     </>
   ),
+  reports: (
+    <>
+      <path d="M3 3v18h18" />
+      <path d="M7 16v-5" />
+      <path d="M12 16V7" />
+      <path d="M17 16v-3" />
+    </>
+  ),
   advisories: (
     <>
       <path d="m3 11 18-5v12L3 14v-3z" />

@@ -1,6 +1,7 @@
 const supervisorNavItems = [
   { label: "Dashboard", href: "/supervisor/dashboard" },
   { label: "Dispatch", href: "/supervisor/dispatch" },
+  { label: "Reports", href: "/supervisor/reports" },
   { label: "Advisories", href: "/supervisor/advisories" },
   { label: "Service Areas", href: "/supervisor/service-areas" },
   { label: "FAQ", href: "/supervisor/faq" },
