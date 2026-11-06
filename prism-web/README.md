@@ -1,39 +1,47 @@
-
 # PRISM Web
 
-PRISM Web is a web dashboard for managing cooperative operations, service reports, dispatch work, advisories, FAQs, and user accounts. The application has separate supervisor and superadmin areas and uses Supabase for authentication and data access.
+PRISM Web is a Next.js dashboard for electric cooperative operations. It supports
+supervisor workflows for reports, dispatch, advisories, FAQs, users, billing, and
+performance, plus superadmin workflows for cooperative administration.
 
-## Technology
+## Stack
 
-- [Next.js](https://nextjs.org/) 16 with the App Router
-- React 19
-- [Supabase](https://supabase.com/) for authentication and PostgreSQL access
+- Next.js 16 and React 19
+- Next.js App Router
+- Supabase Auth and PostgreSQL
 - Tailwind CSS 4
-- Leaflet for report maps
-- Biome for formatting and linting
+- Leaflet
+- Biome
 
 ## Requirements
 
-- Node.js with npm
-- A Supabase project with the required application tables, policies, and authentication configuration
+- Node.js 20.9 or newer
+- npm
+- A Supabase project with the application tables, policies, and authentication
+  configuration
 
-## Local Setup
+## Getting started
 
-Install dependencies from the project directory:
+Run these commands from the `prism-web` directory:
 
 ```bash
 npm install
 ```
 
-Create `.env.local` in the project root:
+Create a `.env.local` file in the same directory:
 
 ```env
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+BILLING_CONFIG_SECRET=64-character-hex-secret
 ```
 
-`NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` are used by the browser client and middleware. `SUPABASE_SERVICE_ROLE_KEY` is used only by server-side API routes. Never expose the service-role key to client-side code or commit `.env.local`.
+The public Supabase variables are used by the browser client and middleware.
+`SUPABASE_SERVICE_ROLE_KEY` is used only by server-side API routes and scripts.
+`BILLING_CONFIG_SECRET` must be exactly 64 hexadecimal characters when billing
+configuration encryption is enabled. Never expose these server-only values or
+commit `.env.local`.
 
 Start the development server:
 
@@ -41,9 +49,10 @@ Start the development server:
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). The root route redirects to the supervisor login page.
+Open [http://localhost:3000](http://localhost:3000). The root route redirects to
+the supervisor login page.
 
-## Available Commands
+## Commands
 
 | Command | Description |
 | --- | --- |
@@ -53,37 +62,57 @@ Open [http://localhost:3000](http://localhost:3000). The root route redirects to
 | `npm run lint` | Run Biome checks. |
 | `npm run format` | Format supported files with Biome. |
 
-## Application Areas
+## Main routes
 
 ### Supervisor
 
-- `/supervisor/login` - Supervisor sign-in
-- `/supervisor/register` - Cooperative and supervisor registration
-- `/supervisor/dashboard` - Operational overview
-- `/supervisor/dispatch` - Dispatch queue and ticket management
-- `/supervisor/advisories` - Create and manage service advisories
-- `/supervisor/faq` - Manage FAQ entries and inquiries
+- `/supervisor/login` - Sign in
+- `/supervisor/register` - Register a cooperative and supervisor
+- `/supervisor/dashboard` - View operational metrics
+- `/supervisor/dispatch` - Manage dispatch queues and tickets
+- `/supervisor/advisories` - Manage service advisories
+- `/supervisor/faq` - Manage FAQs and inquiries
 - `/supervisor/users` - Manage consumers, linemen, offices, and billing requests
-- `/supervisor/search` - Search reports, tickets, and users
+- `/supervisor/billing` - Configure billing integration
+- `/supervisor/reports` - Review reports
+- `/supervisor/lineman-performance` - Review lineman performance
 
 ### Superadmin
 
-- `/superadmin/login` - Superadmin sign-in
+- `/superadmin/login` - Sign in
 - `/superadmin/cooperatives` - Review and manage cooperatives
 - `/superadmin/cooperatives/[id]` - View cooperative details and status history
 
-Dispatch also includes dynamic report, master-ticket, cluster, join, and reopen routes. These are reached from the dispatch queue and search results rather than from the main navigation.
+## Sample data
 
-## Project Structure
+The seed script creates fictional data for screenshots and local testing. It
+requires `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` in
+`.env.local`.
+
+```bash
+node scripts/seed-sample-cooperative.mjs
+node scripts/seed-sample-cooperative.mjs --refresh
+node scripts/seed-sample-cooperative.mjs --cleanup
+```
+
+Use `--no-photos` with the seed command to skip placeholder photos. The seed
+script uses `@sample-coop.test` accounts so its records can be identified and
+removed safely with `--cleanup`. Do not run it against a production project.
+
+## Project structure
 
 ```text
 src/
-	app/          Next.js routes, layouts, and API handlers
-	components/   Reusable UI and feature components
-	lib/          Supabase clients and shared utilities
+  app/          Routes, layouts, and API handlers
+  components/   Reusable UI and feature components
+  lib/          Supabase clients and shared utilities
+scripts/        Local data and maintenance scripts
+public/         Static assets
 ```
 
-The browser Supabase client is in `src/lib/supabase/client.js`. Authentication middleware is configured in `src/middleware.js`. Server-only operations that require the service-role key live under `src/app/api/`.
+Authentication middleware is in `src/middleware.js`. The browser Supabase
+client is in `src/lib/supabase/client.js`. Server-only API handlers are under
+`src/app/api/`.
 
 ## Production
 
@@ -94,43 +123,44 @@ npm run build
 npm run start
 ```
 
-Configure the same environment variables in the hosting provider. Vercel is a suitable deployment target for the Next.js application, but any platform that supports a Node.js Next.js server can be used.
+Configure the environment variables in the hosting provider. Vercel is a
+suitable deployment target, but any platform that supports a Node.js Next.js
+server can be used. Ensure the production Supabase project has the required
+tables, policies, roles, and authentication settings.
 
-## Development Notes
+## Contributing
 
-- Keep secrets in environment variables; do not commit `.env.local`.
-- Changes to Supabase tables, policies, or roles may require corresponding updates to the queries and route handlers in `src/`.
-- Dynamic routes in the App Router are framework entry points and should not be removed just because they have no direct imports.
+1. Create a branch for your change.
+2. Keep secrets in environment variables; never commit `.env.local`.
+3. Run `npm run lint` and, when practical, `npm run build`.
+4. Commit the change and open a pull request with a short description and
+   validation details.
 
-First, run the development server:
+## Adding this README to the repository
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+If you are starting from a local clone, copy or save this file as:
+
+```text
+prism-web/README.md
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Then run the following from the repository root (the directory containing
+`.git`):
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+```bash
+git status
+git add prism-web/README.md
+git commit -m "docs: add project README"
+git push origin your-branch-name
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+If your terminal is already inside the nested `prism-web` project directory,
+stage the file with:
 
-## Learn More
+```bash
+git add README.md
+```
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+On GitHub, you can also open `README.md`, choose **Edit**, paste the contents,
+select **Commit changes**, and create a pull request if required by your team's
+workflow.
