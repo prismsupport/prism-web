@@ -3,6 +3,12 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { issueLabel } from '@/lib/issueCodes'
+import { recurringSinceIso, RECURRING_MIN_REPORTS, RECURRING_WINDOW_DAYS } from '@/lib/recurring'
+import { reopenAssignment } from '@/lib/dispatch/reopenAssignment'
+import { PageLoading } from "@/components/ui/Skeleton";
+import { toast } from '@/lib/toast'
+import TicketTabs, { TabDot } from '@/components/dispatch/TicketTabs'
 import Alert from '@/components/ui/Alert'
 import ReportMap from '@/components/ui/ReportMap'
 import LinemanRecommendationPanel from '@/components/ui/LinemanRecommendationPanel'
@@ -17,15 +23,11 @@ import DeclineReportModal from '@/components/dispatch/DeclineReportModal'
 import LinemanDispatchedModal from '@/components/dispatch/LinemanDispatchedModal'
 import ResolveTicketBar from '@/components/dispatch/ResolveTicketBar'
 import AttemptReviewCard from '@/components/dispatch/AttemptReviewCard'
-import { reopenAssignment } from '@/lib/dispatch/reopenAssignment'
-import { PageLoading } from "@/components/ui/Skeleton";
-import { toast } from '@/lib/toast'
 import ReopenTicketModal from '@/components/dispatch/ReopenTicketModal'
 import ReopenReasonNote from '@/components/dispatch/ReopenReasonNote'
 import StageTimesCard from '@/components/dispatch/StageTimesCard'
-import { issueLabel } from '@/lib/issueCodes'
-import { recurringSinceIso, RECURRING_MIN_REPORTS, RECURRING_WINDOW_DAYS } from '@/lib/recurring'
-import TicketTabs, { TabDot } from '@/components/dispatch/TicketTabs'
+import ProofLocationBadge from '@/components/dispatch/ProofLocationBadge'
+import VideoDropdown from '@/components/dispatch/VideoDropdown'
 import StickyActionBar from '@/components/dispatch/StickyActionBar'
 
 export default function ReportReviewPage() {
@@ -44,6 +46,8 @@ export default function ReportReviewPage() {
   const [showHistory, setShowHistory] = useState(false)
   const [showMap, setShowMap] = useState(true)
   const [issueCode, setIssueCode] = useState(null)
+  const [proofLocation, setProofLocation] = useState(null)
+  const [videoPath, setVideoPath] = useState(null)
   const [recurringCount, setRecurringCount] = useState(0)
 
   const [showAssignPanel, setShowAssignPanel] = useState(false)
@@ -82,9 +86,15 @@ export default function ReportReviewPage() {
     setReport(reportData)
 
     const { data: catRow } = await supabase
-      .from('reports').select('issue_code').eq('report_id', id).maybeSingle()
+      .from('reports')
+      .select('issue_code, proof_location_consistent, video_url')
+      .eq('report_id', id)
+      .maybeSingle()
     const code = catRow?.issue_code || null
     setIssueCode(code)
+    setProofLocation(catRow?.proof_location_consistent ?? null)
+    setVideoPath(catRow?.video_url || null)
+
     setRecurringCount(0)
     if (code && code !== 'other') {
       const { count } = await supabase
@@ -442,6 +452,10 @@ export default function ReportReviewPage() {
                   </p>
                 )}
               </div>
+              <div>
+                <p className="text-xs text-gray-400 mb-1">Evidence location</p>
+                <ProofLocationBadge value={proofLocation} />
+              </div>
               <div className={compactLayout ? 'md:col-span-2' : ''}>
                 <p className="text-xs text-gray-400">Description</p>
                 <p className="text-gray-700 bg-gray-50 rounded-lg p-3 mt-1">
@@ -454,6 +468,7 @@ export default function ReportReviewPage() {
                 </p>
               )}
               <PhotoDropdown label="Photo Evidence" photoUrl={photoSignedUrl} />
+              <VideoDropdown label="Video Evidence" bucket="assignment-proofs" path={videoPath} />
             </div>
           </div>
 
@@ -484,6 +499,9 @@ export default function ReportReviewPage() {
                 assignment={assignment}
                 reportId={id}
                 onReviewed={loadReport}
+                issueCode={issueCode}
+                proofLocationConsistent={proofLocation}
+                showReportInfo
                 actionPortalId="ticket-action-bar"
               />
             </div>

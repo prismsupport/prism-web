@@ -26,11 +26,12 @@ const SECTIONS = [
     body: [
       'Account information: full name, email address, contact number, password (stored only in hashed form), profile photo (optional), and, for consumers, address details (zone, barangay, municipality) and the assigned feeder.',
       'Cooperative registration information: cooperative name, office address, contact number, and official email.',
-      'Outage reports: GPS coordinates of the outage, address and nearest landmark, description, photos, whether nearby homes are affected, and the electric account number.',
-      'Field and repair information (linemen): job order status and timestamps, completion checklist, repair photos, voice recordings, written remarks, and the lineman\'s duty schedule, assigned area office, and location.',
+      'Outage reports: GPS coordinates of the outage, address and nearest landmark, description, photos and short videos, whether nearby homes are affected, and the electric account number.',
+      'Field and repair information (linemen): job order status and timestamps, completion checklist, repair photos, repair videos, voice recordings, written remarks, and the lineman\'s duty schedule, assigned area office, and location.',
       'Lineman location: while a lineman is on duty and the app is open, the app reports the device location about every 30 seconds or after moving about 50 meters. Tracking stops when the lineman is off shift, and no location is reported while the app is closed.',
       'Billing information: the account number a consumer enters when registering or adding an account. We look it up in the cooperative\'s billing system and save the account holder\'s name, account type, meter number, and service address (municipality, barangay, zone) with the consumer\'s account. Bills and billing history are fetched when the consumer opens them and are not copied into our database.',
       'Service interactions: FAQ chatbot questions, supervisor replies, ratings and comments, reopen requests, and notifications.',
+      'Device location check: when a consumer captures photo or video evidence, the app compares a fresh phone location with the report location and saves only whether they were consistent. The evidence location itself is not stored.',
       'Device and technical information: push notification tokens, login session tokens, and basic technical logs needed to run and secure the service.',
     ],
   },
@@ -73,7 +74,7 @@ const SECTIONS = [
   {
     title: '8. Security',
     body: [
-      'We use reasonable organizational, physical, and technical measures, including: encrypted connections (HTTPS/TLS); hashed passwords; role-based access controls and row-level database security that separate data by role and cooperative; private storage for report photos, repair proofs, voice recordings, and advisory photos, delivered only through links that expire; and encrypted storage of cooperative billing API keys.',
+      'We use reasonable organizational, physical, and technical measures, including: encrypted connections (HTTPS/TLS); hashed passwords; role-based access controls and row-level database security that separate data by role and cooperative; private storage for report photos and videos, repair proofs, voice recordings, and advisory photos, delivered only through links that expire; and encrypted storage of cooperative billing API keys.',
       'Profile photos are stored separately and can be opened by anyone who has the photo\'s link. Do not use a profile photo you do not want to be viewable.',
       'No system is completely secure. Users should keep their passwords confidential and report suspected unauthorized access to us immediately.',
     ],

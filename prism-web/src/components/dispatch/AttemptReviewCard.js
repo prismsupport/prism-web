@@ -1,4 +1,5 @@
 import PhotoDropdown from '@/components/dispatch/PhotoDropdown'
+import VideoDropdown from '@/components/dispatch/VideoDropdown'
 import ReopenReasonNote from '@/components/dispatch/ReopenReasonNote'
 import { useStatusLabels } from '@/lib/workflow/StatusLabelsContext'
 
@@ -57,6 +58,16 @@ export default function AttemptReviewCard({ attempt }) {
       )}
 
       <PhotoDropdown label="Completion Photo" photoUrl={attempt.photoUrl} />
+
+      {attempt.video_url && (
+        <div className="mt-2">
+          <VideoDropdown
+            label="Completion Video"
+            bucket="assignment-proofs"
+            path={attempt.video_url}
+          />
+        </div>
+      )}
 
       {attempt.review && (
         <p className={`text-xs font-bold mt-2 ${attempt.review.decision === 'approved' ? 'text-green-600' : 'text-red-600'}`}>

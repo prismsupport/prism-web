@@ -3,6 +3,11 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { reopenAssignment } from '@/lib/dispatch/reopenAssignment'
+import { PageLoading } from "@/components/ui/Skeleton";
+import { toast } from '@/lib/toast'
+import VideoDropdown from '@/components/dispatch/VideoDropdown'
+import { issueLabel } from '@/lib/issueCodes'
 import Alert from '@/components/ui/Alert'
 import TicketDetailHeader from '@/components/dispatch/TicketDetailHeader'
 import BackToDispatchLink from '@/components/dispatch/BackToDispatchLink'
@@ -10,9 +15,6 @@ import ReporterInfo from '@/components/dispatch/ReporterInfo'
 import PhotoDropdown from '@/components/dispatch/PhotoDropdown'
 import MapModal from '@/components/dispatch/MapModal'
 import AttemptReviewCard from '@/components/dispatch/AttemptReviewCard'
-import { reopenAssignment } from '@/lib/dispatch/reopenAssignment'
-import { PageLoading } from "@/components/ui/Skeleton";
-import { toast } from '@/lib/toast'
 
 export default function ReopenReviewPage() {
   const { reopenId } = useParams()
@@ -32,6 +34,7 @@ export default function ReopenReviewPage() {
   const [actionLoading, setActionLoading] = useState(false)
   const [showMapModal, setShowMapModal] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
+  const [originalMeta, setOriginalMeta] = useState(null)
 
   useEffect(() => {
     loadData()
@@ -59,6 +62,13 @@ export default function ReopenReviewPage() {
       .rpc('get_report_with_location', { p_report_id: reopenData.report_id })
       .single()
     setReport(reportData)
+
+    const { data: meta } = await supabase
+      .from('reports')
+      .select('issue_code, video_url')
+      .eq('report_id', reopenData.report_id)
+      .maybeSingle()
+    setOriginalMeta(meta)
 
     const { data: consumer } = await supabase
       .from('users')
@@ -273,6 +283,12 @@ export default function ReopenReviewPage() {
             "{report?.report_details}"
           </p>
           <PhotoDropdown label="Original Photo" photoUrl={originalPhotoUrl} />
+          <p className="text-xs text-gray-400 mt-3">
+            Category: <span className="text-gray-900 font-medium">{issueLabel(originalMeta?.issue_code)}</span>
+          </p>
+          <div className="mt-2">
+            <VideoDropdown label="Original Video" bucket="report-photos" path={originalMeta?.video_url} />
+          </div>
         </div>
 
         <div className="bg-white rounded-xl border-2 border-amber-300 p-5">
@@ -289,6 +305,9 @@ export default function ReopenReviewPage() {
             "{reopen.description}"
           </p>
           <PhotoDropdown label="Reopen Photo" photoUrl={newPhotoUrl} />
+          <div className="mt-2">
+            <VideoDropdown label="Reopen Video" bucket="report-photos" path={reopen.video_url} />
+          </div>
         </div>
       </div>
 

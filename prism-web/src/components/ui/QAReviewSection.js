@@ -5,17 +5,25 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { reopenAssignment } from '@/lib/dispatch/reopenAssignment'
 import { toast } from '@/lib/toast'
+import { issueLabel } from '@/lib/issueCodes'
 import { useStatusLabels } from '@/lib/workflow/StatusLabelsContext'
 import Alert from '@/components/ui/Alert'
 import Button from '@/components/ui/Button'
 import ReasonBox from '@/components/ui/ReasonBox'
+import ProofLocationBadge from '@/components/dispatch/ProofLocationBadge'
+import VideoDropdown from '@/components/dispatch/VideoDropdown'
 import StickyActionBar from '@/components/dispatch/StickyActionBar'
 
+// issueCode and proofLocationConsistent are optional (single reports only).
+// A Master Ticket has several reports, so the page leaves them out.
 export default function QAReviewSection({
   assignment,
   reportId,
   masterId,
   onReviewed,
+  issueCode,
+  proofLocationConsistent,
+  showReportInfo = false,
   actionPortalId,
 }) {
   const { statusLabel } = useStatusLabels()
@@ -182,6 +190,24 @@ export default function QAReviewSection({
         Quality Assurance Review
       </h2>
 
+      {showReportInfo && (
+        <div className="grid grid-cols-2 gap-3 bg-gray-50 rounded-lg p-3 mb-4 text-sm">
+          <div>
+            <p className="text-xs text-gray-400 mb-0.5">Category</p>
+            <p className="text-gray-900 font-medium">{issueLabel(issueCode)}</p>
+          </div>
+          <div>
+            <p className="text-xs text-gray-400 mb-1">Consumer evidence location</p>
+            <ProofLocationBadge value={proofLocationConsistent} />
+            {proofLocationConsistent === false && (
+              <p className="text-xs text-amber-700 mt-1">
+                Review the evidence. This does not block approval.
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="space-y-3 text-sm mb-4">
         <div>
           <p className="text-xs text-gray-400 mb-1">Proof of Completion Photo</p>
@@ -197,6 +223,14 @@ export default function QAReviewSection({
             <p className="text-xs text-gray-400 italic">No photo submitted.</p>
           )}
         </div>
+
+        {assignment.video_url && (
+          <VideoDropdown
+            label="Proof of Completion Video"
+            bucket="assignment-proofs"
+            path={assignment.video_url}
+          />
+        )}
 
         <div>
           <p className="text-xs text-gray-400">Repair Note</p>

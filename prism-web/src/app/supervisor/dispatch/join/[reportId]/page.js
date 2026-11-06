@@ -252,6 +252,7 @@ export default function JoinReviewPage() {
         <MatchReviewCard
           title="New Report"
           ticketLabel={report.ticket_number}
+          reportId={report.report_id}
           barangay={report.barangay}
           municipality={report.municipality}
           zone={report.zone}
@@ -264,6 +265,7 @@ export default function JoinReviewPage() {
         <MatchReviewCard
           title={isTargetMaster ? 'Existing Master Ticket' : 'Existing Report'}
           ticketLabel={suggestion.target_label}
+          reportId={isTargetMaster ? null : suggestion.target_id}
           barangay={targetDetails?.barangay}
           municipality={targetDetails?.municipality}
           zone={targetDetails?.zone}
