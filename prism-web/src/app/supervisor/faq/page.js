@@ -142,6 +142,29 @@ export default function FaqManagementPage() {
       toast.error(restoreError.message);
       return;
     }
+
+    const { data: settings, error: settingsError } = await supabase
+      .from("cooperative_settings")
+      .select("faq_categories")
+      .eq("cooperative_id", cooperativeId)
+      .single();
+    if (settingsError) {
+      toast.error(settingsError.message);
+      return;
+    }
+
+    const currentCategories = settings?.faq_categories || [];
+    if (entry.category && !currentCategories.includes(entry.category)) {
+      const { error: categoryError } = await supabase
+        .from("cooperative_settings")
+        .update({ faq_categories: [...currentCategories, entry.category] })
+        .eq("cooperative_id", cooperativeId);
+      if (categoryError) {
+        toast.error(categoryError.message);
+        return;
+      }
+    }
+
     toast.success("FAQ entry restored");
     loadEverything();
   }
@@ -361,7 +384,10 @@ export default function FaqManagementPage() {
           cooperativeId={cooperativeId}
           categories={categories}
           onClose={() => setShowManageCategories(false)}
-          onUpdated={(newList) => setCategories(newList)}
+          onUpdated={(newList) => {
+            setCategories(newList);
+            loadEverything();
+          }}
         />
       )}
     </div>

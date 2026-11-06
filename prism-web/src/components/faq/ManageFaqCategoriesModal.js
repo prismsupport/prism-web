@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import Modal from '@/components/ui/Modal'
 import Alert from '@/components/ui/Alert'
 import Button from '@/components/ui/Button'
+import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import { toast } from '@/lib/toast'
 
 export default function ManageFaqCategoriesModal({ cooperativeId, categories, onClose, onUpdated }) {
@@ -12,6 +13,7 @@ export default function ManageFaqCategoriesModal({ cooperativeId, categories, on
   const [newCategory, setNewCategory] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [categoryToDelete, setCategoryToDelete] = useState(null)
 
   async function persist(updatedList, successMessage) {
     setSaving(true)
@@ -42,8 +44,42 @@ export default function ManageFaqCategoriesModal({ cooperativeId, categories, on
     setNewCategory('')
   }
 
-  function handleDelete(category) {
-    persist(list.filter((c) => c !== category), 'FAQ category removed')
+  async function handleDeleteConfirmed() {
+    setSaving(true)
+    setError('')
+    const supabase = createClient()
+    const { error: archiveError } = await supabase
+      .from('faq_entries')
+      .update({ archived_at: new Date().toISOString() })
+      .eq('cooperative_id', cooperativeId)
+      .eq('category', categoryToDelete)
+      .is('archived_at', null)
+
+    if (archiveError) {
+      toast.error(archiveError.message)
+      setError(archiveError.message)
+      setSaving(false)
+      return
+    }
+
+    const updatedList = list.filter((c) => c !== categoryToDelete)
+    const { error: updateError } = await supabase
+      .from('cooperative_settings')
+      .update({ faq_categories: updatedList })
+      .eq('cooperative_id', cooperativeId)
+
+    if (updateError) {
+      toast.error(updateError.message)
+      setError(updateError.message)
+      setSaving(false)
+      return
+    }
+
+    setList(updatedList)
+    onUpdated(updatedList)
+    setCategoryToDelete(null)
+    setSaving(false)
+    toast.success('FAQ category removed and entries archived')
   }
 
   return (
@@ -57,7 +93,7 @@ export default function ManageFaqCategoriesModal({ cooperativeId, categories, on
           >
             <span className="text-sm text-gray-900 capitalize">{category}</span>
             <button
-              onClick={() => handleDelete(category)}
+              onClick={() => setCategoryToDelete(category)}
               disabled={saving}
               className="text-xs font-semibold text-red-600"
             >
@@ -81,6 +117,19 @@ export default function ManageFaqCategoriesModal({ cooperativeId, categories, on
           Add
         </Button>
       </div>
+      {categoryToDelete && (
+        <ConfirmDialog
+          title="Remove FAQ Category"
+          confirmLabel="Remove and Archive"
+          loading={saving}
+          onConfirm={handleDeleteConfirmed}
+          onClose={() => setCategoryToDelete(null)}
+        >
+          Removing <span className="font-semibold">{categoryToDelete}</span> will
+          archive all FAQ entries in this category. They will no longer be used
+          by the chatbot, but you can restore them from the Archived tab.
+        </ConfirmDialog>
+      )}
     </Modal>
   )
 }
