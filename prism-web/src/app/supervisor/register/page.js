@@ -139,6 +139,9 @@ export default function SupervisorRegisterPage() {
           <h2 className="text-xs font-bold tracking-wide text-blue-700 mb-3">
             COOPERATIVE INFORMATION
           </h2>
+          <p className="text-xs text-gray-400 mb-4">
+            You can add your cooperative&apos;s logo after your registration is approved, from Profile → Cooperative. 
+          </p>
           <div className="space-y-3">
             <AuthInput {...field('cooperativeName', 'Cooperative Name')} />
             <AuthInput {...field('officeAddress', 'Office Address')} />
@@ -146,8 +149,9 @@ export default function SupervisorRegisterPage() {
               <AuthInput {...field('municipality', 'Municipality')} />
               <AuthInput {...field('province', 'Province')} />
             </div>
+            <div className="grid grid-cols-2 gap-3">
             <AuthInput {...field('contactNumber', 'Contact Number')} />
-            <AuthInput {...field('officialEmail', 'Official Cooperative Email', { type: 'email' })} />
+            <AuthInput {...field('officialEmail', 'Official Cooperative Email', { type: 'email' })} /> </div>
           </div>
         </div>
 

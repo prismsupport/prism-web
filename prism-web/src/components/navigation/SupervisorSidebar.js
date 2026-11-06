@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import Logo from "@/components/ui/Logo";
 import { usePermissions } from "@/lib/supervisor/PermissionsContext";
+import SidebarCooperative from "@/components/navigation/SidebarCooperative";
+import Logo from "@/components/ui/Logo";
 import useNavCounts from "@/lib/supervisor/useNavCounts";
 import supervisorNavItems from "./supervisorNavItems";
 
@@ -292,6 +293,8 @@ export default function SupervisorSidebar() {
           </div>
         </div>
       )}
+
+      <SidebarCooperative collapsed={collapsed} />
 
       {/* Collapse / expand */}
       <div className="shrink-0 border-t border-white/10 p-3">

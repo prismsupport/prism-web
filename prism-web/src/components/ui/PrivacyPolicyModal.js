@@ -4,7 +4,7 @@ import Modal from '@/components/ui/Modal'
 
 const OPERATOR_NAME = 'Official PRISM Support'
 const CONTACT_EMAIL = 'prismsupport01@gmail.com'
-const LAST_UPDATED = 'November 3, 2026'
+const LAST_UPDATED = 'November 6, 2026'
 
 const SECTIONS = [
   {
@@ -25,7 +25,7 @@ const SECTIONS = [
     title: '3. Information We Collect',
     body: [
       'Account information: full name, email address, contact number, password (stored only in hashed form), profile photo (optional), and, for consumers, address details (zone, barangay, municipality) and the assigned feeder.',
-      'Cooperative registration information: cooperative name, office address, contact number, and official email.',
+      'Cooperative registration information: cooperative name, office address, contact number, official email and an optional cooperative logo.',
       'Outage reports: GPS coordinates of the outage, address and nearest landmark, description, photos and short videos, whether nearby homes are affected, and the electric account number.',
       'Field and repair information (linemen): job order status and timestamps, completion checklist, repair photos, repair videos, voice recordings, written remarks, and the lineman\'s duty schedule, assigned area office, and location.',
       'Lineman location: while a lineman is on duty and the app is open, the app reports the device location about every 30 seconds or after moving about 50 meters. Tracking stops when the lineman is off shift, and no location is reported while the app is closed.',
@@ -76,6 +76,7 @@ const SECTIONS = [
     body: [
       'We use reasonable organizational, physical, and technical measures, including: encrypted connections (HTTPS/TLS); hashed passwords; role-based access controls and row-level database security that separate data by role and cooperative; private storage for report photos and videos, repair proofs, voice recordings, and advisory photos, delivered only through links that expire; and encrypted storage of cooperative billing API keys.',
       'Profile photos are stored separately and can be opened by anyone who has the photo\'s link. Do not use a profile photo you do not want to be viewable.',
+      'Cooperative logos are also publicly readable by link.',
       'No system is completely secure. Users should keep their passwords confidential and report suspected unauthorized access to us immediately.',
     ],
   },

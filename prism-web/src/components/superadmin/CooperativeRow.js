@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import StatusBadge from '@/components/StatusBadge'
+import CooperativeLogo from '@/components/ui/CooperativeLogo'
 
 export default function CooperativeRow({ coop }) {
   const hasBeenUpdated = coop.updated_at !== coop.created_at
@@ -8,9 +9,10 @@ export default function CooperativeRow({ coop }) {
   return (
     <tr className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
       <td className="px-5 py-4">
-        <span className="font-semibold text-gray-900 uppercase">
-          {coop.cooperative_name}
-        </span>
+        <div className="flex items-center gap-3">
+          <CooperativeLogo name={coop.cooperative_name} src={coop.logo_url} size={32} />
+          <span className="font-semibold text-gray-900 uppercase">{coop.cooperative_name}</span>
+        </div>
       </td>
       <td className="px-5 py-4">
         <p className="font-medium text-gray-800 uppercase text-xs">

@@ -2,12 +2,14 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { PageLoading } from "@/components/ui/Skeleton";
+import { toast } from '@/lib/toast'
+import { usePermissions } from '@/lib/supervisor/PermissionsContext'
+import CooperativeLogoUploader from '@/components/cooperative/CooperativeLogoUploader'
 import Alert from '@/components/ui/Alert'
 import Card from '@/components/ui/Card'
 import FormSection from '@/components/ui/FormSection'
 import FormField from '@/components/ui/FormField'
-import { PageLoading } from "@/components/ui/Skeleton";
-import { toast } from '@/lib/toast'
 
 function TabButton({ active, onClick, children }) {
   return (
@@ -33,6 +35,7 @@ export default function SupervisorProfilePage() {
   const [avatarUrl, setAvatarUrl] = useState(null)
   const [avatarUploading, setAvatarUploading] = useState(false)
   const [avatarError, setAvatarError] = useState('')
+  const { isOwner } = usePermissions()
 
   const [form, setForm] = useState({ first_name: '', last_name: '', phone_number: '', email: '' })
   const [editing, setEditing] = useState(false)
@@ -337,6 +340,11 @@ export default function SupervisorProfilePage() {
             <TabButton active={activeTab === 'security'} onClick={() => setActiveTab('security')}>
               Security
             </TabButton>
+            {isOwner && (
+              <TabButton active={activeTab === 'cooperative'} onClick={() => setActiveTab('cooperative')}>
+                Cooperative
+              </TabButton>
+            )}
           </div>
 
           {activeTab === 'personal' && (
@@ -501,6 +509,7 @@ export default function SupervisorProfilePage() {
               </Card>
             </div>
           )}
+          {activeTab === 'cooperative' && isOwner && <CooperativeLogoUploader />}
         </div>
       </div>
     </div>

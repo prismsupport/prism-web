@@ -3,14 +3,15 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { PageLoading } from "@/components/ui/Skeleton";
+import { toast } from '@/lib/toast'
+import CooperativeLogo from '@/components/ui/CooperativeLogo'
 import StatusBadge from '@/components/StatusBadge'
 import Card from '@/components/ui/Card'
 import CooperativeStatusActions from '@/components/superadmin/CooperativeStatusActions'
 import CooperativeStatusHistory from '@/components/superadmin/CooperativeStatusHistory'
 import BackButton from '@/components/ui/BackButton'
 import Alert from '@/components/ui/Alert';
-import { PageLoading } from "@/components/ui/Skeleton";
-import { toast } from '@/lib/toast'
 
 export default function CooperativeDetailPage() {
   const { id } = useParams()
@@ -234,9 +235,10 @@ export default function CooperativeDetailPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         <Card>
           <div className="flex items-start justify-between mb-4">
-            <h1 className="text-xl font-bold text-gray-900">
-              {coop.cooperative_name}
-            </h1>
+            <div className="flex items-center gap-3">
+              <CooperativeLogo name={coop.cooperative_name} src={coop.logo_url} size={48} />
+              <h1 className="text-xl font-bold text-gray-900">{coop.cooperative_name}</h1>
+            </div>
             <StatusBadge status={coop.status} />
           </div>
 
