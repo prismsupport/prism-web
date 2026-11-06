@@ -32,6 +32,14 @@ const RANGES = [
   { key: 'custom', label: 'Custom' },
 ]
 
+// One tab at a time instead of one long page. Exports still include every section.
+const TABS = [
+  { key: 'overview', label: 'Overview' },
+  { key: 'locations', label: 'Locations' },
+  { key: 'times', label: 'Response & Resolution' },
+  { key: 'linemen', label: 'Lineman Performance' },
+]
+
 function toDateInput(d) {
   const m = String(d.getMonth() + 1).padStart(2, '0')
   const day = String(d.getDate()).padStart(2, '0')
@@ -61,10 +69,10 @@ const LINEMAN_COLUMNS = [
 
 function Section({ title, description, children, className = '' }) {
   return (
-    <section className={`rounded-2xl border border-gray-200 bg-white p-6 shadow-sm ${className}`}>
+    <section className={`rounded-2xl border border-gray-200 bg-white p-5 shadow-sm ${className}`}>
       <h2 className="text-sm font-bold text-gray-900">{title}</h2>
-      {description && <p className="mb-4 mt-1 text-xs text-gray-400">{description}</p>}
-      {!description && <div className="mb-4" />}
+      {description && <p className="mb-3 mt-1 text-xs text-gray-400">{description}</p>}
+      {!description && <div className="mb-3" />}
       {children}
     </section>
   )
@@ -79,6 +87,7 @@ export default function ReportsPage() {
   const [exporting, setExporting] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [coopName, setCoopName] = useState('')
+  const [tab, setTab] = useState('overview')
 
   const [rangeKey, setRangeKey] = useState('30')
   const [customFrom, setCustomFrom] = useState('')
@@ -291,36 +300,38 @@ export default function ReportsPage() {
         description="Outage frequency, issue categories, locations, response and resolution times, recurring incidents, and lineman performance for the period and area you choose."
       />
 
-      <FilterBar className="flex flex-wrap items-center gap-3">
-        <SegmentedControl options={RANGES} value={rangeKey} onChange={setRangeKey} disabled={refreshing} />
+      <div className="-mx-1 bg-gray-50 px-1 pt-1">
+        <FilterBar className="mb-4 flex flex-wrap items-center gap-3">
+          <SegmentedControl options={RANGES} value={rangeKey} onChange={setRangeKey} disabled={refreshing} />
 
-        {rangeKey === 'custom' && (
-          <div className="flex items-center gap-2">
-            <input
-              type="date"
-              aria-label="Start date"
-              value={customFrom}
-              max={customTo || undefined}
-              onChange={(e) => setCustomFrom(e.target.value)}
-              className={DATE_INPUT}
-            />
-            <span className="text-sm text-gray-400">to</span>
-            <input
-              type="date"
-              aria-label="End date"
-              value={customTo}
-              min={customFrom || undefined}
-              onChange={(e) => setCustomTo(e.target.value)}
-              className={DATE_INPUT}
-            />
+          {rangeKey === 'custom' && (
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                aria-label="Start date"
+                value={customFrom}
+                max={customTo || undefined}
+                onChange={(e) => setCustomFrom(e.target.value)}
+                className={DATE_INPUT}
+              />
+              <span className="text-sm text-gray-400">to</span>
+              <input
+                type="date"
+                aria-label="End date"
+                value={customTo}
+                min={customFrom || undefined}
+                onChange={(e) => setCustomTo(e.target.value)}
+                className={DATE_INPUT}
+              />
+            </div>
+          )}
+
+          <div className="ml-auto">
+            <FilterMenu filters={filters} label="Location" />
           </div>
-        )}
-
-        <div className="ml-auto">
-          <FilterMenu filters={filters} label="Location" />
-        </div>
-        <FilterChips filters={filters} />
-      </FilterBar>
+          <FilterChips filters={filters} />
+        </FilterBar>
+      </div>
 
       <Alert>{dateError}</Alert>
 
@@ -333,11 +344,12 @@ export default function ReportsPage() {
 
       {summary && (
         <div
-          className={`grid grid-cols-2 gap-4 md:grid-cols-4 transition-opacity ${
+          className={`grid grid-cols-2 gap-3 md:grid-cols-4 transition-opacity ${
             refreshing ? 'opacity-60' : ''
           }`}
         >
           <MetricCard
+            compact
             label="Total outage reports"
             value={summary.totalReports}
             hint={summary.declinedReports > 0 ? `${summary.declinedReports} declined` : undefined}
@@ -345,11 +357,12 @@ export default function ReportsPage() {
             <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
             <rect width="8" height="4" x="8" y="2" rx="1" />
           </MetricCard>
-          <MetricCard tone="green" label="Reports resolved" value={summary.resolvedReports}>
+          <MetricCard compact tone="green" label="Reports resolved" value={summary.resolvedReports}>
             <circle cx="12" cy="12" r="10" />
             <path d="m9 12 2 2 4-4" />
           </MetricCard>
           <MetricCard
+            compact
             tone="amber"
             label="Avg. response time"
             value={formatMinutes(summary.avgResponse)}
@@ -359,6 +372,7 @@ export default function ReportsPage() {
             <path d="M12 6v6l4 2" />
           </MetricCard>
           <MetricCard
+            compact
             label="Avg. resolution time"
             value={formatMinutes(summary.avgResolution)}
             hint="Submission to final completion"
@@ -370,116 +384,134 @@ export default function ReportsPage() {
       )}
 
       {data && (
-        <div className={`mt-6 space-y-6 transition-opacity ${refreshing ? 'opacity-60' : ''}`}>
-          <Section
-            title="Outage Frequency"
-            description="Reports filed over the selected period."
-          >
-            <ReportTrendChart data={data.trend} unit={data.trendUnit} />
-          </Section>
-
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-            <Section
-              title="Issue Categories"
-              description="Category chosen by the consumer. Older reports show as Uncategorized."
-            >
-              <BarList
-                rows={data.issues}
-                emptyTitle="No reports in this period"
-                emptyDescription="Try a wider date range or fewer location filters."
-              />
-            </Section>
-
-            <AreaBreakdown breakdown={data.locations} />
+        <>
+          <div className="mt-4 mb-4">
+            <SegmentedControl options={TABS} value={tab} onChange={setTab} />
           </div>
 
-          <Section
-            title="Response and Resolution Times"
-            description="Response is submission to first dispatch. Repair is first dispatch to completion."
-          >
-            <div className="mb-5 grid grid-cols-1 gap-4 md:grid-cols-3">
-              <MetricCard label="Avg. repair time" value={formatMinutes(summary.avgRepair)} hint="First dispatch to completion">
-                <path d="M13 2 3 14h7l-1 8 11-14h-7l1-6Z" />
-              </MetricCard>
-              <MetricCard
-                tone="amber"
-                label="Dispatched within limit"
-                value={summary.responsePct !== null ? `${summary.responsePct}%` : '—'}
-                hint={
-                  summary.thresholdMinutes
-                    ? `Response threshold ${summary.thresholdMinutes} min`
-                    : 'No response threshold set'
-                }
-              >
-                <circle cx="12" cy="12" r="10" />
-                <path d="M12 6v6l4 2" />
-              </MetricCard>
-              <MetricCard
-                tone="green"
-                label="Resolved within target"
-                value={summary.resolutionPct !== null ? `${summary.resolutionPct}%` : '—'}
-                hint={
-                  summary.targetMinutes
-                    ? `Target ${formatMinutes(summary.targetMinutes)} · ${summary.resolutionCount} resolved`
-                    : 'No resolution target set (Dispatch settings)'
-                }
-              >
-                <circle cx="12" cy="12" r="10" />
-                <path d="m9 12 2 2 4-4" />
-              </MetricCard>
-            </div>
-            <StageBreakdown averages={data.stageAverages} />
-          </Section>
+          <div className={`space-y-4 transition-opacity ${refreshing ? 'opacity-60' : ''}`}>
+            {tab === 'overview' && (
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                <Section title="Outage Frequency" description="Reports filed over the selected period.">
+                  <ReportTrendChart data={data.trend} unit={data.trendUnit} />
+                </Section>
+                <Section
+                  title="Issue Categories"
+                  description="Category chosen by the consumer. Older reports show as Uncategorized."
+                >
+                  <BarList
+                    rows={data.issues}
+                    emptyTitle="No reports in this period"
+                    emptyDescription="Try a wider date range or fewer location filters."
+                  />
+                </Section>
+              </div>
+            )}
 
-          <Section
-            title="Recurring Incidents"
-            description={`The same category reported ${RECURRING_MIN_REPORTS} or more times in the same barangay within the selected period. ${summary.reopenedCount} ticket${summary.reopenedCount === 1 ? ' was' : 's were'} reopened in this period.`}
-          >
-            <BarList
-              rows={data.recurring.map((g) => [
-                `${g.label} · ${g.barangay}${g.municipality ? ` (${g.municipality})` : ''}`,
-                g.count,
-              ])}
-              emptyTitle="No recurring incidents"
-              emptyDescription="Nothing was reported often enough in one barangay to count as recurring."
-            />
-          </Section>
+            {tab === 'locations' && (
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                <AreaBreakdown breakdown={data.locations} />
+                <Section
+                  title="Recurring Incidents"
+                  description={`The same category reported ${RECURRING_MIN_REPORTS} or more times in the same barangay within the selected period. ${summary.reopenedCount} ticket${summary.reopenedCount === 1 ? ' was' : 's were'} reopened in this period.`}
+                >
+                  <BarList
+                    rows={data.recurring.map((g) => [
+                      `${g.label} · ${g.barangay}${g.municipality ? ` (${g.municipality})` : ''}`,
+                      g.count,
+                    ])}
+                    emptyTitle="No recurring incidents"
+                    emptyDescription="Nothing was reported often enough in one barangay to count as recurring."
+                  />
+                </Section>
+              </div>
+            )}
 
-          <Section
-            title="Lineman Performance"
-            description="Resolved jobs on the reports above. Read each average together with its rating count."
-          >
-            <DataTable
-              columns={LINEMAN_COLUMNS}
-              isEmpty={data.linemen.length === 0}
-              empty="No lineman accounts yet."
-            >
-              {data.linemen.map((l) => (
-                <tr key={l.id} className="border-b border-gray-100 last:border-0">
-                  <td className="px-5 py-4 text-center font-medium text-gray-900">
-                    {l.name}
-                    {!l.isActive && <span className="ml-2 text-xs font-semibold text-gray-400">Inactive</span>}
-                  </td>
-                  <td className="px-5 py-4 text-center text-gray-600">{l.areaOffice || '—'}</td>
-                  <td className="px-5 py-4 text-center text-gray-600">{l.jobsCompleted}</td>
-                  <td className="px-5 py-4 text-center text-gray-600">{formatMinutes(l.avgRepair)}</td>
-                  <td className="px-5 py-4 text-center text-gray-600">{formatDuration(l.avgTravel)}</td>
-                  <td className="px-5 py-4 text-center text-gray-600">{formatDuration(l.avgOnSite)}</td>
-                  <td className="px-5 py-4 text-center">
-                    {l.ratingCount > 0 ? (
-                      <span className="font-semibold text-gray-900">
-                        <span className="text-amber-500">★</span> {l.ratingAverage.toFixed(1)}
-                      </span>
-                    ) : (
-                      <span className="text-xs text-gray-400">No ratings</span>
-                    )}
-                  </td>
-                  <td className="px-5 py-4 text-center text-gray-600">{l.ratingCount}</td>
-                </tr>
-              ))}
-            </DataTable>
-          </Section>
-        </div>
+            {tab === 'times' && (
+              <>
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                  <MetricCard
+                    compact
+                    label="Avg. repair time"
+                    value={formatMinutes(summary.avgRepair)}
+                    hint="First dispatch to completion"
+                  >
+                    <path d="M13 2 3 14h7l-1 8 11-14h-7l1-6Z" />
+                  </MetricCard>
+                  <MetricCard
+                    compact
+                    tone="amber"
+                    label="Dispatched within limit"
+                    value={summary.responsePct !== null ? `${summary.responsePct}%` : '—'}
+                    hint={
+                      summary.thresholdMinutes
+                        ? `Response threshold ${summary.thresholdMinutes} min`
+                        : 'No response threshold set'
+                    }
+                  >
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="M12 6v6l4 2" />
+                  </MetricCard>
+                  <MetricCard
+                    compact
+                    tone="green"
+                    label="Resolved within target"
+                    value={summary.resolutionPct !== null ? `${summary.resolutionPct}%` : '—'}
+                    hint={
+                      summary.targetMinutes
+                        ? `Target ${formatMinutes(summary.targetMinutes)} · ${summary.resolutionCount} resolved`
+                        : 'No resolution target set (Dispatch settings)'
+                    }
+                  >
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="m9 12 2 2 4-4" />
+                  </MetricCard>
+                </div>
+                {/* StageBreakdown is already a card, so it is not wrapped in a Section */}
+                <StageBreakdown averages={data.stageAverages} />
+              </>
+            )}
+
+            {tab === 'linemen' && (
+              <Section
+                title="Lineman Performance"
+                description="Resolved jobs on the reports above. Read each average together with its rating count."
+              >
+                <DataTable
+                  columns={LINEMAN_COLUMNS}
+                  isEmpty={data.linemen.length === 0}
+                  empty="No lineman accounts yet."
+                >
+                  {data.linemen.map((l) => (
+                    <tr key={l.id} className="border-b border-gray-100 last:border-0">
+                      <td className="px-5 py-4 text-center font-medium text-gray-900">
+                        {l.name}
+                        {!l.isActive && (
+                          <span className="ml-2 text-xs font-semibold text-gray-400">Inactive</span>
+                        )}
+                      </td>
+                      <td className="px-5 py-4 text-center text-gray-600">{l.areaOffice || '—'}</td>
+                      <td className="px-5 py-4 text-center text-gray-600">{l.jobsCompleted}</td>
+                      <td className="px-5 py-4 text-center text-gray-600">{formatMinutes(l.avgRepair)}</td>
+                      <td className="px-5 py-4 text-center text-gray-600">{formatDuration(l.avgTravel)}</td>
+                      <td className="px-5 py-4 text-center text-gray-600">{formatDuration(l.avgOnSite)}</td>
+                      <td className="px-5 py-4 text-center">
+                        {l.ratingCount > 0 ? (
+                          <span className="font-semibold text-gray-900">
+                            <span className="text-amber-500">★</span> {l.ratingAverage.toFixed(1)}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-gray-400">No ratings</span>
+                        )}
+                      </td>
+                      <td className="px-5 py-4 text-center text-gray-600">{l.ratingCount}</td>
+                    </tr>
+                  ))}
+                </DataTable>
+              </Section>
+            )}
+          </div>
+        </>
       )}
     </div>
   )
