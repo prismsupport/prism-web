@@ -1,6 +1,6 @@
 export default function SegmentedControl({ options, value, onChange, disabled }) {
   return (
-    <div role="group" className="inline-flex rounded-xl bg-gray-100 p-1">
+    <div role="group" className="inline-flex max-w-full flex-wrap rounded-xl bg-gray-100 p-1">
       {options.map((o) => (
         <button
           key={o.key}

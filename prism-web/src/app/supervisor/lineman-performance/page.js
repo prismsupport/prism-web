@@ -257,6 +257,7 @@ export default function LinemanPerformancePage() {
 
       <FilterBar>
         <SearchInput
+          className="flex-1 min-w-[200px]"
           value={searchText}
           onChange={setSearchText}
           placeholder="Search lineman name or area office…"

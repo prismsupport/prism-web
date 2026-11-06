@@ -63,7 +63,7 @@ export default function ReporterInfo({ reportId, consumerId, compact = false }) 
   return (
     <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 mb-3">
       <p className="text-xs font-bold text-gray-400 uppercase mb-2">Reporter</p>
-      <div className="grid grid-cols-3 gap-3 text-sm">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
         <div>
           <p className="text-xs text-gray-400">Name</p>
           <p className="text-gray-900 font-medium break-words">{info.name || '—'}</p>

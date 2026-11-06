@@ -224,8 +224,8 @@ export default function JoinReviewPage() {
   const isTargetMaster = suggestion.target_type === 'master'
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-8rem)]">
-      <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:h-[calc(100vh-8rem)]">
+      <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 overflow-hidden min-h-[18rem]">
         <ReportMap
           markers={[
             { lat: report.lat, lng: report.lng, label: `New: ${report.ticket_number}` },

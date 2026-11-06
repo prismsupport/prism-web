@@ -9,7 +9,7 @@ export default function SupervisorTopBar({ supervisorName, avatarUrl, onLogout }
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center justify-end gap-2 border-b border-gray-200 bg-white px-8">
+    <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center justify-end gap-2 border-b border-gray-200 bg-white px-4 sm:px-8">
       <NotificationBell />
 
       <div className="relative ml-1">

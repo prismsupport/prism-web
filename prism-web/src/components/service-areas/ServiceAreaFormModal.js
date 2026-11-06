@@ -101,7 +101,7 @@ export default function ServiceAreaFormModal({
           placeholder="e.g. Feeder 9"
         />
 
-        <div className="grid grid-cols-2 gap-3 mb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
           <FormInput
             wrapperClassName=""
             label="Barangay"

@@ -43,7 +43,7 @@ export default function SuperadminLayout({ children }) {
         }
       />
 
-      <main className="p-8">{children}</main>
+      <main className="p-4 sm:p-6 lg:p-8">{children}</main>
     </div>
   )
 }

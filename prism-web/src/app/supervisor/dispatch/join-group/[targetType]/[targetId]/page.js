@@ -239,8 +239,8 @@ function JoinGroupReviewContent() {
   const bestScore = candidates.length > 0 ? Math.max(...candidates.map((c) => c.breakdown?.total_score || 0)) : 0
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[calc(100vh-8rem)]">
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:h-[calc(100vh-8rem)]">
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden min-h-[18rem]">
         <ReportMap
           markers={[
             {

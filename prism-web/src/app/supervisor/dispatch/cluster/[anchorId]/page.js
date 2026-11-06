@@ -242,8 +242,8 @@ export default function ClusterReviewPage() {
   const checkedCount = members.filter((m) => !m.isAnchor && m.checked).length
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[calc(100vh-8rem)]">
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:h-[calc(100vh-8rem)]">
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden min-h-[18rem]">
         <ReportMap
           markers={members.map((m) => ({
             lat: m.lat,

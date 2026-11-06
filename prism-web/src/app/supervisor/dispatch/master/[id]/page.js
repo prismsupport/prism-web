@@ -350,8 +350,8 @@ export default function MasterTicketDetailPage() {
   ]
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[calc(100vh-8rem)]">
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden relative">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:h-[calc(100vh-8rem)]">
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden relative min-h-[18rem]">
         <div className="absolute top-4 left-4 z-[1000] bg-amber-100 text-amber-800 text-xs font-bold px-3 py-1.5 rounded-lg">
           ● ACTIVE INCIDENT
         </div>

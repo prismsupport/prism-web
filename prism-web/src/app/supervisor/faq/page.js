@@ -245,7 +245,7 @@ export default function FaqManagementPage() {
       />
 
       <div className="bg-white rounded-xl border border-gray-200">
-        <div className="flex items-center justify-between px-5 pt-4">
+        <div className="flex flex-wrap items-center justify-between gap-2 px-5 pt-4">
           <Tabs tabs={tabs} value={activeTab} onChange={handleTabChange} />
           <button
             onClick={() => setShowManageCategories(true)}

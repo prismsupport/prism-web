@@ -5,7 +5,7 @@ export default function FormSection({ icon, title, children }) {
         {icon}
         <h3 className="font-semibold text-gray-900 text-sm">{title}</h3>
       </div>
-      <div className="grid grid-cols-2 gap-4">{children}</div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">{children}</div>
     </div>
   )
 }

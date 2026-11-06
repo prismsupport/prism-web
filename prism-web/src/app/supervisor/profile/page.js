@@ -462,7 +462,7 @@ export default function SupervisorProfilePage() {
               <Card>
                 <h2 className="font-semibold text-gray-900 text-sm mb-3">Change Password</h2>
                 <form onSubmit={handleChangePassword} className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-xs font-medium text-gray-500 mb-1.5">
                         New Password

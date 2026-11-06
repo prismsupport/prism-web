@@ -125,7 +125,7 @@ export default function SupervisorDetailsModal({
           <div className="flex items-center gap-2 mb-3 pb-2 border-b border-gray-100">
             <h3 className="font-semibold text-gray-900 text-sm">Feature Access</h3>
           </div>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {FEATURES.map((f) => (
               <label
                 key={f.key}

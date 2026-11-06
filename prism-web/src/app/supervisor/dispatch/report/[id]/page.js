@@ -346,10 +346,10 @@ export default function ReportReviewPage() {
     <div
       className={`grid grid-cols-1 ${
         showMap ? 'lg:grid-cols-2' : ''
-      } gap-6 h-[calc(100vh-8rem)]`}
+      } gap-6 lg:h-[calc(100vh-8rem)]`}
     >
       {showMap && (
-        <div className="relative bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div className="relative bg-white rounded-xl border border-gray-200 overflow-hidden min-h-[18rem]">
           <ReportMap
             lat={report.lat}
             lng={report.lng}
@@ -393,7 +393,7 @@ export default function ReportReviewPage() {
           {activeTab === 'details' && (
             <>
           <div className="space-y-4">
-          <div className={`relative bg-white rounded-xl border border-gray-200 p-6 ${compactLayout ? 'max-h-[calc(100vh-15rem)] overflow-y-auto' : ''}`}>
+          <div className={`relative bg-white rounded-xl border border-gray-200 p-6 ${compactLayout ? 'lg:max-h-[calc(100vh-15rem)] lg:overflow-y-auto' : ''}`}>
             <div className="flex items-start justify-between gap-4">
               <TicketDetailHeader
                 ticketNumber={report.ticket_number}
@@ -473,7 +473,7 @@ export default function ReportReviewPage() {
           </div>
 
           {report.status === 'cancelled' && (
-            <div className={`bg-red-50 border border-red-200 rounded-xl p-6 ${compactLayout ? 'max-h-[calc(100vh-15rem)] overflow-y-auto' : ''}`}>
+            <div className={`bg-red-50 border border-red-200 rounded-xl p-6 ${compactLayout ? 'lg:max-h-[calc(100vh-15rem)] lg:overflow-y-auto' : ''}`}>
               <h2 className="text-sm font-bold text-red-700 mb-2">Report Declined</h2>
               <p className="text-sm text-gray-700 bg-white rounded-lg p-3 border border-red-100">
                 {report.decline_reason || 'No reason provided.'}
@@ -494,7 +494,7 @@ export default function ReportReviewPage() {
             <>
           <div className={compactLayout ? 'grid grid-cols-1 xl:grid-cols-2 gap-4 items-start' : 'space-y-4'}>
           {(assignment?.status === 'fixed' || assignment?.status === 'resolved') && (
-            <div className={compactLayout ? 'max-h-[calc(100vh-15rem)] overflow-y-auto' : ''}>
+            <div className={compactLayout ? 'lg:max-h-[calc(100vh-15rem)] lg:overflow-y-auto' : ''}>
               <QAReviewSection
                 assignment={assignment}
                 reportId={id}
@@ -508,7 +508,7 @@ export default function ReportReviewPage() {
           )}
 
           {assignment ? (
-            <div className={compactLayout ? 'max-h-[calc(100vh-15rem)] overflow-y-auto' : ''}>
+            <div className={compactLayout ? 'lg:max-h-[calc(100vh-15rem)] lg:overflow-y-auto' : ''}>
               <AssignedLinemanCard
                 name={assignedLinemanName}
                 assignedAt={assignment.assigned_at}
@@ -531,12 +531,12 @@ export default function ReportReviewPage() {
           {activeTab === 'history' && (
             <>
           <div className={compactLayout ? 'grid grid-cols-1 xl:grid-cols-2 gap-4 items-start' : 'space-y-4'}>
-          <div className={compactLayout ? 'max-h-[calc(100vh-15rem)] overflow-y-auto' : ''}>
+          <div className={compactLayout ? 'lg:max-h-[calc(100vh-15rem)] lg:overflow-y-auto' : ''}>
             <StageTimesCard reportId={id} key={assignment?.status || 'none'} />
           </div>
 
           {pastAttempts.length > 0 && (
-            <div className={compactLayout ? 'max-h-[calc(100vh-15rem)] overflow-y-auto' : ''}>
+            <div className={compactLayout ? 'lg:max-h-[calc(100vh-15rem)] lg:overflow-y-auto' : ''}>
               <button
                 type="button"
                 onClick={() => setShowHistory(!showHistory)}
