@@ -112,6 +112,23 @@ function iconFor(href) {
   return ICONS[key] || ICONS.fallback;
 }
 
+// Groups the flat nav list, keeping the order items were written in.
+function groupItems(items) {
+  const groups = [];
+  items.forEach((item) => {
+    const name = item.group || "";
+    let group = groups.find((g) => g.name === name);
+    if (!group) {
+      group = { name, items: [] };
+      groups.push(group);
+    }
+    group.items.push(item);
+  });
+  return groups;
+}
+
+const NAV_GROUPS = groupItems(supervisorNavItems);
+
 export default function SupervisorSidebar() {
   const pathname = usePathname();
   const { loading, canAccessPath } = usePermissions();
@@ -177,97 +194,127 @@ export default function SupervisorSidebar() {
       {/* Navigation */}
       <nav
         aria-label="Supervisor navigation"
-        className="flex-1 space-y-1 overflow-y-auto px-3 py-4"
+        className="flex-1 overflow-y-auto px-3 py-3"
       >
-        {supervisorNavItems.map((item) => {
-          const isActive =
-            pathname === item.href ||
-            pathname.startsWith(`${item.href}/`);
+        {NAV_GROUPS.map((group, groupIndex) => (
+          <div
+            key={group.name || groupIndex}
+            role="group"
+            aria-label={group.name || undefined}
+            className={groupIndex > 0 ? "mt-3" : ""}
+          >
+            {/* Heading when expanded, a thin divider when collapsed */}
+            {group.name &&
+              (collapsed ? (
+                groupIndex > 0 && <div className="mx-3 mb-3 border-t border-white/10" />
+              ) : (
+                <p className="px-3 pb-1.5 pt-2 text-xs font-semibold text-blue-300/70">
+                  {group.name}
+                </p>
+              ))}
 
-          // Avoid showing locked states before permissions are loaded.
-          const locked = !loading && !canAccessPath(item.href);
-          const count = counts[item.href] || 0;
+            <div className="space-y-1">
+              {group.items.map((item) => {
+                const isActive =
+                  pathname === item.href ||
+                  pathname.startsWith(`${item.href}/`);
 
-          // Locked items are buttons, not links.
-          // Clicking them displays a restriction message.
-          if (locked) {
-            return (
-              <button
-                key={item.href}
-                type="button"
-                onClick={() => handleLockedClick(item.label)}
-                title={
-                  collapsed
-                    ? `${item.label} — Access restricted`
-                    : "You don't have access to this section"
+                // Avoid showing locked states before permissions are loaded.
+                const locked = !loading && !canAccessPath(item.href);
+                const count = counts[item.href] || 0;
+
+                // Locked items are buttons, not links.
+                // Clicking them displays a restriction message.
+                if (locked) {
+                  return (
+                    <button
+                      key={item.href}
+                      type="button"
+                      onClick={() => handleLockedClick(item.label)}
+                      title={
+                        collapsed
+                          ? `${item.label} — Access restricted`
+                          : "You don't have access to this section"
+                      }
+                      aria-label={`${item.label}, access restricted`}
+                      aria-disabled="true"
+                      className={`${itemBase} cursor-not-allowed transition-colors ${
+                        isActive
+                          ? "bg-white/10 text-blue-200/50"
+                          : "text-blue-200/40 hover:bg-white/5 hover:text-blue-200/60"
+                      }`}
+                    >
+                      <Icon>{iconFor(item.href)}</Icon>
+
+                      {!collapsed && (
+                        <>
+                          <span className="truncate">{item.label}</span>
+                          <LockIcon className="ml-auto h-3.5 w-3.5 shrink-0" />
+                        </>
+                      )}
+
+                      {collapsed && (
+                        <span className="absolute right-1 top-1 rounded-full bg-blue-900 p-0.5 text-blue-300">
+                          <LockIcon className="h-3 w-3" />
+                        </span>
+                      )}
+                    </button>
+                  );
                 }
-                aria-label={`${item.label}, access restricted`}
-                aria-disabled="true"
-                className={`${itemBase} cursor-not-allowed transition-colors ${
-                  isActive
-                    ? "bg-white/10 text-blue-200/50"
-                    : "text-blue-200/40 hover:bg-white/5 hover:text-blue-200/60"
-                }`}
-              >
-                <Icon>{iconFor(item.href)}</Icon>
 
-                {!collapsed && (
-                  <>
-                    <span className="truncate">{item.label}</span>
-                    <LockIcon className="ml-auto h-3.5 w-3.5 shrink-0" />
-                  </>
-                )}
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    aria-current={isActive ? "page" : undefined}
+                    className={`group ${itemBase} transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 ${
+                      isActive
+                        ? "bg-white/[0.18] text-white shadow-sm ring-1 ring-inset ring-white/10"
+                        : "text-blue-200 hover:bg-white/10 hover:text-white"
+                    }`}
+                  >
+                    {isActive && (
+                      <span
+                        aria-hidden="true"
+                        className="absolute bottom-2.5 -left-3 top-2.5 w-1 rounded-r-full bg-amber-400"
+                      />
+                    )}
 
-                {collapsed && (
-                  <span className="absolute right-1 top-1 rounded-full bg-blue-900 p-0.5 text-blue-300">
-                    <LockIcon className="h-3 w-3" />
-                  </span>
-                )}
-              </button>
-            );
-          }
+                    <Icon
+                      className={`h-5 w-5 transition-colors ${
+                        isActive ? "text-amber-300" : ""
+                      }`}
+                    >
+                      {iconFor(item.href)}
+                    </Icon>
 
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              aria-current={isActive ? "page" : undefined}
-              className={`group ${itemBase} transition-colors ${
-                isActive
-                  ? "bg-white/15 text-white"
-                  : "text-blue-200 hover:bg-white/10 hover:text-white"
-              }`}
-            >
-              {isActive && (
-                <span className="absolute -left-3 top-1/2 h-6 w-1 -translate-y-1/2 rounded-r-full bg-amber-400" />
-              )}
+                    {!collapsed && (
+                      <span className="truncate">{item.label}</span>
+                    )}
 
-              <Icon>{iconFor(item.href)}</Icon>
+                    {count > 0 &&
+                      (collapsed ? (
+                        <span className="absolute right-1.5 top-1 min-w-[18px] rounded-full bg-amber-400 px-1 text-center text-[10px] font-bold leading-[18px] text-blue-950">
+                          {count > 99 ? "99+" : count}
+                        </span>
+                      ) : (
+                        <span className="ml-auto rounded-full bg-amber-400 px-2 py-0.5 text-[11px] font-bold leading-none text-blue-950">
+                          {count > 99 ? "99+" : count}
+                        </span>
+                      ))}
 
-              {!collapsed && (
-                <span className="truncate">{item.label}</span>
-              )}
-
-              {count > 0 &&
-                (collapsed ? (
-                  <span className="absolute right-1.5 top-1 min-w-[18px] rounded-full bg-amber-400 px-1 text-center text-[10px] font-bold leading-[18px] text-blue-950">
-                    {count > 99 ? "99+" : count}
-                  </span>
-                ) : (
-                  <span className="ml-auto rounded-full bg-amber-400 px-2 py-0.5 text-[11px] font-bold leading-none text-blue-950">
-                    {count > 99 ? "99+" : count}
-                  </span>
-                ))}
-
-              {collapsed && (
-                <span className="pointer-events-none absolute left-full z-50 ml-3 whitespace-nowrap rounded-md bg-gray-900 px-2.5 py-1.5 text-xs font-medium text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
-                  {item.label}
-                  {count > 0 ? ` (${count})` : ""}
-                </span>
-              )}
-            </Link>
-          );
-        })}
+                    {collapsed && (
+                      <span className="pointer-events-none absolute left-full z-50 ml-3 whitespace-nowrap rounded-md bg-gray-900 px-2.5 py-1.5 text-xs font-medium text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
+                        {item.label}
+                        {count > 0 ? ` (${count})` : ""}
+                      </span>
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </nav>
 
       {/* Restriction message */}

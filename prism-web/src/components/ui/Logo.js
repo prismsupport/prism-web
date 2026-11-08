@@ -20,7 +20,7 @@ export default function Logo({ subtitle, onDark = false, compact = false, hideMa
           {subtitle && (
             <div
               className={`mt-1 text-[10px] font-bold tracking-wide ${
-                onDark ? "text-blue-300" : "text-gray-400"
+                onDark ? "text-blue-200" : "text-gray-500"
               }`}
             >
               {subtitle}
