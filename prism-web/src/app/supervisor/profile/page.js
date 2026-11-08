@@ -267,23 +267,23 @@ export default function SupervisorProfilePage() {
       </p>
 
       <div className="grid flex-1 grid-cols-1 items-stretch gap-6 lg:grid-cols-3">
-        <Card className="h-full lg:sticky lg:top-6">
+        <Card className="flex h-full flex-col justify-between lg:sticky lg:top-6">
           <div className="flex flex-col items-center text-center">
             <div className="relative">
               {avatarUrl ? (
                 <img
                   src={avatarUrl}
                   alt="Profile"
-                  className="w-24 h-24 rounded-full object-cover border border-gray-200"
+                  className="h-32 w-32 rounded-full border border-gray-200 object-cover"
                 />
               ) : (
-                <div className="w-24 h-24 rounded-full bg-gray-200 border border-gray-300" />
+                <div className="h-32 w-32 rounded-full border border-gray-300 bg-gray-200" />
               )}
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={avatarUploading}
-                className="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-blue-700 hover:bg-blue-800 text-white flex items-center justify-center border-2 border-white"
+                className="absolute bottom-0 right-0 flex h-9 w-9 items-center justify-center rounded-full border-2 border-white bg-blue-700 text-white hover:bg-blue-800"
                 title="Change photo"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
@@ -306,30 +306,30 @@ export default function SupervisorProfilePage() {
               <p className="text-xs text-red-600 mt-2">{avatarError}</p>
             )}
 
-            <p className="text-base font-bold text-gray-900 mt-4">
+            <p className="mt-6 text-xl font-bold text-gray-900">
               {form.first_name} {form.last_name}
             </p>
-            <span className="inline-block bg-blue-50 text-blue-700 text-xs font-bold px-2 py-0.5 rounded mt-1 uppercase">
+            <span className="mt-2 inline-block rounded bg-blue-50 px-3 py-1 text-sm font-bold uppercase text-blue-700">
               Supervisor
             </span>
           </div>
 
-          <div className="mt-6 pt-5 border-t border-gray-100 space-y-3 text-sm">
+          <div className="mt-8 grid gap-5 border-t border-gray-100 pt-6 text-sm">
             <div>
-              <p className="text-xs text-gray-400">Cooperative</p>
-              <p className="text-gray-900 font-medium">{cooperativeName || '—'}</p>
+              <p className="text-sm text-gray-400">Cooperative</p>
+              <p className="mt-1 text-base font-semibold text-gray-900">{cooperativeName || '—'}</p>
             </div>
             <div>
-              <p className="text-xs text-gray-400">Email</p>
-              <p className="text-gray-900 font-medium break-words">{form.email || '—'}</p>
+              <p className="text-sm text-gray-400">Email</p>
+              <p className="mt-1 break-words text-base font-semibold text-gray-900">{form.email || '—'}</p>
             </div>
             <div>
-              <p className="text-xs text-gray-400">Role</p>
-              <p className="text-gray-900 font-medium">{isOwner ? 'Cooperative Owner' : 'Supervisor'}</p>
+              <p className="text-sm text-gray-400">Role</p>
+              <p className="mt-1 text-base font-semibold text-gray-900">{isOwner ? 'Cooperative Owner' : 'Supervisor'}</p>
             </div>
             <div>
-              <p className="text-xs text-gray-400">Supervisor Since</p>
-              <p className="text-gray-900 font-medium">
+              <p className="text-sm text-gray-400">Supervisor Since</p>
+              <p className="mt-1 text-base font-semibold text-gray-900">
                 {memberSince
                   ? new Date(memberSince).toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' })
                   : '—'}
@@ -355,19 +355,19 @@ export default function SupervisorProfilePage() {
 
           {activeTab === 'personal' && (
             <div className="flex flex-1 flex-col gap-6">
-              <Card className="flex-1">
-                <h2 className="font-semibold text-gray-900 text-sm mb-1">Your Access</h2>
-                <p className="text-xs text-gray-500 mb-3">
+              <Card className="flex flex-1 flex-col justify-between">
+                <h2 className="mb-2 text-base font-semibold text-gray-900">Your Access</h2>
+                <p className="mb-5 text-sm text-gray-500">
                   {isOwner
                     ? 'As the cooperative owner you have full access to every feature.'
                     : 'These are the features your cooperative owner has assigned to you.'}
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {isOwner ? (
-                    <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-bold text-blue-700">Full access</span>
+                    <span className="rounded-full bg-blue-100 px-3 py-1.5 text-sm font-bold text-blue-700">Full access</span>
                   ) : featureAccess.length > 0 ? (
                     featureAccess.map((f) => (
-                      <span key={f} className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700 capitalize">
+                        <span key={f} className="rounded-full bg-gray-100 px-3 py-1.5 text-sm font-semibold text-gray-700 capitalize">
                         {f}
                       </span>
                     ))
@@ -376,9 +376,9 @@ export default function SupervisorProfilePage() {
                   )}
                 </div>
               </Card>
-              <Card className="flex-1">
-                <div className="flex items-center justify-between mb-4 pb-2 border-b border-gray-100">
-                  <h2 className="font-semibold text-gray-900 text-sm">Personal Details</h2>
+              <Card className="flex flex-1 flex-col">
+                <div className="mb-5 flex items-center justify-between border-b border-gray-100 pb-3">
+                  <h2 className="text-base font-semibold text-gray-900">Personal Details</h2>
                   {!editing && (
                     <button
                       onClick={() => {
@@ -392,72 +392,76 @@ export default function SupervisorProfilePage() {
                   )}
                 </div>
 
-                <FormSection title="Basic Information">
-                  <FormField
-                    label="First Name"
-                    name="first_name"
-                    value={form.first_name}
-                    onChange={handleChange}
-                    disabled={!editing}
-                  />
-                  <FormField
-                    label="Last Name"
-                    name="last_name"
-                    value={form.last_name}
-                    onChange={handleChange}
-                    disabled={!editing}
-                  />
-                  <FormField
-                    label="Contact Number"
-                    name="phone_number"
-                    value={form.phone_number}
-                    onChange={handleChange}
-                    disabled={!editing}
-                  />
-                  <FormField label="Email Address" value={form.email} disabled />
-                </FormSection>
+                <div className="flex flex-1 flex-col justify-between">
+                  <FormSection title="Basic Information">
+                    <FormField
+                      label="First Name"
+                      name="first_name"
+                      value={form.first_name}
+                      onChange={handleChange}
+                      disabled={!editing}
+                    />
+                    <FormField
+                      label="Last Name"
+                      name="last_name"
+                      value={form.last_name}
+                      onChange={handleChange}
+                      disabled={!editing}
+                    />
+                    <FormField
+                      label="Contact Number"
+                      name="phone_number"
+                      value={form.phone_number}
+                      onChange={handleChange}
+                      disabled={!editing}
+                    />
+                    <FormField label="Email Address" value={form.email} disabled />
+                  </FormSection>
 
-                <Alert>{error}</Alert>
-                {success && (
-                  <p className="text-sm text-green-700 bg-green-50 border border-green-100 rounded-lg px-3 py-2 mb-4">
-                    {success}
-                  </p>
-                )}
+                  <div>
+                    <Alert>{error}</Alert>
+                    {success && (
+                      <p className="mb-4 rounded-lg border border-green-100 bg-green-50 px-3 py-2 text-sm text-green-700">
+                        {success}
+                      </p>
+                    )}
 
-                {editing && (
-                  <div className="flex justify-end gap-3">
-                    <button
-                      onClick={() => {
-                        setEditing(false)
-                        loadProfile()
-                      }}
-                      className="px-4 py-2.5 rounded-lg text-sm font-semibold text-gray-600 border border-gray-200 hover:bg-gray-50"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={handleSave}
-                      disabled={saving}
-                      className="px-4 py-2.5 rounded-lg text-sm font-semibold text-white bg-blue-700 hover:bg-blue-800 disabled:opacity-60"
-                    >
-                      {saving ? 'Saving…' : 'Save Changes'}
-                    </button>
+                    {editing && (
+                      <div className="flex justify-end gap-3">
+                        <button
+                          onClick={() => {
+                            setEditing(false)
+                            loadProfile()
+                          }}
+                          className="rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-600 hover:bg-gray-50"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={handleSave}
+                          disabled={saving}
+                          className="rounded-lg bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-800 disabled:opacity-60"
+                        >
+                          {saving ? 'Saving…' : 'Save Changes'}
+                        </button>
+                      </div>
+                    )}
                   </div>
-                )}
+                </div>
               </Card>
             </div>
           )}
 
           {activeTab === 'security' && (
             <div className="flex flex-1 flex-col gap-6">
-              <Card className="flex-1">
-                <h2 className="font-semibold text-gray-900 text-sm mb-1">Login Email</h2>
-                <p className="text-xs text-gray-500 mb-4">
+              <Card className="flex flex-1 flex-col justify-between">
+                <h2 className="mb-2 text-base font-semibold text-gray-900">Login Email</h2>
+                <p className="mb-5 text-sm text-gray-500">
                   Current: <span className="font-medium text-gray-700">{form.email}</span>
                 </p>
-                <form onSubmit={handleChangeEmail} className="space-y-4">
+                <form onSubmit={handleChangeEmail} className="flex flex-1 flex-col justify-between gap-6">
                   <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-1.5">
+                    <label className="mb-1.5 block text-sm font-medium text-gray-500">
                       New Email Address
                     </label>
                     <input
@@ -488,12 +492,12 @@ export default function SupervisorProfilePage() {
                 </form>
               </Card>
 
-              <Card className="flex-1">
-                <h2 className="font-semibold text-gray-900 text-sm mb-3">Change Password</h2>
-                <form onSubmit={handleChangePassword} className="space-y-4">
+              <Card className="flex flex-1 flex-col justify-between">
+                <h2 className="mb-4 text-base font-semibold text-gray-900">Change Password</h2>
+                <form onSubmit={handleChangePassword} className="flex flex-1 flex-col justify-between gap-6">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-medium text-gray-500 mb-1.5">
+                      <label className="mb-1.5 block text-sm font-medium text-gray-500">
                         New Password
                       </label>
                       <input
@@ -505,7 +509,7 @@ export default function SupervisorProfilePage() {
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-gray-500 mb-1.5">
+                      <label className="mb-1.5 block text-sm font-medium text-gray-500">
                         Confirm New Password
                       </label>
                       <input
@@ -538,7 +542,11 @@ export default function SupervisorProfilePage() {
               </Card>
             </div>
           )}
-          {activeTab === 'cooperative' && isOwner && <CooperativeLogoUploader />}
+          {activeTab === 'cooperative' && isOwner && (
+            <div className="flex min-h-0 flex-1">
+              <CooperativeLogoUploader />
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -123,50 +123,84 @@ export default function CooperativeLogoUploader() {
   }
 
   return (
-    <Card>
-      <h2 className="font-semibold text-gray-900 text-sm mb-1">Cooperative Logo</h2>
-      <p className="text-xs text-gray-500 mb-4">
-        Optional. Shown in the dashboard, to the Superadmin, and in the mobile app. Without a logo,
-        your cooperative&apos;s initials are shown. Images are cropped to a square.
-      </p>
-
-      <div className="flex items-center gap-4">
-        <CooperativeLogo name={name} src={logoUrl} size={72} />
-        <div className="flex flex-wrap gap-2">
-          <Button
-            type="button"
-            variant="neutral"
-            size="compact"
-            dim={false}
-            disabled={busy || loading}
-            onClick={() => inputRef.current?.click()}
-          >
-            {busy ? 'Working…' : logoUrl ? 'Change logo' : 'Upload logo'}
-          </Button>
-          {logoUrl && (
-            <Button
-              type="button"
-              variant="dangerOutline"
-              size="compact"
-              dim={false}
-              disabled={busy}
-              onClick={handleRemove}
-            >
-              Remove
-            </Button>
-          )}
-        </div>
-        <input
-          ref={inputRef}
-          type="file"
-          accept="image/png, image/jpeg, image/webp"
-          className="hidden"
-          onChange={handleSelected}
-        />
+    <Card className="flex h-full min-h-0 flex-1 flex-col overflow-hidden p-0">
+      <div className="border-b border-gray-100 px-6 pb-5 pt-0">
+        <p className="text-xs font-bold uppercase tracking-wide text-blue-700">Cooperative branding</p>
+        <h2 className="mt-1 text-xl font-bold text-gray-900">Cooperative Logo</h2>
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-500">
+          Add the image members and staff will see across the dashboard, Superadmin tools, and mobile app.
+        </p>
       </div>
 
-      <p className="text-xs text-gray-400 mt-3">PNG, JPEG or WebP, up to {MAX_INPUT_MB} MB.</p>
-      <Alert className="mt-3">{error}</Alert>
+      <div className="grid flex-1 grid-cols-1 lg:grid-cols-[minmax(240px,0.9fr)_minmax(320px,1.1fr)]">
+        <div className="flex flex-col items-center justify-center border-b border-gray-100 bg-gray-50 px-6 py-10 text-center lg:border-b-0 lg:border-r">
+          <div className="flex h-52 w-52 items-center justify-center rounded-2xl border border-gray-200 bg-white shadow-sm">
+            <CooperativeLogo name={name} src={logoUrl} size={176} />
+          </div>
+          <p className="mt-5 text-base font-semibold text-gray-900">{name || 'Your cooperative'}</p>
+          <span className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1 text-xs font-semibold text-gray-600 ring-1 ring-gray-200">
+            <span className={`h-1.5 w-1.5 rounded-full ${logoUrl ? 'bg-green-500' : 'bg-gray-400'}`} />
+            {logoUrl ? 'Custom logo active' : 'Using initials'}
+          </span>
+        </div>
+
+        <div className="flex flex-col justify-between px-6 py-8">
+          <div>
+            <h3 className="text-base font-semibold text-gray-900">Update your visual identity</h3>
+            <p className="mt-2 text-sm leading-6 text-gray-500">
+              Choose a clear square image. It will be automatically cropped and optimized so it stays sharp in every part of the app.
+            </p>
+
+            <div className="mt-6 grid gap-3 sm:grid-cols-2">
+              <div className="rounded-lg border border-gray-100 bg-gray-50 p-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Recommended</p>
+                <p className="mt-1 text-sm font-medium text-gray-700">Square image, 512 x 512</p>
+              </div>
+              <div className="rounded-lg border border-gray-100 bg-gray-50 p-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Accepted</p>
+                <p className="mt-1 text-sm font-medium text-gray-700">PNG, JPEG, or WebP</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-8">
+            <div className="flex flex-wrap gap-3">
+              <Button
+                type="button"
+                variant="neutral"
+                size="compact"
+                dim={false}
+                disabled={busy || loading}
+                onClick={() => inputRef.current?.click()}
+              >
+                {busy ? 'Working…' : logoUrl ? 'Change logo' : 'Upload logo'}
+              </Button>
+              {logoUrl && (
+                <Button
+                  type="button"
+                  variant="dangerOutline"
+                  size="compact"
+                  dim={false}
+                  disabled={busy}
+                  onClick={handleRemove}
+                >
+                  Remove logo
+                </Button>
+              )}
+            </div>
+            <p className="mt-3 text-xs text-gray-400">Maximum file size: {MAX_INPUT_MB} MB.</p>
+            <Alert className="mt-3">{error}</Alert>
+          </div>
+        </div>
+      </div>
+
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/png, image/jpeg, image/webp"
+        className="hidden"
+        onChange={handleSelected}
+      />
     </Card>
   )
 }
