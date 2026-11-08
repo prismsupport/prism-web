@@ -18,6 +18,7 @@ export default function CooperativeDetailPage() {
   const router = useRouter()
 
   const [coop, setCoop] = useState(null)
+  const [supervisor, setSupervisor] = useState(null)
   const [logs, setLogs] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -48,18 +49,32 @@ export default function CooperativeDetailPage() {
       return
     }
 
-    const { data: logData, error: logError } = await supabase
-      .from('cooperative_status_logs')
-      .select('*')
-      .eq('cooperative_id', id)
-      .order('changed_at', { ascending: false })
+    const [{ data: logData, error: logError }, { data: supervisorData, error: supervisorError }] =
+      await Promise.all([
+        supabase
+          .from('cooperative_status_logs')
+          .select('*')
+          .eq('cooperative_id', id)
+          .order('changed_at', { ascending: false }),
+        supabase
+          .from('users')
+          .select('first_name, last_name, email, phone_number, is_active')
+          .eq('cooperative_id', id)
+          .eq('user_type', 'supervisor')
+          .maybeSingle(),
+      ])
 
     if (logError) {
       toast.error(logError.message)
       setError(logError.message)
     }
+    if (supervisorError) {
+      toast.error(supervisorError.message)
+      setError(supervisorError.message)
+    }
 
     setCoop(coopData)
+    setSupervisor(supervisorData)
     setLogs(logData || [])
     setLoading(false)
   }
@@ -232,18 +247,18 @@ export default function CooperativeDetailPage() {
     <div className="max-w-8xl">
       <BackButton href="/superadmin/cooperatives" label="Back to All Cooperatives" withMarginBottom />
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+      <div className="grid grid-cols-1 gap-6 items-start lg:grid-cols-[1.1fr_0.9fr]">
         <Card>
           <div className="flex items-start justify-between mb-4">
             <div className="flex items-center gap-3">
-              <CooperativeLogo name={coop.cooperative_name} src={coop.logo_url} size={48} />
+              <CooperativeLogo name={coop.cooperative_name} src={coop.logo_url} size={64} />
               <h1 className="text-xl font-bold text-gray-900">{coop.cooperative_name}</h1>
             </div>
             <StatusBadge status={coop.status} />
           </div>
 
-          <dl className="space-y-3 text-sm">
-            <div>
+          <dl className="grid grid-cols-1 gap-x-6 gap-y-4 text-sm sm:grid-cols-2">
+            <div className="sm:col-span-2">
               <dt className="text-gray-400">Office Address</dt>
               <dd className="text-gray-900">
                 {coop.office_address}, {coop.municipality}, {coop.province}
@@ -267,8 +282,49 @@ export default function CooperativeDetailPage() {
                 })}
               </dd>
             </div>
+            <div>
+              <dt className="text-gray-400">Last Updated</dt>
+              <dd className="text-gray-900">
+                {new Date(coop.updated_at).toLocaleDateString('en-PH', {
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric',
+                })}
+              </dd>
+            </div>
+            <div className="border-t border-gray-100 pt-4 sm:col-span-2">
+              <h2 className="mb-3 text-xs font-bold tracking-wide text-blue-700">
+                REGISTERED SUPERVISOR
+              </h2>
+            </div>
+            <div>
+              <dt className="text-gray-400">Full Name</dt>
+              <dd className="text-gray-900">
+                {supervisor
+                  ? `${supervisor.first_name} ${supervisor.last_name}`
+                  : 'Not available'}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-gray-400">Personal Email</dt>
+              <dd className="break-words text-gray-900">
+                {supervisor?.email || 'Not available'}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-gray-400">Contact Number</dt>
+              <dd className="text-gray-900">
+                {supervisor?.phone_number || 'Not available'}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-gray-400">Account Status</dt>
+              <dd className="text-gray-900">
+                {supervisor ? (supervisor.is_active ? 'Active' : 'Inactive') : 'Not available'}
+              </dd>
+            </div>
             {coop.status === 'Rejected' && coop.rejection_reason && (
-              <div>
+              <div className="sm:col-span-2">
                 <dt className="text-gray-400">Rejection Reason</dt>
                 <dd className="text-red-600">{coop.rejection_reason}</dd>
               </div>

@@ -126,6 +126,20 @@ export default function AllCooperativesPage() {
         description="Every registered cooperative on the platform. Click a status below to filter."
       />
 
+      {counts && counts['Pending Approval'] > 0 && statusFilter !== 'Pending Approval' && (
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border-2 border-red-300 bg-red-50 px-4 py-3">
+          <p className="text-sm font-semibold text-red-800">
+            {counts['Pending Approval']} registration{counts['Pending Approval'] === 1 ? '' : 's'} waiting for your review.
+          </p>
+          <button
+            onClick={() => handleCardClick('Pending Approval')}
+            className="rounded-lg bg-red-600 px-3.5 py-2 text-xs font-semibold text-white hover:bg-red-700"
+          >
+            Review now
+          </button>
+        </div>
+      )}
+
       <StatCardGrid columns={5}>
         {statusCards.map((card) => (
           <StatCard
