@@ -35,7 +35,7 @@ export default function SupervisorProfilePage() {
   const [avatarUrl, setAvatarUrl] = useState(null)
   const [avatarUploading, setAvatarUploading] = useState(false)
   const [avatarError, setAvatarError] = useState('')
-  const { isOwner } = usePermissions()
+  const { isOwner, featureAccess } = usePermissions()
 
   const [form, setForm] = useState({ first_name: '', last_name: '', phone_number: '', email: '' })
   const [editing, setEditing] = useState(false)
@@ -260,14 +260,14 @@ export default function SupervisorProfilePage() {
   if (loading) return <PageLoading />
 
   return (
-    <div className="max-w-5xl">
+    <div className="flex min-h-full w-full flex-col">
       <h1 className="text-2xl font-bold text-gray-900">My Profile</h1>
       <p className="text-sm text-gray-500 mt-1 mb-6">
         Manage your personal information and account security.
       </p>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-        <Card className="lg:sticky lg:top-6">
+      <div className="grid flex-1 grid-cols-1 items-stretch gap-6 lg:grid-cols-3">
+        <Card className="h-full lg:sticky lg:top-6">
           <div className="flex flex-col items-center text-center">
             <div className="relative">
               {avatarUrl ? (
@@ -320,19 +320,25 @@ export default function SupervisorProfilePage() {
               <p className="text-gray-900 font-medium">{cooperativeName || '—'}</p>
             </div>
             <div>
+              <p className="text-xs text-gray-400">Email</p>
+              <p className="text-gray-900 font-medium break-words">{form.email || '—'}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-400">Role</p>
+              <p className="text-gray-900 font-medium">{isOwner ? 'Cooperative Owner' : 'Supervisor'}</p>
+            </div>
+            <div>
               <p className="text-xs text-gray-400">Supervisor Since</p>
               <p className="text-gray-900 font-medium">
                 {memberSince
-                  ? new Date(memberSince).toLocaleDateString('en-PH', {
-                      year: 'numeric', month: 'long', day: 'numeric',
-                    })
+                  ? new Date(memberSince).toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' })
                   : '—'}
               </p>
             </div>
           </div>
         </Card>
 
-        <div className="lg:col-span-2">
+        <div className="flex min-h-0 flex-col lg:col-span-2">
           <div className="flex gap-6 border-b border-gray-200 mb-6">
             <TabButton active={activeTab === 'personal'} onClick={() => setActiveTab('personal')}>
               Personal Information
@@ -348,80 +354,103 @@ export default function SupervisorProfilePage() {
           </div>
 
           {activeTab === 'personal' && (
-            <Card>
-              <div className="flex items-center justify-between mb-4 pb-2 border-b border-gray-100">
-                <h2 className="font-semibold text-gray-900 text-sm">Personal Details</h2>
-                {!editing && (
-                  <button
-                    onClick={() => {
-                      setEditing(true)
-                      setSuccess('')
-                    }}
-                    className="text-xs font-semibold text-blue-700"
-                  >
-                    Edit
-                  </button>
-                )}
-              </div>
-
-              <FormSection title="Basic Information">
-                <FormField
-                  label="First Name"
-                  name="first_name"
-                  value={form.first_name}
-                  onChange={handleChange}
-                  disabled={!editing}
-                />
-                <FormField
-                  label="Last Name"
-                  name="last_name"
-                  value={form.last_name}
-                  onChange={handleChange}
-                  disabled={!editing}
-                />
-                <FormField
-                  label="Contact Number"
-                  name="phone_number"
-                  value={form.phone_number}
-                  onChange={handleChange}
-                  disabled={!editing}
-                />
-                <FormField label="Email Address" value={form.email} disabled />
-              </FormSection>
-
-              <Alert>{error}</Alert>
-              {success && (
-                <p className="text-sm text-green-700 bg-green-50 border border-green-100 rounded-lg px-3 py-2 mb-4">
-                  {success}
+            <div className="flex flex-1 flex-col gap-6">
+              <Card className="flex-1">
+                <h2 className="font-semibold text-gray-900 text-sm mb-1">Your Access</h2>
+                <p className="text-xs text-gray-500 mb-3">
+                  {isOwner
+                    ? 'As the cooperative owner you have full access to every feature.'
+                    : 'These are the features your cooperative owner has assigned to you.'}
                 </p>
-              )}
-
-              {editing && (
-                <div className="flex justify-end gap-3">
-                  <button
-                    onClick={() => {
-                      setEditing(false)
-                      loadProfile()
-                    }}
-                    className="px-4 py-2.5 rounded-lg text-sm font-semibold text-gray-600 border border-gray-200 hover:bg-gray-50"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleSave}
-                    disabled={saving}
-                    className="px-4 py-2.5 rounded-lg text-sm font-semibold text-white bg-blue-700 hover:bg-blue-800 disabled:opacity-60"
-                  >
-                    {saving ? 'Saving…' : 'Save Changes'}
-                  </button>
+                <div className="flex flex-wrap gap-2">
+                  {isOwner ? (
+                    <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-bold text-blue-700">Full access</span>
+                  ) : featureAccess.length > 0 ? (
+                    featureAccess.map((f) => (
+                      <span key={f} className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700 capitalize">
+                        {f}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-xs text-gray-400">No features assigned yet.</span>
+                  )}
                 </div>
-              )}
-            </Card>
+              </Card>
+              <Card className="flex-1">
+                <div className="flex items-center justify-between mb-4 pb-2 border-b border-gray-100">
+                  <h2 className="font-semibold text-gray-900 text-sm">Personal Details</h2>
+                  {!editing && (
+                    <button
+                      onClick={() => {
+                        setEditing(true)
+                        setSuccess('')
+                      }}
+                      className="text-xs font-semibold text-blue-700"
+                    >
+                      Edit
+                    </button>
+                  )}
+                </div>
+
+                <FormSection title="Basic Information">
+                  <FormField
+                    label="First Name"
+                    name="first_name"
+                    value={form.first_name}
+                    onChange={handleChange}
+                    disabled={!editing}
+                  />
+                  <FormField
+                    label="Last Name"
+                    name="last_name"
+                    value={form.last_name}
+                    onChange={handleChange}
+                    disabled={!editing}
+                  />
+                  <FormField
+                    label="Contact Number"
+                    name="phone_number"
+                    value={form.phone_number}
+                    onChange={handleChange}
+                    disabled={!editing}
+                  />
+                  <FormField label="Email Address" value={form.email} disabled />
+                </FormSection>
+
+                <Alert>{error}</Alert>
+                {success && (
+                  <p className="text-sm text-green-700 bg-green-50 border border-green-100 rounded-lg px-3 py-2 mb-4">
+                    {success}
+                  </p>
+                )}
+
+                {editing && (
+                  <div className="flex justify-end gap-3">
+                    <button
+                      onClick={() => {
+                        setEditing(false)
+                        loadProfile()
+                      }}
+                      className="px-4 py-2.5 rounded-lg text-sm font-semibold text-gray-600 border border-gray-200 hover:bg-gray-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleSave}
+                      disabled={saving}
+                      className="px-4 py-2.5 rounded-lg text-sm font-semibold text-white bg-blue-700 hover:bg-blue-800 disabled:opacity-60"
+                    >
+                      {saving ? 'Saving…' : 'Save Changes'}
+                    </button>
+                  </div>
+                )}
+              </Card>
+            </div>
           )}
 
           {activeTab === 'security' && (
-            <div className="space-y-6">
-              <Card>
+            <div className="flex flex-1 flex-col gap-6">
+              <Card className="flex-1">
                 <h2 className="font-semibold text-gray-900 text-sm mb-1">Login Email</h2>
                 <p className="text-xs text-gray-500 mb-4">
                   Current: <span className="font-medium text-gray-700">{form.email}</span>
@@ -459,7 +488,7 @@ export default function SupervisorProfilePage() {
                 </form>
               </Card>
 
-              <Card>
+              <Card className="flex-1">
                 <h2 className="font-semibold text-gray-900 text-sm mb-3">Change Password</h2>
                 <form onSubmit={handleChangePassword} className="space-y-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
