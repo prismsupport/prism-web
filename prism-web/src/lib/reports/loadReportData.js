@@ -3,8 +3,8 @@
 // Ticket, response = ticket start to FIRST dispatch, repair = FIRST dispatch to
 // final completion) so the figures match. No new database objects.
 
-import { computeStageTimes, averageStages } from '@/lib/stageTimes'
-import { summarizeRatings } from '@/lib/performance'
+import { computeStageTimes, averageStages, STAGES, slowestStageKey, formatDuration } from '@/lib/stageTimes'
+import { summarizeRatings, formatMinutes } from '@/lib/performance'
 import { issueLabel } from '@/lib/issueCodes'
 import { buildRecurringGroups } from '@/lib/recurring'
 
@@ -94,6 +94,86 @@ function buildTrend(reports, startMs, endMs) {
   }
 }
 
+
+function humanize(code) {
+  return String(code || '')
+    .split('_')
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ')
+}
+
+function toDateInput(d) {
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${d.getFullYear()}-${m}-${day}`
+}
+
+// The period right before the selected one, with the same number of days.
+// Returns null for "All time" (no start date, so nothing comes before it).
+function previousPeriod(fromDate, toDate) {
+  if (!fromDate) return null
+  const fromDay = startOfDay(fromDate)
+  const endDay = startOfDay(toDate && toDate < new Date() ? toDate : new Date())
+  const spanDays = Math.max(1, Math.round((endDay - fromDay) / DAY) + 1)
+  const prevTo = new Date(fromDay)
+  prevTo.setDate(prevTo.getDate() - 1)
+  const prevFrom = new Date(prevTo)
+  prevFrom.setDate(prevFrom.getDate() - (spanDays - 1))
+  return { from: toDateInput(prevFrom), to: toDateInput(prevTo) }
+}
+
+// change = current - previous. pct is null when there is no usable previous value.
+function delta(current, previous) {
+  if (current == null || previous == null) return { current, previous, change: null, pct: null }
+  const change = current - previous
+  const pct = previous === 0 ? null : Math.round((change / previous) * 100)
+  return { current, previous, change, pct }
+}
+
+function signed(pct) {
+  return `${pct > 0 ? '+' : ''}${pct}%`
+}
+
+// Plain sentences built from the numbers. Rule-based, no AI.
+function buildFindings(data, comparison) {
+  const s = data.summary
+  const out = []
+  if (s.totalReports === 0) return ['No outage reports match this selection.']
+
+  const topIssue = data.issues[0]
+  if (topIssue) {
+    out.push(`Most common issue: ${topIssue[0]} (${topIssue[1]} of ${s.totalReports} reports).`)
+  }
+  const topBarangay = data.locations.barangay[0]
+  if (topBarangay) out.push(`Most affected barangay: ${topBarangay[0]} (${topBarangay[1]} reports).`)
+  const topFeeder = data.locations.feeder.find(([name]) => name !== 'Unmapped')
+  if (topFeeder) out.push(`Most affected feeder: ${topFeeder[0]} (${topFeeder[1]} reports).`)
+
+  if (s.responsePct != null && s.thresholdMinutes) {
+    out.push(`${s.responsePct}% of tickets were dispatched within the ${s.thresholdMinutes}-minute response limit.`)
+  }
+  if (s.resolutionPct != null && s.targetMinutes) {
+    out.push(`${s.resolutionPct}% of resolved tickets met the ${formatMinutes(s.targetMinutes)} resolution target.`)
+  }
+
+  const slowest = slowestStageKey(data.stageAverages)
+  if (slowest) {
+    const stage = STAGES.find((st) => st.key === slowest)
+    out.push(`Slowest stage: ${stage.label}, averaging ${formatDuration(data.stageAverages[slowest])}.`)
+  }
+  if (data.recurring.length > 0) {
+    const g = data.recurring[0]
+    out.push(`${data.recurring.length} recurring incident group(s); the largest is ${g.label} in ${g.barangay} (${g.count} reports).`)
+  }
+  if (data.consolidation.dispatchesAvoided > 0) {
+    out.push(`Master Tickets avoided ${data.consolidation.dispatchesAvoided} duplicate dispatch(es).`)
+  }
+  if (comparison?.deltas.totalReports.pct != null) {
+    out.push(`Reports are ${signed(comparison.deltas.totalReports.pct)} compared with the previous period.`)
+  }
+  return out
+}
+
 // Options for the location filters, from the cooperative's Service Areas.
 export async function loadFilterOptions(supabase, coopId) {
   const { data } = await supabase
@@ -123,7 +203,9 @@ export async function loadFilterOptions(supabase, coopId) {
 }
 
 // filters = { from: 'YYYY-MM-DD' | null, to: 'YYYY-MM-DD' | null,
-//             municipality, barangay ('name|municipality'), feeder, areaOffice }
+//             municipality, barangay ('name|municipality'), feeder, areaOffice,
+//             category (issue code | 'uncategorized'), priority (key | 'none'), status,
+//             compare (false skips the previous-period load) }
 // Each location filter is 'all' or a value.
 export async function loadReportData(supabase, coopId, filters) {
   const fromDate = filters.from ? new Date(`${filters.from}T00:00:00`) : null
@@ -135,7 +217,7 @@ export async function loadReportData(supabase, coopId, filters) {
   const makeReportQuery = () => {
     let q = supabase
       .from('reports')
-      .select('report_id, status, barangay, municipality, created_at, master_id, reopened_at, issue_code')
+      .select('report_id, ticket_number, status, priority, barangay, municipality, created_at, master_id, reopened_at, issue_code')
       .eq('cooperative_id', coopId)
       .order('created_at', { ascending: false })
       .order('report_id', { ascending: true })
@@ -148,10 +230,19 @@ export async function loadReportData(supabase, coopId, filters) {
       const [b, m] = filters.barangay.split('|')
       q = q.eq('barangay', b).eq('municipality', m)
     }
+    if (filters.category && filters.category !== 'all') {
+      q = filters.category === 'uncategorized' ? q.is('issue_code', null) : q.eq('issue_code', filters.category)
+    }
+    if (filters.priority && filters.priority !== 'all') {
+      q = filters.priority === 'none' ? q.is('priority', null) : q.eq('priority', filters.priority)
+    }
+    if (filters.status && filters.status !== 'all') {
+      q = q.eq('status', filters.status)
+    }
     return q
   }
 
-  const [reportRes, settingsRes, areaRes] = await Promise.all([
+  const [reportRes, settingsRes, areaRes, priorityRes] = await Promise.all([
     fetchAll(makeReportQuery),
     supabase
       .from('cooperative_settings')
@@ -163,6 +254,7 @@ export async function loadReportData(supabase, coopId, filters) {
       .select('barangay, municipality, feeder, substation, area_office')
       .eq('cooperative_id', coopId)
       .is('archived_at', null),
+    supabase.rpc('get_priority_levels'),
   ])
 
   const thresholdMinutes = settingsRes.data?.response_time_threshold_minutes ?? null
@@ -358,7 +450,57 @@ export async function loadReportData(supabase, coopId, filters) {
     })
     .sort((a, b) => b.jobsCompleted - a.jobsCompleted)
 
-  return {
+  // ---- Priority and status breakdowns (counted per report) ----
+  const priorityLevels = Array.isArray(priorityRes.data) ? priorityRes.data : []
+  const priorityCounts = {}
+  reports.forEach((r) => {
+    const k = r.priority || '__none'
+    priorityCounts[k] = (priorityCounts[k] || 0) + 1
+  })
+  const byPriority = []
+  priorityLevels
+    .slice()
+    .sort((a, b) => (b.rank ?? 0) - (a.rank ?? 0))
+    .forEach((l) => {
+      if (priorityCounts[l.key]) byPriority.push({ key: l.key, label: l.label, count: priorityCounts[l.key] })
+      delete priorityCounts[l.key]
+    })
+  Object.entries(priorityCounts).forEach(([k, count]) => {
+    byPriority.push({ key: k, label: k === '__none' ? 'Not set' : humanize(k), count })
+  })
+
+  const statusCounts = {}
+  reports.forEach((r) => {
+    statusCounts[r.status] = (statusCounts[r.status] || 0) + 1
+  })
+  const byStatus = ['pending', 'dispatched', 'in_progress', 'qa_review', 'resolved', 'cancelled'].map((key) => ({
+    key,
+    count: statusCounts[key] || 0,
+  }))
+
+  // ---- Consolidation: reports merged into Master Tickets vs dispatches needed ----
+  const mergedReports = reports.filter((r) => r.master_id).length
+  const masterTickets = new Set(reports.filter((r) => r.master_id).map((r) => r.master_id)).size
+  const consolidation = {
+    mergedReports,
+    masterTickets,
+    dispatchesAvoided: Math.max(0, mergedReports - masterTickets),
+  }
+
+  // ---- One row per report, for the Tickets sheet ----
+  const tickets = reports.map((r) => ({
+    ticket: r.ticket_number,
+    date: r.created_at,
+    category: issueLabel(r.issue_code),
+    barangay: r.barangay || null,
+    municipality: r.municipality || null,
+    status: r.status,
+    priority: r.priority || null,
+    inMasterTicket: !!r.master_id,
+    reopened: !!r.reopened_at,
+  }))
+
+  const result = {
     summary: {
       totalReports,
       declinedReports,
@@ -383,5 +525,38 @@ export async function loadReportData(supabase, coopId, filters) {
     stageAverages,
     linemen,
     truncated: reportRes.truncated || assignmentRes.truncated,
+    byPriority,
+    byStatus,
+    consolidation,
+    tickets,
+    comparison: null,
+    findings: [],
   }
+
+  // ---- Previous period (skipped for "All time" and when this IS the previous load) ----
+  const prev = filters._isPrevious || filters.compare === false ? null : previousPeriod(fromDate, toDate)
+  if (prev) {
+    try {
+      const before = await loadReportData(supabase, coopId, { ...filters, ...prev, _isPrevious: true })
+      const a = result.summary
+      const b = before.summary
+      result.comparison = {
+        from: prev.from,
+        to: prev.to,
+        previous: b,
+        deltas: {
+          totalReports: delta(a.totalReports, b.totalReports),
+          resolvedReports: delta(a.resolvedReports, b.resolvedReports),
+          avgResponse: delta(a.avgResponse, b.avgResponse),
+          avgResolution: delta(a.avgResolution, b.avgResolution),
+          reopenedCount: delta(a.reopenedCount, b.reopenedCount),
+        },
+      }
+    } catch {
+      result.comparison = null // a failed comparison must never block the report
+    }
+  }
+
+  if (!filters._isPrevious) result.findings = buildFindings(result, result.comparison)
+  return result
 }

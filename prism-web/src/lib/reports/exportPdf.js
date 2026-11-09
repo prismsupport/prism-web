@@ -4,6 +4,7 @@
 
 import { formatMinutes } from '@/lib/performance'
 import { STAGES, formatDuration } from '@/lib/stageTimes'
+import { RECURRING_MIN_REPORTS } from '@/lib/recurring'
 
 const M = 14 // page margin, mm
 const PAGE_W = 210
@@ -26,6 +27,14 @@ const LOCATION_VIEWS = [
 ]
 
 const UNIT_TEXT = { day: 'per day', week: 'per week', month: 'per month' }
+const REOPEN_LABELS = { consumer: 'Consumer request', supervisor: 'Supervisor', qa_rejection: 'QA rejection' }
+
+function humanize(code) {
+  return String(code || '')
+    .split('_')
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ')
+}
 
 function safeName(text) {
   return String(text || 'cooperative')
@@ -57,7 +66,7 @@ export async function exportReportToPdf(data, meta) {
   }
 
   const heading = (text, note) => {
-    ensure(note ? 20 : 14)
+    ensure(note ? 38 : 32)
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(12)
     doc.setTextColor(...BLUE)
@@ -94,7 +103,7 @@ export async function exportReportToPdf(data, meta) {
   }
 
   const table = (head, body, columnStyles = {}) => {
-    ensure(20)
+    ensure(30)
     autoTable(doc, {
       startY: y,
       head: [head],
@@ -191,21 +200,38 @@ export async function exportReportToPdf(data, meta) {
   // ---- Title block ----
   const s = data.summary
 
+  // Cooperative logo (optional). meta.logo = { dataUrl, width, height } or null.
+  // Without a logo the header is exactly as before, with no empty box.
+  const LOGO_H = 16
+  let textX = M
+  if (meta.logo?.dataUrl) {
+    try {
+      const logoW = LOGO_H * (meta.logo.width / meta.logo.height)
+      doc.addImage(meta.logo.dataUrl, 'PNG', M, y, logoW, LOGO_H)
+      textX = M + logoW + 4
+    } catch {
+      textX = M // a bad image must never stop the export
+    }
+  }
+
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(18)
   doc.setTextColor(...BLUE)
-  doc.text('PRISM Outage Report', M, y + 6)
+  doc.text('PRISM Outage Report', textX, y + 6)
   y += 11
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(10)
   doc.setTextColor(...INK)
-  doc.text(meta.cooperativeName || '-', M, y + 3)
+  doc.text(meta.cooperativeName || '-', textX, y + 3)
   y += 8
 
   doc.setFontSize(8.5)
   doc.setTextColor(...MUTED)
   const info = [
     `Period: ${meta.periodLabel}`,
+    ...(meta.preparedBy?.name
+      ? [`Prepared by: ${meta.preparedBy.name}${meta.preparedBy.role ? ` (${meta.preparedBy.role})` : ''}`]
+      : []),
     ...meta.filters.map((f) => `${f.label}: ${f.value}`),
     `Generated: ${meta.generatedAt}`,
   ]
@@ -217,17 +243,49 @@ export async function exportReportToPdf(data, meta) {
     emptyNote('More than 20,000 records matched, so figures cover the most recent ones.')
   }
 
+  // ---- Key findings ----
+  if (data.findings?.length) {
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(8.5)
+    const lines = data.findings.map((f) => doc.splitTextToSize(`- ${f}`, CONTENT_W - 8))
+    const h = lines.reduce((n, l) => n + l.length * 4, 0) + 12
+    ensure(h + 4)
+    doc.setFillColor(247, 250, 255)
+    doc.setDrawColor(...LIGHT)
+    doc.roundedRect(M, y, CONTENT_W, h, 2, 2, 'FD')
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(9)
+    doc.setTextColor(...BLUE)
+    doc.text('Key findings', M + 4, y + 6)
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(8.5)
+    doc.setTextColor(...INK)
+    let ty = y + 11
+    lines.forEach((l) => {
+      doc.text(l, M + 4, ty)
+      ty += l.length * 4
+    })
+    y += h + 6
+  }
+
   // ---- Summary ----
   const dash = (v) => (v == null ? '-' : v)
-  heading('Summary')
+  const cmp = data.comparison
+  const pc = (d) => (d && d.pct != null ? ` (${d.pct > 0 ? '+' : ''}${d.pct}%)` : '')
+  heading(
+    'Summary',
+    cmp
+      ? `Figures in brackets compare with the previous period (${cmp.from} to ${cmp.to}).`
+      : null
+  )
   table(
     ['Measure', 'Value', 'Measure', 'Value'],
     [
-      ['Total outage reports', s.totalReports, 'Avg. response time', formatMinutes(s.avgResponse)],
+      ['Total outage reports', `${s.totalReports}${pc(cmp?.deltas.totalReports)}`, 'Avg. response time', `${formatMinutes(s.avgResponse)}${pc(cmp?.deltas.avgResponse)}`],
       ['Declined reports', s.declinedReports, 'Avg. repair time', formatMinutes(s.avgRepair)],
-      ['Resolved reports', s.resolvedReports, 'Avg. resolution time', formatMinutes(s.avgResolution)],
+      ['Resolved reports', `${s.resolvedReports}${pc(cmp?.deltas.resolvedReports)}`, 'Avg. resolution time', `${formatMinutes(s.avgResolution)}${pc(cmp?.deltas.avgResolution)}`],
       ['Not yet resolved', s.unresolvedReports, 'Dispatched within limit', s.responsePct != null ? `${s.responsePct}%` : '-'],
-      ['Reopened tickets', s.reopenedCount, 'Resolved within target', s.resolutionPct != null ? `${s.resolutionPct}%` : '-'],
+      ['Reopened tickets', `${s.reopenedCount}${pc(cmp?.deltas.reopenedCount)}`, 'Resolved within target', s.resolutionPct != null ? `${s.resolutionPct}%` : '-'],
     ],
     { 1: { halign: 'right', fontStyle: 'bold' }, 3: { halign: 'right', fontStyle: 'bold' } }
   )
@@ -239,6 +297,14 @@ export async function exportReportToPdf(data, meta) {
   // ---- Issue categories ----
   heading('Issue Categories', 'Category chosen by the consumer. Older reports show as Uncategorized.')
   barList(data.issues, 10)
+
+  // ---- Priority and status ----
+  const statusName = (k) => (meta.statusLabel ? meta.statusLabel(k) : humanize(k))
+  heading('Priority and Status', 'Reports in this selection, by the priority set and by their current status.')
+  subheading('By priority')
+  barList(data.byPriority.map((p) => [p.label, p.count]), 8)
+  subheading('By status')
+  barList(data.byStatus.filter((p) => p.count > 0).map((p) => [statusName(p.key), p.count]), 8)
 
   // ---- Affected locations ----
   heading(
@@ -280,10 +346,24 @@ export async function exportReportToPdf(data, meta) {
   const stageRows = STAGES.map((st) => [st.label, formatDuration(data.stageAverages[st.key]), st.hint])
   table(['Stage', 'Average', 'What it measures'], stageRows, { 1: { halign: 'right', fontStyle: 'bold' } })
 
+  // ---- Reopened tickets and consolidation ----
+  heading('Reopened Tickets and Consolidation', 'Reopens count job orders sent back to a lineman. Master Tickets group duplicate reports into one dispatch.')
+  const reopenRows = Object.entries(s.reopenSources || {}).map(([src, n]) => [`Reopened: ${REOPEN_LABELS[src] || humanize(src)}`, n])
+  table(
+    ['Measure', 'Count'],
+    [
+      ...(reopenRows.length ? reopenRows : [['Reopened job orders', 0]]),
+      ['Reports merged into Master Tickets', data.consolidation.mergedReports],
+      ['Master Tickets', data.consolidation.masterTickets],
+      ['Duplicate dispatches avoided', data.consolidation.dispatchesAvoided],
+    ],
+    { 1: { halign: 'right', fontStyle: 'bold' } }
+  )
+
   // ---- Recurring incidents ----
   heading(
     'Recurring Incidents',
-    `The same category reported 3 or more times in the same barangay within the selected period. ${s.reopenedCount} ticket${s.reopenedCount === 1 ? ' was' : 's were'} reopened in this period.`
+    `The same category reported ${RECURRING_MIN_REPORTS} or more times in the same barangay within the selected period. ${s.reopenedCount} ticket${s.reopenedCount === 1 ? ' was' : 's were'} reopened in this period.`
   )
   if (data.recurring.length === 0) {
     emptyNote('No recurring incidents in this selection.')
@@ -325,6 +405,20 @@ export async function exportReportToPdf(data, meta) {
       }
     )
   }
+
+  // ---- Sign-off ----
+  ensure(36)
+  y += 12
+  doc.setDrawColor(...MUTED)
+  doc.line(M, y + 12, M + 70, y + 12)
+  doc.line(PAGE_W - M - 50, y + 12, PAGE_W - M, y + 12)
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(8)
+  doc.setTextColor(...INK)
+  if (meta.preparedBy?.name) doc.text(meta.preparedBy.name, M, y + 9)
+  doc.setTextColor(...MUTED)
+  doc.text(meta.preparedBy?.role ? `Prepared by - ${meta.preparedBy.role}` : 'Prepared by', M, y + 16)
+  doc.text('Date', PAGE_W - M - 50, y + 16)
 
   // ---- Footer on every page ----
   const pages = doc.getNumberOfPages()

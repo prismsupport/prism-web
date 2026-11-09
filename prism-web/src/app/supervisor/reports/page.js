@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { getMyCooperativeId } from '@/lib/supabase/getCooperativeId'
 import { loadReportData, loadFilterOptions } from '@/lib/reports/loadReportData'
 import { formatMinutes } from '@/lib/performance'
+import usePagination from '@/lib/usePagination'
 import { toast } from '@/lib/toast'
 import PageHeader from '@/components/ui/PageHeader'
 import Alert from '@/components/ui/Alert'
@@ -17,12 +18,18 @@ import BarList from '@/components/dashboard/BarList'
 import AreaBreakdown from '@/components/dashboard/AreaBreakdown'
 import StageBreakdown from '@/components/dashboard/StageBreakdown'
 import DataTable from '@/components/ui/DataTable'
+import Pagination from '@/components/ui/Pagination'
 import ReportTrendChart from '@/components/reports/ReportTrendChart'
 import Button from '@/components/ui/Button'
+import useCooperativeProfile from '@/lib/supervisor/useCooperativeProfile'
+import { loadLogoImage } from '@/lib/reports/loadLogoImage'
 import { exportReportToExcel } from '@/lib/reports/exportExcel'
 import { exportReportToPdf } from '@/lib/reports/exportPdf'
 import { formatDuration } from '@/lib/stageTimes'
 import { RECURRING_MIN_REPORTS } from '@/lib/recurring'
+import { ISSUE_LABELS } from '@/lib/issueCodes'
+import { usePermissions } from '@/lib/supervisor/PermissionsContext'
+import { useStatusLabels } from '@/lib/workflow/StatusLabelsContext'
 
 const RANGES = [
   { key: '7', label: 'Last 7 days', days: 7 },
@@ -67,6 +74,36 @@ const LINEMAN_COLUMNS = [
   { label: 'Ratings', className: 'text-center' },
 ]
 
+const REOPEN_LABELS = {
+  consumer: 'Consumer request',
+  supervisor: 'Supervisor',
+  qa_rejection: 'QA rejection',
+}
+
+// good: 'up' when a rise is good news, 'down' when a rise is bad, null when neutral
+function DeltaBadge({ delta, good }) {
+  if (!delta || delta.pct == null) return null
+  const up = delta.pct > 0
+  const flat = delta.pct === 0
+  let tone = 'text-gray-500'
+  if (!flat && good) tone = (good === 'up') === up ? 'text-green-600' : 'text-red-600'
+  return (
+    <span className={`font-semibold ${tone}`}>
+      {flat ? '0%' : `${up ? '+' : ''}${delta.pct}%`} vs previous
+    </span>
+  )
+}
+
+function withDelta(text, delta, good) {
+  if (!delta || delta.pct == null) return text
+  return (
+    <>
+      {text ? <>{text} · </> : null}
+      <DeltaBadge delta={delta} good={good} />
+    </>
+  )
+}
+
 function Section({ title, description, children, className = '' }) {
   return (
     <section className={`rounded-2xl border border-gray-200 bg-white p-5 shadow-sm ${className}`}>
@@ -86,7 +123,7 @@ export default function ReportsPage() {
   const [refreshing, setRefreshing] = useState(false)
   const [exporting, setExporting] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
-  const [coopName, setCoopName] = useState('')
+  const { name: coopName, logoUrl } = useCooperativeProfile()
   const [tab, setTab] = useState('overview')
 
   const [rangeKey, setRangeKey] = useState('30')
@@ -96,8 +133,20 @@ export default function ReportsPage() {
   const [barangay, setBarangay] = useState('all')
   const [feeder, setFeeder] = useState('all')
   const [areaOffice, setAreaOffice] = useState('all')
+  const [category, setCategory] = useState('all')
+  const [priority, setPriority] = useState('all')
+  const [status, setStatus] = useState('all')
+  const [compare, setCompare] = useState(true)
+  const [supervisorName, setSupervisorName] = useState('')
+  const { isOwner } = usePermissions()
+  const { statusLabel, priorityLevels } = useStatusLabels()
 
   const latestLoad = useRef(0)
+  const linemanPg = usePagination(data?.linemen || [])
+
+  useEffect(() => {
+    linemanPg.setPage(1)
+  }, [data])
 
   // The dates actually used for loading
   let from = null
@@ -123,12 +172,17 @@ export default function ReportsPage() {
       }
       setCoopId(id)
       setOptions(await loadFilterOptions(supabase, id))
-      const { data: coop } = await supabase
-        .from('cooperatives')
-        .select('cooperative_name')
-        .eq('id', id)
-        .maybeSingle()
-      setCoopName(coop?.cooperative_name || '')
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (user) {
+        const { data: me } = await supabase
+          .from('users')
+          .select('first_name, last_name')
+          .eq('id', user.id)
+          .maybeSingle()
+        if (me) setSupervisorName(`${me.first_name} ${me.last_name}`)
+      }
     }
     init()
   }, [])
@@ -139,7 +193,18 @@ export default function ReportsPage() {
     const loadId = ++latestLoad.current
     setRefreshing(true)
 
-    loadReportData(createClient(), coopId, { from, to, municipality, barangay, feeder, areaOffice })
+    loadReportData(createClient(), coopId, {
+      from,
+      to,
+      municipality,
+      barangay,
+      feeder,
+      areaOffice,
+      category,
+      priority,
+      status,
+      compare: compare && rangeKey !== 'all',
+    })
       .then((result) => {
         if (loadId !== latestLoad.current) return
         setData(result)
@@ -153,7 +218,7 @@ export default function ReportsPage() {
         setLoading(false)
         setRefreshing(false)
       })
-  }, [coopId, rangeKey, customFrom, customTo, municipality, barangay, feeder, areaOffice])
+  }, [coopId, rangeKey, customFrom, customTo, municipality, barangay, feeder, areaOffice, category, priority, status, compare])
 
   const filters = [
     {
@@ -201,6 +266,41 @@ export default function ReportsPage() {
         ...(options?.areaOffices || []).map((a) => ({ value: a, label: a })),
       ],
     },
+    {
+      key: 'category',
+      label: 'Category',
+      value: category,
+      onChange: setCategory,
+      options: [
+        { value: 'all', label: 'All Categories' },
+        ...Object.entries(ISSUE_LABELS).map(([code, label]) => ({ value: code, label })),
+        { value: 'uncategorized', label: 'Uncategorized' },
+      ],
+    },
+    {
+      key: 'priority',
+      label: 'Priority',
+      value: priority,
+      onChange: setPriority,
+      options: [
+        { value: 'all', label: 'All Priorities' },
+        ...priorityLevels.map((p) => ({ value: p.key, label: p.label })),
+        { value: 'none', label: 'Not set' },
+      ],
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      value: status,
+      onChange: setStatus,
+      options: [
+        { value: 'all', label: 'All Statuses' },
+        ...['pending', 'dispatched', 'in_progress', 'qa_review', 'resolved', 'cancelled'].map((k) => ({
+          value: k,
+          label: statusLabel(k),
+        })),
+      ],
+    },
   ]
 
   async function handleExport(kind) {
@@ -215,8 +315,13 @@ export default function ReportsPage() {
         periodLabel = `${RANGES.find((r) => r.key === rangeKey)?.label} (${from} to ${to})`
       }
 
+      const logo = kind === 'pdf' ? await loadLogoImage(logoUrl) : null
+
       const meta = {
         cooperativeName: coopName,
+        logo, // { dataUrl, width, height } or null
+        preparedBy: { name: supervisorName, role: isOwner ? 'Cooperative Owner' : 'Supervisor' },
+        statusLabel,
         periodLabel,
         generatedAt: new Date().toLocaleString('en-PH', {
           year: 'numeric',
@@ -246,6 +351,7 @@ export default function ReportsPage() {
 
   if (loading) return <PageLoading />
   const summary = data?.summary
+  const cmp = data?.comparison
 
   return (
     <div>
@@ -326,14 +432,35 @@ export default function ReportsPage() {
             </div>
           )}
 
+          <label
+            className="flex cursor-pointer items-center gap-2 text-sm text-gray-600"
+            title={rangeKey === 'all' ? 'Not available for All time' : undefined}
+          >
+            <input
+              type="checkbox"
+              className="h-4 w-4"
+              checked={compare && rangeKey !== 'all'}
+              disabled={refreshing || rangeKey === 'all'}
+              onChange={(e) => setCompare(e.target.checked)}
+            />
+            Compare with previous period
+          </label>
+
           <div className="ml-auto">
-            <FilterMenu filters={filters} label="Location" />
+            <FilterMenu filters={filters} label="Filters" />
           </div>
           <FilterChips filters={filters} />
         </FilterBar>
       </div>
 
       <Alert>{dateError}</Alert>
+
+      {rangeKey === 'all' && (
+        <Alert tone="info" className="mb-4">
+          All time loads every report and can be slow for a large cooperative. Choose a shorter
+          period if it takes too long. Comparison with a previous period is not available here.
+        </Alert>
+      )}
 
       {data?.truncated && (
         <p className="mb-4 rounded-lg border border-amber-100 bg-amber-50 px-3 py-2 text-sm text-amber-800">
@@ -352,12 +479,21 @@ export default function ReportsPage() {
             compact
             label="Total outage reports"
             value={summary.totalReports}
-            hint={summary.declinedReports > 0 ? `${summary.declinedReports} declined` : undefined}
+            hint={
+              withDelta(
+                summary.declinedReports > 0 ? `${summary.declinedReports} declined` : '',
+                cmp?.deltas.totalReports,
+                null
+              ) || undefined
+            }
           >
             <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
             <rect width="8" height="4" x="8" y="2" rx="1" />
           </MetricCard>
-          <MetricCard compact tone="green" label="Reports resolved" value={summary.resolvedReports}>
+          <MetricCard compact tone="green" label="Reports resolved"
+            value={summary.resolvedReports}
+            hint={withDelta('', cmp?.deltas.resolvedReports, 'up') || undefined}
+          >
             <circle cx="12" cy="12" r="10" />
             <path d="m9 12 2 2 4-4" />
           </MetricCard>
@@ -366,7 +502,7 @@ export default function ReportsPage() {
             tone="amber"
             label="Avg. response time"
             value={formatMinutes(summary.avgResponse)}
-            hint="Submission to first dispatch"
+            hint={withDelta('Submission to first dispatch', cmp?.deltas.avgResponse, 'down')}
           >
             <circle cx="12" cy="12" r="10" />
             <path d="M12 6v6l4 2" />
@@ -375,12 +511,18 @@ export default function ReportsPage() {
             compact
             label="Avg. resolution time"
             value={formatMinutes(summary.avgResolution)}
-            hint="Submission to final completion"
+            hint={withDelta('Submission to final completion', cmp?.deltas.avgResolution, 'down')}
           >
             <circle cx="12" cy="12" r="10" />
             <path d="M12 6v6l4 2" />
           </MetricCard>
         </div>
+      )}
+
+      {cmp && (
+        <p className="mt-2 text-xs text-gray-400">
+          Percentages compare with the previous period ({cmp.from} to {cmp.to}).
+        </p>
       )}
 
       {data && (
@@ -391,6 +533,7 @@ export default function ReportsPage() {
 
           <div className={`space-y-4 transition-opacity ${refreshing ? 'opacity-60' : ''}`}>
             {tab === 'overview' && (
+              <>
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                 <Section title="Outage Frequency" description="Reports filed over the selected period.">
                   <ReportTrendChart data={data.trend} unit={data.trendUnit} />
@@ -406,6 +549,62 @@ export default function ReportsPage() {
                   />
                 </Section>
               </div>
+
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                <Section
+                  title="Priority and Status"
+                  description="Priority set by supervisors and the current status of these reports."
+                >
+                  <p className="mb-2 text-xs font-bold uppercase tracking-wide text-gray-400">By priority</p>
+                  <BarList
+                    rows={data.byPriority.map((p) => [p.label, p.count])}
+                    emptyTitle="No reports in this period"
+                    emptyDescription="Try a wider date range or fewer filters."
+                  />
+                  <p className="mb-2 mt-5 text-xs font-bold uppercase tracking-wide text-gray-400">By status</p>
+                  <BarList
+                    rows={data.byStatus.filter((p) => p.count > 0).map((p) => [statusLabel(p.key), p.count])}
+                    emptyTitle="No reports in this period"
+                    emptyDescription="Try a wider date range or fewer filters."
+                  />
+                </Section>
+
+                <Section
+                  title="Reopened Tickets and Consolidation"
+                  description="Reopens send a job back to a lineman. Master Tickets group duplicate reports into one dispatch."
+                >
+                  <dl className="divide-y divide-gray-100 rounded-xl border border-gray-100 text-sm">
+                    <div className="flex items-center justify-between gap-4 px-4 py-3">
+                      <dt className="text-gray-500">Reopened tickets</dt>
+                      <dd className="font-semibold text-gray-900">
+                        {summary.reopenedCount}{' '}
+                        <span className="text-xs font-normal">
+                          <DeltaBadge delta={cmp?.deltas.reopenedCount} good="down" />
+                        </span>
+                      </dd>
+                    </div>
+                    {Object.entries(summary.reopenSources || {}).map(([src, n]) => (
+                      <div key={src} className="flex items-center justify-between gap-4 px-4 py-3">
+                        <dt className="text-gray-500">Reopened: {REOPEN_LABELS[src] || src}</dt>
+                        <dd className="font-semibold text-gray-900">{n}</dd>
+                      </div>
+                    ))}
+                    <div className="flex items-center justify-between gap-4 px-4 py-3">
+                      <dt className="text-gray-500">Reports merged into Master Tickets</dt>
+                      <dd className="font-semibold text-gray-900">{data.consolidation.mergedReports}</dd>
+                    </div>
+                    <div className="flex items-center justify-between gap-4 px-4 py-3">
+                      <dt className="text-gray-500">Master Tickets</dt>
+                      <dd className="font-semibold text-gray-900">{data.consolidation.masterTickets}</dd>
+                    </div>
+                    <div className="flex items-center justify-between gap-4 px-4 py-3">
+                      <dt className="text-gray-500">Duplicate dispatches avoided</dt>
+                      <dd className="font-semibold text-green-700">{data.consolidation.dispatchesAvoided}</dd>
+                    </div>
+                  </dl>
+                </Section>
+              </div>
+              </>
             )}
 
             {tab === 'locations' && (
@@ -481,8 +680,9 @@ export default function ReportsPage() {
                   columns={LINEMAN_COLUMNS}
                   isEmpty={data.linemen.length === 0}
                   empty="No lineman accounts yet."
+                  footer={<Pagination {...linemanPg.paginationProps} />}
                 >
-                  {data.linemen.map((l) => (
+                  {linemanPg.pageItems.map((l) => (
                     <tr key={l.id} className="border-b border-gray-100 last:border-0">
                       <td className="px-5 py-4 text-center font-medium text-gray-900">
                         {l.name}
