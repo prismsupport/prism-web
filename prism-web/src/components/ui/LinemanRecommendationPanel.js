@@ -52,10 +52,11 @@ export default function LinemanRecommendationPanel({
   compact = false,
 }) {
   const [selectedId, setSelectedId] = useState(null)
-  const [initialPriority] = useState(priority || '')
-  const { priorityLevels } = useStatusLabels()
-  const priorityChanged = Boolean(priority) && priority !== initialPriority || !initialPriority && Boolean(priority)
-
+  const { priorityLevels, priorityLabel } = useStatusLabels()
+  const [confirmed, setConfirmed] = useState(false)
+  const hasPriority = Boolean(priority)
+  const priorityReady = hasPriority && confirmed
+  
   // Scores are computed in the database (score_lineman_candidates).
   // This panel only displays them.
   const ranked = linemen
@@ -81,9 +82,12 @@ export default function LinemanRecommendationPanel({
         </label>
         <select
           value={priority || ''}
-          onChange={(e) => onPriorityChange(e.target.value)}
+          onChange={(e) => {
+            onPriorityChange(e.target.value)
+            setConfirmed(true) // picking a level is an explicit choice
+          }}
           className={`w-full px-3.5 py-2.5 rounded-lg border bg-gray-50 text-sm ${
-            priorityChanged ? 'border-gray-200' : 'border-amber-400'
+            priorityReady ? 'border-gray-200' : 'border-amber-400'
           }`}
         >
           {!priority && (
@@ -97,10 +101,28 @@ export default function LinemanRecommendationPanel({
             </option>
           ))}
         </select>
-        {!priorityChanged && (
+
+        {!hasPriority && (
           <p className="text-xs text-amber-700 mt-1.5">
             Choose a priority before assigning a lineman.
           </p>
+        )}
+
+        {hasPriority && !confirmed && (
+          <div className="mt-1.5 flex items-center justify-between gap-3 rounded-lg border border-amber-100 bg-amber-50 px-3 py-2">
+            <p className="text-xs text-amber-800">
+              Priority is currently{' '}
+              <span className="font-semibold">{priorityLabel(priority)}</span>. Confirm it to
+              continue.
+            </p>
+            <button
+              type="button"
+              onClick={() => setConfirmed(true)}
+              className="whitespace-nowrap rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-amber-900 border border-amber-200 hover:bg-amber-100 transition-colors"
+            >
+              Confirm priority
+            </button>
+          </div>
         )}
       </div>
 
@@ -249,7 +271,7 @@ export default function LinemanRecommendationPanel({
         <div className="space-y-2 pb-1">
           <button
             onClick={() => selectedId && onAssign(selectedId)}
-            disabled={!selectedId || !priorityChanged || assigning}
+            disabled={!selectedId || !priorityReady || assigning}
             className="w-full bg-blue-700 hover:bg-blue-800 disabled:opacity-50 text-white font-semibold text-sm py-3 rounded-lg transition-colors"
           >
             {assigning ? 'Assigning…' : 'Assign Selected Lineman'}
