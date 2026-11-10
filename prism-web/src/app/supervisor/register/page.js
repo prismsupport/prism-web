@@ -51,6 +51,7 @@ export default function SupervisorRegisterPage() {
     const { data, error: signUpError } = await supabase.auth.signUp({
       email: form.email,
       password: form.password,
+      options: { data: { user_type: 'supervisor' } },
     })
 
     if (signUpError) {

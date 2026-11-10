@@ -29,6 +29,9 @@ export async function POST(request) {
       email,
       password,
       email_confirm: true,
+      user_metadata: { 
+        user_type: 'lineman' 
+      },
     })
 
   if (authError) {
