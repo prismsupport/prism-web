@@ -468,7 +468,7 @@ export default function ReportReviewPage() {
                 </p>
               )}
               <PhotoDropdown label="Photo Evidence" photoUrl={photoSignedUrl} />
-              <VideoDropdown label="Video Evidence" bucket="assignment-proofs" path={videoPath} />
+              <VideoDropdown label="Video Evidence" bucket="report-photos" path={videoPath} />
             </div>
           </div>
 
