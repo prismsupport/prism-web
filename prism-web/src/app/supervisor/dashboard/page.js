@@ -1,12 +1,15 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { formatMinutes, summarizeRatings } from '@/lib/performance'
 import { usePermissions } from '@/lib/supervisor/PermissionsContext'
 import { PageLoading } from "@/components/ui/Skeleton";
 import { useStatusLabels } from '@/lib/workflow/StatusLabelsContext'
+import { issueLabel } from '@/lib/issueCodes'
+import { loadRecentIssueReports, buildRecurringGroups, RECURRING_MIN_REPORTS, RECURRING_WINDOW_DAYS } from '@/lib/recurring'
+import { computeStageTimes, averageStages } from '@/lib/stageTimes'
+import Link from 'next/link'
 import SegmentedControl from '@/components/ui/SegmentedControl'
 import MetricCard from '@/components/dashboard/MetricCard'
 import TrendChart from '@/components/dashboard/TrendChart'
@@ -15,12 +18,10 @@ import Avatar from '@/components/ui/Avatar'
 import StatusPill from '@/components/ui/StatusPill'
 import EmptyState from '@/components/ui/EmptyState'
 import StageBreakdown from '@/components/dashboard/StageBreakdown'
-import { computeStageTimes, averageStages } from '@/lib/stageTimes'
 import AreaBreakdown from '@/components/dashboard/AreaBreakdown'
 import BarList from '@/components/dashboard/BarList'
 import Alert from '@/components/ui/Alert';
-import { issueLabel } from '@/lib/issueCodes'
-import { loadRecentIssueReports, buildRecurringGroups, RECURRING_MIN_REPORTS, RECURRING_WINDOW_DAYS } from '@/lib/recurring'
+import Card from '@/components/ui/Card'
 
 const MAX_ROWS = 1000 // Supabase returns at most 1000 rows per request
 
@@ -440,10 +441,46 @@ async function loadAttention(supabase, coopId, can) {
   return out
 }
 
+const FEATURE_LABELS = {
+  dispatch: 'Dispatch, Reports and Lineman Performance',
+  advisories: 'Advisories and Service Areas',
+  faq: 'FAQ',
+}
+
+function AccessCard({ isOwner, featureAccess }) {
+  if (isOwner) return null
+  const missing = Object.keys(FEATURE_LABELS).filter((k) => !featureAccess.includes(k))
+  return (
+    <Card className="mb-6">
+      <h2 className="text-sm font-bold text-gray-900 mb-1">Your Access</h2>
+      <p className="text-xs text-gray-400 mb-4">
+        The cooperative owner assigns what each supervisor can use.
+      </p>
+      <div className="flex flex-wrap gap-2">
+        {featureAccess.map((f) => (
+          <span key={f} className="rounded-full bg-green-50 px-3 py-1 text-xs font-semibold text-green-700">
+            ✓ {FEATURE_LABELS[f] || f}
+          </span>
+        ))}
+        {missing.map((f) => (
+          <span key={f} className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-400">
+            🔒 {FEATURE_LABELS[f]}
+          </span>
+        ))}
+      </div>
+      {missing.length > 0 && (
+        <p className="mt-4 text-xs text-gray-500">
+          Need more access? Ask your cooperative owner to update your account in Users.
+        </p>
+      )}
+    </Card>
+  )
+}
+
 // ---------------------------------------------------------------------------
 
 export default function SupervisorDashboardPage() {
-  const { hasFeature } = usePermissions()
+    const { hasFeature, isOwner, featureAccess } = usePermissions()
   const { statusLabel } = useStatusLabels()
   const can = {
     dispatch: hasFeature('dispatch'),
@@ -555,7 +592,7 @@ export default function SupervisorDashboardPage() {
           <p className="text-sm text-gray-500 mt-1">
             {can.dispatch
               ? `Outage reporting, dispatch, and repair performance: ${range.label.toLowerCase()}. Status, attention, and duty figures are always current.`
-              : 'Your cooperative at a glance.'}
+              : 'A summary of the areas you manage.'}
           </p>
         </div>
 
@@ -625,6 +662,25 @@ export default function SupervisorDashboardPage() {
           )}
         </div>
       )}
+
+      {!can.dispatch && can.advisories && advisoryCounts && (
+        <div className="mb-6 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-sm font-bold text-gray-900">Advisories Summary</h2>
+            <Link href="/supervisor/advisories" className="text-xs font-semibold text-blue-700">
+              Manage advisories
+            </Link>
+          </div>
+          <div className="grid grid-cols-4 gap-4">
+            <div><p className="text-xs text-gray-400">All</p><p className="text-xl font-bold text-blue-700">{advisoryCounts.all}</p></div>
+            <div><p className="text-xs text-gray-400">Upcoming</p><p className="text-xl font-bold text-amber-600">{advisoryCounts.upcoming}</p></div>
+            <div><p className="text-xs text-gray-400">Active</p><p className="text-xl font-bold text-green-600">{advisoryCounts.active}</p></div>
+            <div><p className="text-xs text-gray-400">Completed</p><p className="text-xl font-bold text-gray-900">{advisoryCounts.completed}</p></div>
+          </div>
+        </div>
+      )}
+
+      <AccessCard isOwner={isOwner} featureAccess={featureAccess} />
 
       {can.dispatch && stats && (
         <>
