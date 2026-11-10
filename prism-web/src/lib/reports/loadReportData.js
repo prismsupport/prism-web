@@ -126,7 +126,7 @@ function previousPeriod(fromDate, toDate) {
 function delta(current, previous) {
   if (current == null || previous == null) return { current, previous, change: null, pct: null }
   const change = current - previous
-  const pct = previous === 0 ? null : Math.round((change / previous) * 100)
+  const pct = previous === 0 ? null : Math.max(-100, Math.min(100, Math.round((change / previous) * 100)))
   return { current, previous, change, pct }
 }
 

@@ -106,13 +106,47 @@ function withDelta(text, delta, good) {
 
 function Section({ title, description, children, className = '' }) {
   return (
-    <section className={`rounded-2xl border border-gray-200 bg-white p-5 shadow-sm ${className}`}>
+    <section
+      className={`flex h-full flex-col rounded-2xl border border-gray-200 bg-white p-5 shadow-sm ${className}`}
+    >
       <h2 className="text-sm font-bold text-gray-900">{title}</h2>
-      {description && <p className="mb-3 mt-1 text-xs text-gray-400">{description}</p>}
-      {!description && <div className="mb-3" />}
-      {children}
+      {description && <p className="mb-4 mt-1 text-xs text-gray-400">{description}</p>}
+      {!description && <div className="mb-4" />}
+      <div className="flex min-h-0 flex-1 flex-col">{children}</div>
     </section>
   )
+}
+
+function MiniStat({ label, value, tone = 'text-gray-900', foot }) {
+  return (
+    <div className="rounded-xl border border-gray-100 bg-gray-50/60 p-4">
+      <p className="text-xs font-medium text-gray-500">{label}</p>
+      <p className={`font-display mt-1 text-3xl font-extrabold tabular-nums ${tone}`}>{value}</p>
+      {foot ? <p className="mt-0.5 text-xs">{foot}</p> : null}
+    </div>
+  )
+}
+
+// Same colours as the Dashboard status bar
+const STATUS_BAR = {
+  pending: 'bg-red-500',
+  dispatched: 'bg-amber-400',
+  in_progress: 'bg-orange-500',
+  qa_review: 'bg-blue-600',
+  resolved: 'bg-green-500',
+  cancelled: 'bg-gray-300',
+}
+
+// Colour by position in the cooperative's own priority list (lowest to highest)
+function priorityBar(label, levels) {
+  const i = levels.findIndex((l) => l.label === label)
+  if (i === -1) return 'bg-gray-300' // "Not set"
+  if (levels.length === 1) return 'bg-blue-600'
+  const pos = i / (levels.length - 1)
+  if (pos >= 1) return 'bg-red-600'
+  if (pos >= 0.6) return 'bg-red-400'
+  if (pos >= 0.3) return 'bg-amber-400'
+  return 'bg-blue-400'
 }
 
 export default function ReportsPage() {
@@ -126,7 +160,7 @@ export default function ReportsPage() {
   const { name: coopName, logoUrl } = useCooperativeProfile()
   const [tab, setTab] = useState('overview')
 
-  const [rangeKey, setRangeKey] = useState('30')
+  const [rangeKey, setRangeKey] = useState('7')
   const [customFrom, setCustomFrom] = useState('')
   const [customTo, setCustomTo] = useState('')
   const [municipality, setMunicipality] = useState('all')
@@ -136,7 +170,7 @@ export default function ReportsPage() {
   const [category, setCategory] = useState('all')
   const [priority, setPriority] = useState('all')
   const [status, setStatus] = useState('all')
-  const [compare, setCompare] = useState(true)
+  const [compare, setCompare] = useState(false)
   const [supervisorName, setSupervisorName] = useState('')
   const { isOwner } = usePermissions()
   const { statusLabel, priorityLevels } = useStatusLabels()
@@ -544,6 +578,7 @@ export default function ReportsPage() {
                 >
                   <BarList
                     rows={data.issues}
+                    showShare
                     emptyTitle="No reports in this period"
                     emptyDescription="Try a wider date range or fewer location filters."
                   />
@@ -555,54 +590,68 @@ export default function ReportsPage() {
                   title="Priority and Status"
                   description="Priority set by supervisors and the current status of these reports."
                 >
-                  <p className="mb-2 text-xs font-bold uppercase tracking-wide text-gray-400">By priority</p>
+                  <p className="mb-3 text-xs font-bold uppercase tracking-wide text-gray-400">By priority</p>
                   <BarList
-                    rows={data.byPriority.map((p) => [p.label, p.count])}
+                    rows={data.byPriority.map((p) => [p.label, p.count, priorityBar(p.label, priorityLevels)])}
+                    showRank={false}
+                    showShare
                     emptyTitle="No reports in this period"
                     emptyDescription="Try a wider date range or fewer filters."
                   />
-                  <p className="mb-2 mt-5 text-xs font-bold uppercase tracking-wide text-gray-400">By status</p>
+                  <p className="mb-3 mt-6 text-xs font-bold uppercase tracking-wide text-gray-400">By status</p>
                   <BarList
-                    rows={data.byStatus.filter((p) => p.count > 0).map((p) => [statusLabel(p.key), p.count])}
+                    rows={data.byStatus
+                      .filter((p) => p.count > 0)
+                      .map((p) => [statusLabel(p.key), p.count, STATUS_BAR[p.key] || 'bg-gray-300'])}
+                    showRank={false}
+                    showShare
                     emptyTitle="No reports in this period"
                     emptyDescription="Try a wider date range or fewer filters."
                   />
                 </Section>
 
-                <Section
-                  title="Reopened Tickets and Consolidation"
-                  description="Reopens send a job back to a lineman. Master Tickets group duplicate reports into one dispatch."
-                >
-                  <dl className="divide-y divide-gray-100 rounded-xl border border-gray-100 text-sm">
-                    <div className="flex items-center justify-between gap-4 px-4 py-3">
-                      <dt className="text-gray-500">Reopened tickets</dt>
-                      <dd className="font-semibold text-gray-900">
-                        {summary.reopenedCount}{' '}
-                        <span className="text-xs font-normal">
-                          <DeltaBadge delta={cmp?.deltas.reopenedCount} good="down" />
-                        </span>
-                      </dd>
+                <div className="flex flex-col gap-4">
+                  <Section
+                    title="Consolidation"
+                    description="Master Tickets group duplicate reports into one dispatch."
+                    className="!h-auto"
+                  >
+                    <div className="grid grid-cols-3 gap-3">
+                      <MiniStat label="Reports merged" value={data.consolidation.mergedReports} />
+                      <MiniStat label="Master Tickets" value={data.consolidation.masterTickets} />
+                      <MiniStat
+                        label="Dispatches avoided"
+                        value={data.consolidation.dispatchesAvoided}
+                        tone="text-green-700"
+                      />
                     </div>
-                    {Object.entries(summary.reopenSources || {}).map(([src, n]) => (
-                      <div key={src} className="flex items-center justify-between gap-4 px-4 py-3">
-                        <dt className="text-gray-500">Reopened: {REOPEN_LABELS[src] || src}</dt>
-                        <dd className="font-semibold text-gray-900">{n}</dd>
-                      </div>
-                    ))}
-                    <div className="flex items-center justify-between gap-4 px-4 py-3">
-                      <dt className="text-gray-500">Reports merged into Master Tickets</dt>
-                      <dd className="font-semibold text-gray-900">{data.consolidation.mergedReports}</dd>
+                  </Section>
+
+                  <Section
+                    title="Reopened Tickets"
+                    description="Reopens send a job back to a lineman."
+                    className="flex-1"
+                  >
+                    <div className="mb-5 flex items-end gap-3">
+                      <p className="font-display text-4xl font-extrabold tabular-nums text-gray-900">
+                        {summary.reopenedCount}
+                      </p>
+                      <p className="pb-1 text-xs">
+                        <DeltaBadge delta={cmp?.deltas.reopenedCount} good="down" />
+                      </p>
                     </div>
-                    <div className="flex items-center justify-between gap-4 px-4 py-3">
-                      <dt className="text-gray-500">Master Tickets</dt>
-                      <dd className="font-semibold text-gray-900">{data.consolidation.masterTickets}</dd>
-                    </div>
-                    <div className="flex items-center justify-between gap-4 px-4 py-3">
-                      <dt className="text-gray-500">Duplicate dispatches avoided</dt>
-                      <dd className="font-semibold text-green-700">{data.consolidation.dispatchesAvoided}</dd>
-                    </div>
-                  </dl>
-                </Section>
+                    <BarList
+                      rows={Object.entries(summary.reopenSources || {}).map(([src, n]) => [
+                        REOPEN_LABELS[src] || src,
+                        n,
+                        'bg-amber-400',
+                      ])}
+                      showRank={false}
+                      emptyTitle="No reopened tickets"
+                      emptyDescription="Nothing was sent back to a lineman in this period."
+                    />
+                  </Section>
+                </div>
               </div>
               </>
             )}
