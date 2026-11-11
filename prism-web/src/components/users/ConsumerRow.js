@@ -7,6 +7,13 @@ export default function ConsumerRow({ consumer, onSelect }) {
         {consumer.first_name} {consumer.last_name}
       </td>
       <td className="px-5 py-4 text-center text-gray-600">{consumer.phone_number}</td>
+      <td className="px-5 py-4 text-center text-gray-600">
+        {consumer.accounts?.length ? (
+          consumer.accounts.map((a) => <p key={a}>{a}</p>)
+        ) : (
+          '—'
+        )}
+      </td>
       <td className="px-5 py-4 text-center text-gray-600">{consumer.zone || '—'}</td>
       <td className="px-5 py-4 text-center text-gray-600">{consumer.barangay || '—'}</td>
       <td className="px-5 py-4 text-center text-gray-600">{consumer.municipality || '—'}</td>

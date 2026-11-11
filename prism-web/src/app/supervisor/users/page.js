@@ -40,6 +40,7 @@ const LINEMAN_COLUMNS = [
 const CONSUMER_COLUMNS = [
   'Name',
   'Contact Number',
+  'Account Number',
   'Zone',
   'Barangay',
   'Municipality',
@@ -174,9 +175,21 @@ export default function UsersPage() {
       consumerDetails = data || []
     }
 
+    // Approved account numbers for this cooperative's consumers (primary first)
+    const { data: linkData } = await supabase
+      .from('consumer_bill_links')
+      .select('consumer_id, account_number, is_primary')
+      .eq('cooperative_id', coopId)
+      .eq('status', 'approved')
+    const accountLinks = linkData || []
+
     const mergedConsumers = (consumerUsers || []).map((u) => ({
       ...u,
       ...consumerDetails.find((c) => c.profile_id === u.id),
+      accounts: accountLinks
+        .filter((a) => a.consumer_id === u.id)
+        .sort((a, b) => Number(b.is_primary) - Number(a.is_primary))
+        .map((a) => a.account_number),
     }))
     setConsumers(mergedConsumers)
 
@@ -295,6 +308,7 @@ export default function UsersPage() {
         `${c.first_name} ${c.last_name}`,
         c.email,
         c.phone_number,
+        (c.accounts || []).join(' '),
         c.zone,
         c.barangay,
         c.municipality
@@ -468,7 +482,7 @@ export default function UsersPage() {
                 setSearchText(v)
                 consumerPg.setPage(1)
               }}
-              placeholder="Search name, email, contact number, zone, barangay, municipality…"
+              placeholder="Search name, email, contact number, account number, zone, barangay, municipality…"
             />
             <FilterSelect
               label="SORT"
