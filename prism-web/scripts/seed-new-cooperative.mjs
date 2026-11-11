@@ -10,11 +10,19 @@
 
 // Everything it creates uses an email ending in @sample-coop.test, which is how
 // --cleanup finds it. Needs Node 18 or newer.
+//
+// Billing: the Owner sees an unclosable "Connect your billing system" popup until the
+// cooperative has a saved, tested billing connection. To seed one, set these in .env.local
+// (BILLING_CONFIG_SECRET is already there for the web app):
+//   SAMPLE_BILLING_URL=https://your-simulated-billing-service.example.com
+//   SAMPLE_BILLING_KEY=the-api-key-of-that-service
+//   SAMPLE_BILLING_HEADER=X-api-key        (optional, this is the default)
+// Without them the script still runs, but the popup will appear on the supervisor pages.
 import fs from 'node:fs'
 import path from 'node:path'
 import zlib from 'node:zlib'
 import { createClient } from '@supabase/supabase-js'
-import { randomUUID, createHash } from 'node:crypto'
+import { randomUUID, randomBytes, createHash, createCipheriv } from 'node:crypto'
 // ---------------------------------------------------------------------------
 // Setup
 // ---------------------------------------------------------------------------
@@ -50,9 +58,9 @@ const sb = createClient(SUPABASE_URL, SERVICE_KEY, {
 const args = process.argv.slice(2)
 const MODE = args.includes('--cleanup') ? 'cleanup' : args.includes('--refresh') ? 'refresh' : 'seed'
 const NO_PHOTOS = args.includes('--no-photos')
-const MARKER = '@sample-coop.test'
+const MARKER = '@new-sample-coop.test'
 const PASSWORD = 'Sample#2026'
-const COOP_NAME = 'Banahaw Electric Cooperative'
+const COOP_NAME = 'Sample Electric Cooperative'
 const NOW = Date.now()
 const MIN = 60000
 const RESPONSE_TIME_THRESHOLD_MINUTES = 30
@@ -96,7 +104,7 @@ function check(res, label) {
   return res.data
 }
 // A seeded random number generator, so every run creates the same story
-let seedState = 20261020
+let seedState = 20261111
 function rnd() {
   seedState = (seedState * 1664525 + 1013904223) % 4294967296
   return seedState / 4294967296
@@ -133,6 +141,47 @@ function activeWindow() {
   }
   const f = (t) => `${pad(Math.floor(t / 60))}:${pad(t % 60)}`
   return { start: f(start), end: f(end) }
+}
+// ---------------------------------------------------------------------------
+// Billing connection (same encryption the web app uses: AES-256-GCM, iv.tag.data in base64)
+// ---------------------------------------------------------------------------
+function encryptSecret(plainText, secretHex) {
+  const iv = randomBytes(12)
+  const cipher = createCipheriv('aes-256-gcm', Buffer.from(secretHex, 'hex'), iv)
+  const encrypted = Buffer.concat([cipher.update(String(plainText), 'utf8'), cipher.final()])
+  const tag = cipher.getAuthTag()
+  return [iv, tag, encrypted].map((part) => part.toString('base64')).join('.')
+}
+// Returns the cooperative_settings columns for a saved, "connected" billing integration,
+// or {} (with a warning) when the environment is not set up for it.
+function billingSettings() {
+  const rawUrl = process.env.SAMPLE_BILLING_URL
+  const apiKey = process.env.SAMPLE_BILLING_KEY
+  const headerName = process.env.SAMPLE_BILLING_HEADER || 'X-api-key'
+  const secret = process.env.BILLING_CONFIG_SECRET
+  if (!rawUrl || !apiKey) {
+    warn('SAMPLE_BILLING_URL / SAMPLE_BILLING_KEY are not set, so no billing connection was saved. The Owner will see the billing setup popup.')
+    return {}
+  }
+  if (!secret || !/^[0-9a-fA-F]{64}$/.test(secret)) {
+    warn('BILLING_CONFIG_SECRET is missing or is not 64 hex characters, so no billing connection was saved.')
+    return {}
+  }
+  let origin
+  try {
+    origin = new URL(rawUrl).origin
+  } catch {
+    warn('SAMPLE_BILLING_URL is not a valid URL, so no billing connection was saved.')
+    return {}
+  }
+  return {
+    billing_api_url: origin,
+    billing_api_header: headerName,
+    billing_api_key_encrypted: encryptSecret(apiKey, secret),
+    billing_enabled: true,
+    billing_last_tested_at: new Date().toISOString(),
+    billing_last_test_status: 'connected',
+  }
 }
 // ---------------------------------------------------------------------------
 // Fictional data
@@ -308,7 +357,7 @@ async function seed() {
     process.exit(1)
   }
   // ---- 1. Cooperatives --------------------------------------------------
-  console.log('1/12  Cooperatives')
+  console.log('1/8  Cooperatives')
   const coop = check(
     await sb
       .from('cooperatives')
@@ -386,7 +435,7 @@ async function seed() {
     'rejected history'
   )
   // ---- 2. Settings ------------------------------------------------------
-  console.log('2/12  Settings, area offices and hotlines')
+  console.log('2/8  Settings, area offices, hotlines and billing connection')
   check(
     await sb
       .from('cooperative_settings')
@@ -397,13 +446,14 @@ async function seed() {
           area_office_hotlines: HOTLINES,
           response_time_threshold_minutes: RESPONSE_TIME_THRESHOLD_MINUTES,
           resolution_target_minutes: 240,
+          ...billingSettings(),
         },
         { onConflict: 'cooperative_id' }
       ),
     'save settings'
   )
   // ---- 3. Service areas -------------------------------------------------
-  console.log('3/12  Service areas')
+  console.log('3/8  Service areas')
   check(
     await sb.from('service_areas').insert(
       AREAS.map((a) => ({
@@ -419,111 +469,105 @@ async function seed() {
     'create service areas'
   )
   // ---- 4. People --------------------------------------------------------
-  console.log('4/12  Accounts (supervisors, linemen, consumers)')
+  console.log('4/8  Accounts (supervisors, linemen, consumers)')
   let phoneCounter = 0
-    async function createUser({
+  async function createUser({
+    email,
+    first,
+    last,
+    type,
+    area = AREAS[0],
+    zone = 'Zone 1',
+    accountNumber = null,
+  }) {
+    phoneCounter += 1
+
+    const phoneNumber = `0999${pad(phoneCounter, 7)}`
+    const claimToken = randomUUID() + randomUUID()
+    const claimAccountNumber = accountNumber || `STAFF-${pad(phoneCounter, 4)}`
+    const normalizedAccountNumber = claimAccountNumber
+      .replace(/[^a-zA-Z0-9]/g, '')
+      .toUpperCase()
+
+    const claimCreatedAt = new Date().toISOString()
+    const claimExpiresAt = new Date(Date.now() + 10 * MIN).toISOString()
+
+    // Create a registration claim for the existing consumer signup trigger.
+    check(
+      await sb.from('consumer_registration_claims').insert({
+        token_hash: createHash('sha256').update(claimToken).digest('hex'),
+        cooperative_id: coopId,
+        normalized_account_number: normalizedAccountNumber,
+        account_number: claimAccountNumber,
+        account_id: randomUUID(),
+        meter_number: `MTR-${pad(phoneCounter, 5)}`,
+        first_name: first,
+        last_name: last,
+        municipality: area.municipality,
+        barangay: area.barangay,
+        zone,
+        account_type: 'residential',
+        created_at: claimCreatedAt,
+        expires_at: claimExpiresAt,
+      }),
+      `create registration claim ${email}`
+    )
+
+    const res = await sb.auth.admin.createUser({
       email,
-      first,
-      last,
-      type,
-      area = AREAS[0],
-      zone = 'Zone 1',
-      accountNumber = null,
-    }) {
-      phoneCounter += 1
+      password: PASSWORD,
+      email_confirm: true,
+      user_metadata: {
+        cooperative_id: coopId,
+        first_name: first,
+        last_name: last,
+        phone_number: phoneNumber,
+        user_type: 'consumer',
+        registration_claim_token: claimToken,
+      },
+    })
 
-      const phoneNumber = `0999${pad(phoneCounter, 7)}`
-      const claimToken = randomUUID() + randomUUID()
-      const claimAccountNumber = accountNumber || `STAFF-${pad(phoneCounter, 4)}`
-      const normalizedAccountNumber = claimAccountNumber
-        .replace(/[^a-zA-Z0-9]/g, '')
-        .toUpperCase()
-
-      const claimCreatedAt = new Date().toISOString()
-      const claimExpiresAt = new Date(Date.now() + 10 * MIN).toISOString()
-
-      // Create a registration claim for the existing consumer signup trigger.
-      check(
-        await sb.from('consumer_registration_claims').insert({
-          token_hash: createHash('sha256').update(claimToken).digest('hex'),
-          cooperative_id: coopId,
-          normalized_account_number: normalizedAccountNumber,
-          account_number: claimAccountNumber,
-          account_id: randomUUID(),
-          meter_number: `MTR-${pad(phoneCounter, 5)}`,
-          first_name: first,
-          last_name: last,
-          municipality: area.municipality,
-          barangay: area.barangay,
-          zone,
-          account_type: 'residential',
-          created_at: claimCreatedAt,
-          expires_at: claimExpiresAt,
-        }),
-        `create registration claim ${email}`
-      )
-
-      const res = await sb.auth.admin.createUser({
-        email,
-        password: PASSWORD,
-        email_confirm: true,
-        user_metadata: {
-          cooperative_id: coopId,
-          first_name: first,
-          last_name: last,
-          phone_number: phoneNumber,
-          user_type: 'consumer',
-          registration_claim_token: claimToken,
-        },
+    if (res.error) {
+      console.error('Auth error details:', {
+        name: res.error.name,
+        message: res.error.message,
+        status: res.error.status,
+        code: res.error.code,
+        details: res.error,
       })
 
-      if (res.error) {
-        console.error('Auth error details:', {
-          name: res.error.name,
-          message: res.error.message,
-          status: res.error.status,
-          code: res.error.code,
-          details: res.error,
-        })
-
-        throw new Error(`create login ${email}: ${res.error.message}`)
-      }
-
-      const user = check(res, `create login ${email}`).user
-
-      // Staff accounts are promoted after the consumer trigger creates
-      // their initial profile.
-      if (type !== 'consumer') {
-        check(
-          await sb
-            .from('consumer_bill_links')
-            .delete()
-            .eq('consumer_id', user.id),
-          `remove temporary consumer bill link ${email}`
-        )
-
-        check(
-          await sb
-            .from('consumer')
-            .delete()
-            .eq('profile_id', user.id),
-          `remove temporary consumer role ${email}`
-        )
-
-        check(
-          await sb
-            .from('users')
-            .update({
-              user_type: type,
-              updated_at: new Date().toISOString(),
-            })
-            .eq('id', user.id),
-          `promote profile ${email} to ${type}`
-        )
-      }
-
-      return user.id
+      throw new Error(`create login ${email}: ${res.error.message}`)
     }
+
+    const user = check(res, `create login ${email}`).user
+
+    // Staff accounts are promoted after the consumer trigger creates
+    // their initial profile.
+    if (type !== 'consumer') {
+      check(
+        await sb.from('consumer_bill_links').delete().eq('consumer_id', user.id),
+        `remove temporary consumer bill link ${email}`
+      )
+
+      check(
+        await sb.from('consumer').delete().eq('profile_id', user.id),
+        `remove temporary consumer role ${email}`
+      )
+
+      check(
+        await sb
+          .from('users')
+          .update({
+            user_type: type,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', user.id),
+        `promote profile ${email} to ${type}`
+      )
+    }
+
+    return user.id
+  }
   const ownerId = await createUser({ email: `owner${MARKER}`, first: 'Marissa', last: 'Villanueva', type: 'supervisor' })
   check(await sb.from('supervisor').insert({ profile_id: ownerId, is_owner: true, feature_access: [] }), 'owner role')
   const subId = await createUser({ email: `dispatch${MARKER}`, first: 'Paolo', last: 'Hernandez', type: 'supervisor' })
@@ -657,7 +701,6 @@ async function seed() {
     `      Created ${duplicateClusterConsumers.length} additional Poblacion consumers for duplicate-suggestion testing`
   )
 
-  
   // ---- Additional consumers for the Master Ticket -----------------------
   // Each Master Ticket report needs a distinct service account because
   // the database prevents multiple active reports for the same account.
@@ -718,7 +761,6 @@ async function seed() {
   console.log(
     `      Created ${masterTicketConsumers.length} additional consumers for Master Ticket testing`
   )
-
 
   const linemanForArea = (areaIdx, n = 0) => {
     const pool = linemen.filter((l) => l.office === AREAS[areaIdx].office)
@@ -807,7 +849,7 @@ async function seed() {
     }
   }
   // ---- 5. Reports and job orders -----------------------------------------
-  console.log('5/12  Reports and job orders (this is the long step)')
+  console.log('5/8  Reports and job orders (this is the long step)')
   const year = new Date(NOW).getUTCFullYear()
   const specialReportConsumers = []
 
@@ -909,7 +951,7 @@ async function seed() {
       ][i % 5],
     })),
     // Two alternate-feeder reports placed immediately beside the main Poblacion cluster
-    // (roughly within 50â€“100 m). Only FAR1 has outage wording similar to the cluster;
+    // (roughly within 50-100 m). Only FAR1 has outage wording similar to the cluster;
     // FAR2 describes voltage fluctuation, so it should not look like another duplicate.
     { key: 'FAR1', issue: 'no_power', kind: 'pending', area: 2, c: 0, consumer: specialReportConsumers[4], minutesAgo: 26, priority: 'medium', homes: true, jitter: 0.00008, centerLat: 14.07535, centerLng: 121.32035, details: 'Several homes just across the feeder boundary near Poblacion lost power around the same time as nearby streets.' },
     { key: 'FAR2', issue: 'low_voltage', kind: 'pending', area: 2, c: 1, minutesAgo: 24, priority: 'high', homes: true, jitter: 0.00008, centerLat: 14.07555, centerLng: 121.3205, details: 'Lights are flickering and voltage is low on the neighboring feeder near Poblacion; power has not fully gone out in every house.' },
@@ -1105,7 +1147,7 @@ async function seed() {
     await runJob({ masterId: mt.master_id, lineman: linemen[2], assignedAgo: 90, final: 'in_progress' })
   }
   // ---- 6. Advisories ----------------------------------------------------
-  console.log('6/12  Advisories')
+  console.log('6/8  Advisories')
   const win = activeWindow()
   const ADVISORIES = [
     { key: 'adv-active', title: 'Scheduled Maintenance: Feeder 1 Line Upgrade', description: 'Crews are upgrading conductors along Feeder 1. Expect brief interruptions while work is ongoing.', date: manilaDate(0), start: win.start, end: win.end, photo: true, targets: [['feeder', 'Feeder 1']] },
@@ -1138,7 +1180,7 @@ async function seed() {
     )
   }
   // ---- 7. FAQ -----------------------------------------------------------
-  console.log('7/12  FAQ')
+  console.log('7/8  FAQ')
   check(
     await sb.from('faq_entries').insert(
       FAQS.map((f, i) => ({
@@ -1175,90 +1217,21 @@ async function seed() {
       'answer FAQ question'
     )
   }
-  // ---- 8. Billing requests ------------------------------------------------
-
-  // ---- 8. Billing requests ------------------------------------------------
-  console.log('8/12  Billing requests')
-
-  const links = [
-    [consumers[0], 'pending', 'residential', 90],
-    [consumers[5], 'pending', 'commercial', 600],
-    [consumers[8], 'pending', 'residential', 1500],
-    [consumers[12], 'approved', 'residential', 4 * DAY],
-    [consumers[19], 'approved', 'commercial', 7 * DAY],
-    [consumers[22], 'rejected', 'residential', 5 * DAY],
-  ]
-
-  for (const [consumer, status, type, minutesAgo] of links) {
-    const accountName = `${consumer.last}, ${consumer.first}`.toUpperCase()
-    const normalizedAccountNumber = consumer.account
-      .replace(/[^a-zA-Z0-9]/g, '')
-      .toUpperCase()
-
-    const existing = check(
-      await sb
-        .from('consumer_bill_links')
-        .select('link_id')
-        .eq('cooperative_id', coopId)
-        .eq('normalized_account_number', normalizedAccountNumber),
-      'check existing bill link'
-    )
-
-    if (existing.length > 0) {
-      check(
-        await sb
-          .from('consumer_bill_links')
-          .update({
-            consumer_id: consumer.id,
-            account_number: consumer.account,
-            normalized_account_number: normalizedAccountNumber,
-            account_name: accountName,
-            account_type: type,
-            status,
-            approved_by: status === 'pending' ? null : ownerId,
-            rejection_reason:
-              status === 'rejected'
-                ? 'The account name does not match the name on the billing record. Please check the details and try again.'
-                : null,
-            request_at: ago(minutesAgo),
-            approved_at:
-              status === 'pending'
-                ? null
-                : ago(minutesAgo - 240),
-          })
-          .eq('link_id', existing[0].link_id),
-        'update existing bill link'
-      )
-    } else {
-      check(
-        await sb
-          .from('consumer_bill_links')
-          .insert({
-            cooperative_id: coopId,
-            consumer_id: consumer.id,
-            account_number: consumer.account,
-            normalized_account_number: normalizedAccountNumber,
-            account_name: accountName,
-            account_type: type,
-            status,
-            approved_by: status === 'pending' ? null : ownerId,
-            rejection_reason:
-              status === 'rejected'
-                ? 'The account name does not match the name on the billing record. Please check the details and try again.'
-                : null,
-            request_at: ago(minutesAgo),
-            approved_at:
-              status === 'pending'
-                ? null
-                : ago(minutesAgo - 240),
-          }),
-        'create bill link request'
-      )
-    }
+  // ---- 8. Notifications ---------------------------------------------------
+  // Billing links are no longer seeded here: a consumer's billing link is created by the
+  // signup trigger from the registration claim. This only checks that it happened.
+  console.log('8/8  Notifications (and a check that billing links were created)')
+  const linkRes = await sb
+    .from('consumer_bill_links')
+    .select('link_id', { count: 'exact', head: true })
+    .eq('cooperative_id', coopId)
+  if (linkRes.error) {
+    warn(`could not check billing links: ${linkRes.error.message}`)
+  } else if ((linkRes.count ?? 0) === 0) {
+    warn('no billing account links exist for the sample consumers, so the Consumer Accounts tab will show no account numbers.')
+  } else {
+    console.log(`      ${linkRes.count} billing account links were created by the signup trigger`)
   }
-
-  // ---- 9. Make the notification bell look natural -------------------------
-  console.log('9/12  Notifications')
   for (const userId of [ownerId, subId]) {
     const rows = check(await sb.from('notifications').select('notification_id').eq('user_id', userId).order('created_at', { ascending: false }), 'read notifications')
     for (let i = 0; i < rows.length; i++) {
@@ -1277,8 +1250,8 @@ async function seed() {
   console.log(`Dispatch-only supervisor : dispatch${MARKER}   (shows the locked sidebar and the restricted notice)`)
   console.log(`Linemen     : lineman1${MARKER} ... lineman6${MARKER}`)
   console.log(`Consumers   : consumer01${MARKER} ... consumer24${MARKER}`)
-  console.log(`Reports     : ${SPECS.length} (includes one 10-report duplicate cluster + 2 nearby Feeder 2 reports)` )
-  console.log('Consumer demo: consumer01@sample-coop.test (Maria Santos) has upcoming/completed advisories, matched + mismatched billing requests, and in-progress/resolved rated + unrated outages.')
+  console.log(`Reports     : ${SPECS.length} (includes one 10-report duplicate cluster + 2 nearby Feeder 2 reports)`)
+  console.log('Consumer demo: consumer01@sample-coop.test (Maria Santos) has upcoming/completed advisories and in-progress/resolved rated + unrated outages.')
   console.log('Lineman demo : lineman3@sample-coop.test (Ben Navarro) has a reopened dispatched job, an in-progress 8-report master ticket, a fixed job, and rated resolved-job history.')
   console.log('Categories  : every report has an issue category except two older ones (shown as Uncategorized); Poblacion (San Vicente) has recurring Low Voltage reports, and the Poblacion and Santa Lucia clusters are recurring No Power.')
   console.log('\nBefore taking screenshots, run:  node scripts/seed-sample-cooperative.mjs --refresh')
@@ -1316,11 +1289,12 @@ async function refresh() {
     .eq('cooperative_id', coop.id)
     .like('title', 'Scheduled Maintenance: Feeder 1%')
   if (res.error) warn(`advisory: ${res.error.message}`)
+  // Also re-applies the billing connection (when configured), so the setup popup stays away
   const settingsRes = await sb
     .from('cooperative_settings')
-    .update({ response_time_threshold_minutes: RESPONSE_TIME_THRESHOLD_MINUTES })
+    .update({ response_time_threshold_minutes: RESPONSE_TIME_THRESHOLD_MINUTES, ...billingSettings() })
     .eq('cooperative_id', coop.id)
-  if (settingsRes.error) warn(`response-time threshold: ${settingsRes.error.message}`)
+  if (settingsRes.error) warn(`settings: ${settingsRes.error.message}`)
   const exceededReports = check(
     await sb
       .from('reports')
@@ -1355,6 +1329,12 @@ async function cleanup() {
     if (!ids || ids.length === 0) return
     check(await sb.from(table).delete().in(column, ids), `delete ${label}`)
   }
+  // For rows that only exist for bookkeeping: a failure is reported but does not stop the cleanup
+  const delSoft = async (table, column, ids, label) => {
+    if (!ids || ids.length === 0) return
+    const res = await sb.from(table).delete().in(column, ids)
+    if (res.error) warn(`could not delete ${label}: ${res.error.message}`)
+  }
   console.log('Removing notifications...')
   await del('notifications', 'user_id', userIds, 'notifications')
   await del('notifications', 'reference_id', coopIds, 'cooperative notifications')
@@ -1371,13 +1351,19 @@ async function cleanup() {
   await del('job_assignments', 'assignment_id', assignmentIds, 'job orders')
   await del('reports', 'report_id', reportIds, 'reports')
   await del('master_tickets', 'master_id', masterIds, 'master tickets')
-  console.log('Removing advisories, FAQ and billing requests...')
+  console.log('Removing advisories, FAQ and billing links...')
   const advisoryIds = coopIds.length ? check(await sb.from('advisories').select('advisory_id').in('cooperative_id', coopIds), 'read advisories').map((a) => a.advisory_id) : []
   await del('advisory_target', 'advisory_id', advisoryIds, 'advisory targets')
   await del('advisories', 'advisory_id', advisoryIds, 'advisories')
   await del('faq_entries', 'cooperative_id', coopIds, 'FAQ entries')
   await del('faq_inquiries', 'consumer_id', userIds, 'FAQ questions')
-  await del('consumer_bill_links', 'consumer_id', userIds, 'billing requests')
+  await del('consumer_bill_links', 'consumer_id', userIds, 'billing links')
+  await delSoft('consumer_bill_links', 'cooperative_id', coopIds, 'remaining billing links')
+  console.log('Removing registration claims and push tokens...')
+  // The claims point at the cooperative and at the consumer, so they must go before the accounts
+  await delSoft('consumer_registration_claims', 'cooperative_id', coopIds, 'registration claims')
+  await delSoft('registration_verification_limits', 'cooperative_id', coopIds, 'registration rate limits')
+  await delSoft('push_tokens', 'user_id', userIds, 'push tokens')
   console.log('Removing accounts...')
   for (const id of userIds) {
     const res = await sb.auth.admin.deleteUser(id)
@@ -1390,6 +1376,8 @@ async function cleanup() {
   await del('service_areas', 'cooperative_id', coopIds, 'service areas')
   await del('cooperative_status_logs', 'cooperative_id', coopIds, 'status history')
   await del('cooperative_settings', 'cooperative_id', coopIds, 'settings')
+  // The audit trigger writes a row for each change above, so clear it last, right before the cooperatives
+  await delSoft('audit_logs', 'cooperative_id', coopIds, 'audit log rows')
   await del('cooperatives', 'id', coopIds, 'cooperatives')
   for (const bucket of ['report-photos', 'assignment-proofs', 'advisory-photos']) {
     for (const id of coopIds) {
@@ -1411,41 +1399,3 @@ main().catch((e) => {
   console.error('If this stopped part-way, run  node scripts/seed-sample-cooperative.mjs --cleanup  and try again.')
   process.exit(1)
 })
-async function createUser({ email, first, last, type }) {
-  phoneCounter += 1
-  const phoneNumber = `0999${pad(phoneCounter, 7)}`
-  const res = await sb.auth.admin.createUser({
-    email,
-    password: PASSWORD,
-    email_confirm: true,
-    user_metadata: {
-      cooperative_id: coopId,
-      first_name: first,
-      last_name: last,
-      phone_number: phoneNumber,
-      user_type: type,
-    },
-  })
-  const user = check(res, `create login ${email}`).user
-  // The Auth trigger creates consumer profiles automatically.
-  // Supervisors and linemen need their profiles created here.
-  if (type !== 'consumer') {
-    check(
-      await sb.from('users').upsert(
-        {
-          id: user.id,
-          cooperative_id: coopId,
-          first_name: first,
-          last_name: last,
-          phone_number: phoneNumber,
-          email,
-          user_type: type,
-          is_active: true,
-        },
-        { onConflict: 'id' }
-      ),
-      `create profile ${email}`
-    )
-  }
-  return user.id
-}
