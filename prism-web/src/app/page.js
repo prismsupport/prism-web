@@ -1044,7 +1044,7 @@ function GroupHeader({ group }) {
 
 export default function Home() {
   return (
-    <div className="min-h-screen overflow-x-clip bg-gray-50 text-gray-900">
+    <div className="landing-page min-h-screen overflow-x-clip bg-gray-50 text-gray-900">
       <a
         href="#main"
         className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-white focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-blue-700 focus:shadow-lg"

@@ -182,6 +182,38 @@
   html {
     @apply font-sans;
   }
+
+  html:has(.landing-page) {
+    scroll-behavior: smooth;
+    scrollbar-color: var(--color-blue-700) var(--color-gray-100);
+    scrollbar-gutter: stable;
+    scrollbar-width: thin;
+  }
+
+  html:has(.landing-page)::-webkit-scrollbar {
+    display: block;
+    width: 0.75rem;
+  }
+
+  html:has(.landing-page)::-webkit-scrollbar-track {
+    background: var(--color-gray-100);
+  }
+
+  html:has(.landing-page)::-webkit-scrollbar-thumb {
+    background: var(--color-blue-700);
+    border: 3px solid var(--color-gray-100);
+    border-radius: 999px;
+  }
+
+  html:has(.landing-page)::-webkit-scrollbar-thumb:hover {
+    background: var(--color-blue-800);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html:has(.landing-page) {
+      scroll-behavior: auto;
+    }
+  }
   h1,
   h2,
   h3 {
