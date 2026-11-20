@@ -14,9 +14,11 @@ export const metadata = {
   },
 };
 
-// Leave empty until a real APK is hosted. While empty, no download button or
-// install steps are shown anywhere on the page.
-const APK_URL = "";
+const APK_URL =
+  "https://github.com/prismsupport/prism-web/releases/download/android-v1.3.0/prism-android-v1.3.0.apk";
+const APK_VERSION = "1.3.0";
+const APK_SIZE = "140.8 MB";
+const APK_MIN_ANDROID = "Android 7.0+";
 
 const FOCUS =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600";
@@ -399,7 +401,7 @@ function AvailabilityChips({ dark = false }) {
             className={`${base} transition-colors hover:bg-white/10 ${dark ? FOCUS_DARK : FOCUS}`}
           >
             <Icon name="phone" className="h-3.5 w-3.5" />
-            Download Android app (.apk)
+            Download Android app v{APK_VERSION}
           </a>
         ) : (
           <span className={base}>
@@ -1528,7 +1530,12 @@ export default function Home() {
 
                 {APK_URL ? (
                   <>
-                    <ol className="mt-4 list-decimal space-y-1 pl-5 text-sm text-gray-600">
+                    <div className="mt-5 flex flex-wrap gap-2">
+                      <Chip tone="blue">Version {APK_VERSION}</Chip>
+                      <Chip>{APK_SIZE}</Chip>
+                      <Chip>{APK_MIN_ANDROID}</Chip>
+                    </div>
+                    <ol className="mt-5 list-decimal space-y-1 pl-5 text-sm text-gray-600">
                       <li>Download the APK file to your Android phone.</li>
                       <li>Open it. If asked, allow installs from this source in your phone settings.</li>
                       <li>Install, open PRISM and sign in or register.</li>
@@ -1541,7 +1548,8 @@ export default function Home() {
                       download
                       className={`mt-6 inline-flex items-center gap-2 rounded-xl bg-blue-700 px-6 py-3 text-sm font-bold text-white transition-colors hover:bg-blue-800 ${FOCUS}`}
                     >
-                      Download for Android (.apk)
+                      <Icon name="phone" className="h-4 w-4" />
+                      Download PRISM v{APK_VERSION} (.apk)
                     </a>
                   </>
                 ) : (
@@ -1556,7 +1564,9 @@ export default function Home() {
                   <div className="flex h-56 flex-col items-center justify-center gap-3 px-4 text-center">
                     <img src="/brand/mascot-sm.png" alt="" className="h-16 w-auto" />
                     <p className="font-display text-sm font-extrabold text-blue-900">PRISM</p>
-                    {!APK_URL && <Chip tone="amber">Coming soon</Chip>}
+                    <Chip tone={APK_URL ? "green" : "amber"}>
+                      {APK_URL ? `v${APK_VERSION}` : "Coming soon"}
+                    </Chip>
                   </div>
                 </Phone>
               </div>
