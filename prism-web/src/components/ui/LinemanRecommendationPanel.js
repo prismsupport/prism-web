@@ -40,6 +40,9 @@ function tier(l) {
   return l.availability_reason === 'no_signal' ? 1 : 0
 }
 
+const MIN_MATCH_SCORE = 50 // linemen below this % are hidden by default
+const MIN_SHOWN = 3 // but always show at least this many
+
 export default function LinemanRecommendationPanel({
   linemen,
   loading,
@@ -54,6 +57,7 @@ export default function LinemanRecommendationPanel({
   const [selectedId, setSelectedId] = useState(null)
   const { priorityLevels, priorityLabel } = useStatusLabels()
   const [confirmed, setConfirmed] = useState(false)
+  const [showAll, setShowAll] = useState(false)
   const hasPriority = Boolean(priority)
   const priorityReady = hasPriority && confirmed
   
@@ -67,6 +71,13 @@ export default function LinemanRecommendationPanel({
   const closestId = ranked
     .filter((l) => l.is_available && l.distance_meters != null)
     .sort((a, b) => a.distance_meters - b.distance_meters)[0]?.lineman_id
+
+  // Hide linemen below the minimum score. If fewer than MIN_SHOWN qualify,
+  // show the top MIN_SHOWN anyway so the list is never nearly empty.
+  const qualified = ranked.filter((l) => l.total_score >= MIN_MATCH_SCORE)
+  const baseList = qualified.length >= MIN_SHOWN ? qualified : ranked.slice(0, MIN_SHOWN)
+  const visible = showAll ? ranked : baseList
+  const hiddenCount = ranked.length - baseList.length
 
   const selected = ranked.find((l) => l.lineman_id === selectedId)
 
@@ -131,8 +142,9 @@ export default function LinemanRecommendationPanel({
         <span>
           Match % = 40% availability (on duty and reporting) + 30% assigned office + 20%
           proximity + 10% workload. Linemen who are off schedule or not reporting are
-          listed after available ones. This is a decision-support tool; the final choice
-          is yours.
+          listed after available ones. Linemen below {MIN_MATCH_SCORE}% are hidden by
+          default; use the link under the list to show them. This is a decision-support
+          tool; the final choice is yours.
         </span>
       </div>
 
@@ -147,7 +159,7 @@ export default function LinemanRecommendationPanel({
       )}
 
       <div className={`${compact ? 'grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3' : 'space-y-3'} mb-5`}>
-        {ranked.map((l) => {
+        {visible.map((l) => {
           const isSelected = selectedId === l.lineman_id
           const isBestMatch = l.lineman_id === bestMatchId
           const isClosest = l.lineman_id === closestId
@@ -260,6 +272,21 @@ export default function LinemanRecommendationPanel({
           )
         })}
       </div>
+
+      {!loading && hiddenCount > 0 && (
+        <button
+          type="button"
+          onClick={() => {
+            if (showAll) setSelectedId(null) // don't keep a hidden lineman selected
+            setShowAll((v) => !v)
+          }}
+          className="mb-5 text-xs font-semibold text-blue-700"
+        >
+          {showAll
+            ? 'Show recommended linemen only'
+            : `Show ${hiddenCount} other ${hiddenCount === 1 ? 'lineman' : 'linemen'} (below ${MIN_MATCH_SCORE}%)`}
+        </button>
+      )}
 
       <div className="sticky bottom-0 z-10 -mx-6 rounded-xl bg-white px-9 pt-3">
         {selected && !selected.is_available && (
