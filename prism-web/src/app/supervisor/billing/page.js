@@ -1,15 +1,17 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { PageLoading } from '@/components/ui/Skeleton'
+import { toast } from '@/lib/toast'
+import { BILLING_CHANGED_EVENT } from '@/components/billing/BillingIntegrationForm'
+import { formatDateTime, DATETIME_FULL } from '@/lib/format'
+import BillingIntegrationModal from '@/components/billing/BillingIntegrationModal'
+import Tabs from '@/components/ui/Tabs'
+import PowerRatesPanel from '@/components/billing/PowerRatesPanel'
 import PageHeader from '@/components/ui/PageHeader'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Alert from '@/components/ui/Alert'
-import { PageLoading } from '@/components/ui/Skeleton'
-import BillingIntegrationModal from '@/components/billing/BillingIntegrationModal'
-import { BILLING_CHANGED_EVENT } from '@/components/billing/BillingIntegrationForm'
-import { formatDateTime, DATETIME_FULL } from '@/lib/format'
-import { toast } from '@/lib/toast'
 
 const STATUS_STYLES = {
   connected: { text: 'Connected', cls: 'bg-green-50 text-green-700' },
@@ -48,6 +50,7 @@ export default function BillingIntegrationPage() {
   const [error, setError] = useState('')
   const [showEdit, setShowEdit] = useState(false)
 
+  const [tab, setTab] = useState('connection')
   const [testAccount, setTestAccount] = useState('')
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState(null)
@@ -107,10 +110,24 @@ export default function BillingIntegrationPage() {
     <div className="w-full">
       <PageHeader
         title="Billing Integration"
-        description="Connect your billing system so consumers can register their account numbers and view their bills in the mobile app."
+        description="Connect your billing system so consumers can register their account numbers, view their bills in the mobile app, and publish your monthly power rates."
       />
 
       <Alert>{error}</Alert>
+
+      <Tabs
+        variant="underline"
+        tabs={[
+          { key: 'connection', label: 'Connection' },
+          { key: 'rates', label: 'Power Rates' },
+        ]}
+        value={tab}
+        onChange={setTab}
+      />
+        {tab === 'rates' ? (
+          <PowerRatesPanel />
+        ) : (
+          <>
 
       <section className={`mb-6 rounded-2xl border p-5 sm:p-6 ${statusBanner.cls}`}>
         <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
@@ -238,6 +255,8 @@ export default function BillingIntegrationPage() {
         </div>
       </Card>
 
+        </>
+      )}
       {showEdit && (
         <BillingIntegrationModal onClose={() => setShowEdit(false)} onConnected={load} />
       )}
