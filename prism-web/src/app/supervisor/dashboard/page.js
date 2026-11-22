@@ -387,6 +387,7 @@ async function loadAdvisorySummary(supabase, coopId) {
     .from('advisories')
     .select('date, start_time, end_time')
     .eq('cooperative_id', coopId)
+    .eq('category', 'power_interruption')
     .is('archived_at', null)
 
   const now = new Date()
@@ -666,7 +667,7 @@ export default function SupervisorDashboardPage() {
       {!can.dispatch && can.advisories && advisoryCounts && (
         <div className="mb-6 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-sm font-bold text-gray-900">Advisories Summary</h2>
+            <h2 className="text-sm font-bold text-gray-900">Power Interruption Advisories</h2>
             <Link href="/supervisor/advisories" className="text-xs font-semibold text-blue-700">
               Manage advisories
             </Link>
@@ -745,7 +746,7 @@ export default function SupervisorDashboardPage() {
 
               {can.advisories && advisoryCounts && (
                 <div className="mb-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-                  <h2 className="mb-4 text-sm font-bold text-gray-900">Advisories Summary</h2>
+                  <h2 className="mb-4 text-sm font-bold text-gray-900">Power Interruption Advisories</h2>
                   <div className="grid grid-cols-4 gap-4">
                     <div><p className="text-xs text-gray-400">All</p><p className="text-xl font-bold text-blue-700">{advisoryCounts.all}</p></div>
                     <div><p className="text-xs text-gray-400">Upcoming</p><p className="text-xl font-bold text-amber-600">{advisoryCounts.upcoming}</p></div>

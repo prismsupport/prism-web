@@ -4,17 +4,18 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { getMyCooperativeId } from '@/lib/supabase/getCooperativeId'
 import { toast } from "@/lib/toast";
+import { FilterBar } from '@/components/ui/FilterBar'
+import { FilterMenu, FilterChips } from '@/components/ui/FilterMenu'
+import { ADVISORY_CATEGORIES } from '@/lib/advisoryCategories'
+import Button, { ButtonLink } from '@/components/ui/Button'
+import StatCard, { StatCardGrid } from '@/components/ui/StatCard'
 import usePagination from '@/lib/usePagination'
 import PageHeader from '@/components/ui/PageHeader'
 import Alert from '@/components/ui/Alert'
-import Button, { ButtonLink } from '@/components/ui/Button'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import DataTable from '@/components/ui/DataTable'
-import { FilterBar } from '@/components/ui/FilterBar'
-import { FilterMenu, FilterChips } from '@/components/ui/FilterMenu'
 import SearchInput from '@/components/ui/SearchInput'
 import Pagination from '@/components/ui/Pagination'
-import StatCard, { StatCardGrid } from '@/components/ui/StatCard'
 import AdvisoryRow from '@/components/advisories/AdvisoryRow'
 import AdvisoryFormModal from '@/components/advisories/AdvisoryFormModal'
 import EmptyState from '@/components/ui/EmptyState'
@@ -22,6 +23,7 @@ import ArchiveIcon from '@/components/ui/icons/ArchiveIcon'
 
 const COLUMNS = [
   'Advisory Title',
+  { label: 'Category', className: 'text-center' },
   { label: 'Date', className: 'text-center whitespace-nowrap' },
   { label: 'Time', className: 'text-center whitespace-nowrap' },
   { label: 'Status', className: 'text-center' },
@@ -42,6 +44,7 @@ function computeStatus(advisory) {
 export default function AdvisoriesPage() {
   const [cooperativeId, setCooperativeId] = useState(null)
   const [advisories, setAdvisories] = useState([])
+  const [categoryFilter, setCategoryFilter] = useState('all')
   const [feederFilter, setFeederFilter] = useState('all')
   const [municipalityFilter, setMunicipalityFilter] = useState('all')
   const [barangayFilter, setBarangayFilter] = useState('all')
@@ -215,6 +218,7 @@ export default function AdvisoriesPage() {
 
   const filtered = visibleAdvisories.filter((a) => {
     const statusMatch = statusFilter === 'all' || a.computedStatus === statusFilter
+    const categoryMatch = categoryFilter === 'all' || a.category === categoryFilter
     const monthMatch = monthFilter === 'all' || a.date?.startsWith(monthFilter)
     const feederMatch =
       feederFilter === 'all' ||
@@ -245,6 +249,7 @@ export default function AdvisoriesPage() {
         .includes(term)
     return (
       statusMatch &&
+      categoryMatch &&
       monthMatch &&
       feederMatch &&
       municipalityMatch &&
@@ -257,6 +262,19 @@ export default function AdvisoriesPage() {
   const pg = usePagination(filtered)
 
   const filters = [
+    {
+      key: 'category',
+      label: 'Category',
+      value: categoryFilter,
+      onChange: (value) => {
+        setCategoryFilter(value)
+        pg.setPage(1)
+      },
+      options: [
+        { value: 'all', label: 'All Categories' },
+        ...ADVISORY_CATEGORIES,
+      ],
+    },
     {
       key: 'status',
       label: 'Status',
@@ -356,7 +374,7 @@ export default function AdvisoriesPage() {
         description={
           showArchived
             ? 'Archived advisories are hidden from consumers. Restore one to make it active again.'
-            : 'Manage and track service interruptions and maintenance schedules.'
+            : 'Publish notices for your consumers: power interruptions, rates, collection schedules, programs, and announcements.'
         }
       />
 
@@ -393,6 +411,7 @@ export default function AdvisoriesPage() {
           className="inline-flex items-center gap-2 whitespace-nowrap"
           onClick={() => {
             setShowArchived(!showArchived)
+            setCategoryFilter('all')
             setStatusFilter('all')
             setMonthFilter('all')
             setFeederFilter('all')

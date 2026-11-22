@@ -40,7 +40,7 @@ const SECTIONS = [
     body: [
       'To create and manage accounts and verify identity (including email verification codes).',
       'To receive, locate, track, and resolve outage reports, and to give consumers live ticket status and push notifications.',
-      'To help supervisors group duplicate reports, dispatch linemen, review completed repairs, and publish targeted power advisories.',
+      'To help supervisors group duplicate reports, dispatch linemen, review completed repairs, and publish targeted advisories and announcements.',
       'To guide linemen to outage sites using maps and routing.',
       'To verify the account number a consumer enters against the cooperative\'s billing system and show read-only billing information for linked accounts.',
       'To produce service analytics for the cooperative, such as response time, repair time, and lineman performance.',

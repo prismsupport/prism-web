@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { toast } from "@/lib/toast"
+import { FormInput, FormTextarea } from '@/components/ui/FormControls'
+import { ADVISORY_CATEGORIES, ALL_DAY, categoryOf } from '@/lib/advisoryCategories'
 import Modal from '@/components/ui/Modal'
 import Alert from '@/components/ui/Alert'
 import Button from '@/components/ui/Button'
-import { FormInput, FormTextarea } from '@/components/ui/FormControls'
 import TrashIcon from '@/components/ui/icons/TrashIcon'
-import { toast } from "@/lib/toast"
 
 const SCOPE_TYPES = ['entire_cooperative', 'feeder', 'municipality', 'barangay']
 
@@ -25,9 +26,13 @@ export default function AdvisoryFormModal({ cooperativeId, advisory, onClose, on
 
   const [title, setTitle] = useState(advisory?.title || '')
   const [date, setDate] = useState(advisory?.date || '')
+  const [category, setCategory] = useState(advisory?.category || 'power_interruption')
   const [startTime, setStartTime] = useState(advisory?.start_time?.slice(0, 5) || '')
   const [endTime, setEndTime] = useState(advisory?.end_time?.slice(0, 5) || '')
   const [description, setDescription] = useState(advisory?.description || '')
+
+  const timed = categoryOf(category).timed
+  
   const [targets, setTargets] = useState(
     advisory?.targets?.map((t) => ({
       scope_type: t.scope_type,
@@ -172,6 +177,9 @@ export default function AdvisoryFormModal({ cooperativeId, advisory, onClose, on
     setLoading(true)
     const supabase = createClient()
 
+    const saveStart = timed ? startTime : ALL_DAY.start
+    const saveEnd = timed ? endTime : ALL_DAY.end
+
     let advisoryId = advisory?.advisory_id
     let photoPathToSave = removePhoto ? null : existingPhotoPath
     let uploadedPath = null
@@ -194,7 +202,7 @@ export default function AdvisoryFormModal({ cooperativeId, advisory, onClose, on
     if (isEditing) {
       const { error: updateError } = await supabase
         .from('advisories')
-        .update({ title, date, start_time: startTime, end_time: endTime, description })
+        .update({ title, date, start_time: saveStart, end_time: saveEnd, description, category })
         .eq('advisory_id', advisoryId)
 
       if (updateError) {
@@ -214,8 +222,9 @@ export default function AdvisoryFormModal({ cooperativeId, advisory, onClose, on
           created_by: user.id,
           title,
           date,
-          start_time: startTime,
-          end_time: endTime,
+          start_time: saveStart,
+          end_time: saveEnd,
+          category,
           description,
         })
         .select()
@@ -322,12 +331,31 @@ export default function AdvisoryFormModal({ cooperativeId, advisory, onClose, on
       size="xxl"
     >
       <p className="text-sm text-gray-500 mb-4 -mt-2">
-        Provide details about the service interruption or maintenance schedule.
+        Choose a category and write the notice your consumers will receive.
       </p>
 
       <form onSubmit={handleSubmit}>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
           <div>
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Category
+              </label>
+
+              <select
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm"
+              >
+                {ADVISORY_CATEGORIES.map((c) => (
+                  <option key={c.key} value={c.key}>
+                    {c.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
         <FormTextarea
           label="Advisory Title"
           required
@@ -337,7 +365,7 @@ export default function AdvisoryFormModal({ cooperativeId, advisory, onClose, on
           placeholder="e.g. Power Advisory"
         />
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+        <div className={`grid grid-cols-1 ${timed ? 'sm:grid-cols-3' : 'sm:grid-cols-1'} gap-3 mb-4`}>
           <FormInput
             wrapperClassName=""
             label="Date Selection"
@@ -346,22 +374,28 @@ export default function AdvisoryFormModal({ cooperativeId, advisory, onClose, on
             value={date}
             onChange={(e) => setDate(e.target.value)}
           />
-          <FormInput
-            wrapperClassName=""
-            label="Start Time"
-            type="time"
-            required
-            value={startTime}
-            onChange={(e) => setStartTime(e.target.value)}
-          />
-          <FormInput
-            wrapperClassName=""
-            label="End Time"
-            type="time"
-            required
-            value={endTime}
-            onChange={(e) => setEndTime(e.target.value)}
-          />
+
+          {timed && (
+            <>
+              <FormInput
+                wrapperClassName=""
+                label="Start Time"
+                type="time"
+                required
+                value={startTime}
+                onChange={(e) => setStartTime(e.target.value)}
+              />
+
+              <FormInput
+                wrapperClassName=""
+                label="End Time"
+                type="time"
+                required
+                value={endTime}
+                onChange={(e) => setEndTime(e.target.value)}
+              />
+            </>
+          )}
         </div>
 
         <FormTextarea

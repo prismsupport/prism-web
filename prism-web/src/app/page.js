@@ -101,7 +101,7 @@ const F = {
   },
   advisories: {
     title: "Targeted advisories",
-    text: "Publish maintenance and interruption notices to a feeder, municipality, barangay or the whole cooperative. Only affected members are notified.",
+    text: "Publish interruption notices, power rates, collection schedules and announcements to a feeder, municipality, barangay or the whole cooperative. Only affected members are notified.",
     icon: "megaphone",
   },
   analytics: {
@@ -113,6 +113,7 @@ const F = {
 
 const ALSO = [
   "Read-only bill inquiry",
+  "Monthly power rates",
   "FAQ chatbot (EN + TL)",
   "Offline report saving",
   "Office hours and hotlines",

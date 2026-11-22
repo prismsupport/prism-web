@@ -70,7 +70,7 @@ const SECTIONS = [
     body: [
       'Use the Platform only for legitimate outage management and consumer service.',
       'You must not: attempt to access data that is not yours; interfere with or disrupt the Platform; upload unlawful, harmful, or malicious content; reverse engineer the Platform; or use it to harass or mislead consumers.',
-      'Advisories and messages sent through the Platform must be accurate and must not be used for unrelated announcements.',
+      'Advisories and announcements sent through the Platform must be accurate and relate to the Cooperative\'s electric service, such as power interruptions, rates, collection schedules, programs, and member notices.',
     ],
   },
   {
