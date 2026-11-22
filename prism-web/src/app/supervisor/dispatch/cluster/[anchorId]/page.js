@@ -3,15 +3,16 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { aggregateBreakdowns } from '@/lib/scoring/masterTicketScoringConfig'
+import { PageLoading } from "@/components/ui/Skeleton";
+import { toast } from '@/lib/toast'
+import { loadIssueCodes, sameCategory } from '@/lib/ticketGrouping'
 import Alert from '@/components/ui/Alert';
 import ReportMap from '@/components/ui/ReportMap'
 import SuggestionConfidenceBanner from '@/components/dispatch/SuggestionConfidenceBanner'
 import ClusterMemberList from '@/components/dispatch/ClusterMemberList'
 import MasterTicketSuccessCard from '@/components/dispatch/MasterTicketSuccessCard'
 import BackToDispatchLink from '@/components/dispatch/BackToDispatchLink'
-import { aggregateBreakdowns } from '@/lib/scoring/masterTicketScoringConfig'
-import { PageLoading } from "@/components/ui/Skeleton";
-import { toast } from '@/lib/toast'
 
 function generateMasterTicketNumber() {
   const date = new Date().toISOString().slice(0, 10).replace(/-/g, '')
@@ -132,7 +133,11 @@ export default function ClusterReviewPage() {
       })
     )
 
-    setMembers(withBreakdown)
+    const codes = await loadIssueCodes(
+      supabase,
+      withBreakdown.map((m) => m.report_id)
+    )
+    setMembers(withBreakdown.map((m) => ({ ...m, issueCode: codes[m.report_id] ?? null })))
     setClusterBreakdown(
       aggregateBreakdowns(withBreakdown.filter((m) => !m.isAnchor).map((m) => m.breakdown))
     )
@@ -240,6 +245,10 @@ export default function ClusterReviewPage() {
   }
 
   const checkedCount = members.filter((m) => !m.isAnchor && m.checked).length
+  const anchorCode = members.find((m) => m.isAnchor)?.issueCode ?? null
+  const mismatchCount = members.filter(
+    (m) => !m.isAnchor && !sameCategory(m.issueCode, anchorCode)
+  ).length
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:h-[calc(100vh-8rem)]">
@@ -248,6 +257,7 @@ export default function ClusterReviewPage() {
           markers={members.map((m) => ({
             lat: m.lat,
             lng: m.lng,
+            priority: m.priority ?? null,
             label: `${m.reporterName?.first_name || ''} ${m.reporterName?.last_name || ''} — ${m.ticket_number}`,
           }))}
         />
@@ -259,13 +269,18 @@ export default function ClusterReviewPage() {
           confidence={cluster.confidence}
           subtitlePrefix={`${cluster.area_label} • Overall `}
           theme="blue"
-          description="The system recommends grouping these reports into one Master Ticket. Uncheck any report below that doesn't actually belong before confirming."
+          description={
+            mismatchCount > 0
+              ? `The system recommends grouping these reports into one Master Ticket. ${mismatchCount} report${mismatchCount === 1 ? ' has' : 's have'} a different category from the anchor and ${mismatchCount === 1 ? 'is' : 'are'} listed separately. The consumer may have chosen another label for the same fault. Uncheck any report that doesn't actually belong before confirming.`
+              : "The system recommends grouping these reports into one Master Ticket. Uncheck any report below that doesn't actually belong before confirming."
+          }
           breakdown={clusterBreakdown}
         />
 
         <ClusterMemberList
           members={members}
           expandedId={expandedId}
+          anchorCode={anchorCode}
           onToggleExpand={setExpandedId}
           onToggleChecked={handleToggleChecked}
         />

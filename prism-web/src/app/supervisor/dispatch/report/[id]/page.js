@@ -353,6 +353,7 @@ export default function ReportReviewPage() {
           <ReportMap
             lat={report.lat}
             lng={report.lng}
+            priority={report.priority ?? null}
             label={report.nearest_landmark || report.barangay}
           />
           <button

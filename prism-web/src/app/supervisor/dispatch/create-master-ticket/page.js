@@ -6,20 +6,31 @@ import { createClient } from '@/lib/supabase/client'
 import { getMyCooperativeId } from '@/lib/supabase/getCooperativeId'
 import { generateMasterTicketNumber } from '@/lib/dispatch/masterTicketNumber'
 import { formatDateTime } from '@/lib/format'
+import { issueLabel } from '@/lib/issueCodes'
+import { getMatchTier, buildBreakdownFactors } from '@/lib/scoring/masterTicketScoringConfig'
+import { toast } from '@/lib/toast'
+import {
+  loadIssueCodes,
+  loadConsumerNames,
+  groupByCategory,
+  matchesSearch,
+  sameCategory,
+} from '@/lib/ticketGrouping'
 import BackToDispatchLink from '@/components/dispatch/BackToDispatchLink'
 import MatchReviewCard from '@/components/dispatch/MatchReviewCard'
+import CategoryGroupHeader, { CategoryMismatchTag } from '@/components/dispatch/CategoryGroupHeader'
 import Alert from '@/components/ui/Alert'
 import Badge from '@/components/ui/Badge'
 import Button from '@/components/ui/Button'
 import DataTable from '@/components/ui/DataTable'
 import Pagination from '@/components/ui/Pagination'
+import SearchInput from '@/components/ui/SearchInput'
 import usePagination from '@/lib/usePagination'
-import { getMatchTier, buildBreakdownFactors } from '@/lib/scoring/masterTicketScoringConfig'
-import { toast } from '@/lib/toast'
 
 const COLUMNS = [
   { label: '', className: 'w-12' },
   'Ticket ID',
+  'Category',
   'Location',
   'Reported',
   'Match vs Anchor',
@@ -31,6 +42,9 @@ export default function CreateMasterTicketPage() {
 
   const [cooperativeId, setCooperativeId] = useState(null)
   const [reports, setReports] = useState([])
+  const [issueCodes, setIssueCodes] = useState({})
+  const [names, setNames] = useState({})
+  const [searchText, setSearchText] = useState('')
   const [selectedIds, setSelectedIds] = useState([])
   const [breakdowns, setBreakdowns] = useState({})
   const [breakdownLoading, setBreakdownLoading] = useState(false)
@@ -91,12 +105,23 @@ export default function CreateMasterTicketPage() {
       })
     )
 
+    const [codes, nameMap] = await Promise.all([
+      loadIssueCodes(supabase, reportIds),
+      loadConsumerNames(
+        supabase,
+        withSignedPhotos.map((r) => r.consumer_id)
+      ),
+    ])
+
+    setIssueCodes(codes)
+    setNames(nameMap)
     setReports(withSignedPhotos)
     setLoading(false)
   }
 
   const anchorId = selectedIds[0] || null
   const anchorReport = reports.find((r) => r.report_id === anchorId) || null
+  const anchorCode = anchorId ? issueCodes[anchorId] ?? null : null
 
   // Whenever the anchor changes, fetch each other report's match breakdown
   // against it, so the supervisor sees real data instead of guessing by eye.
@@ -147,14 +172,43 @@ export default function CreateMasterTicketPage() {
     })
   }
 
-  const sortedReports = [...reports].sort((a, b) => {
-    if (a.report_id === anchorId) return -1
-    if (b.report_id === anchorId) return 1
-    const scoreA = breakdowns[a.report_id]?.total_score ?? -1
-    const scoreB = breakdowns[b.report_id]?.total_score ?? -1
-    return scoreB - scoreA
-  })
-  const pg = usePagination(sortedReports)
+  // Anchor first, then the other reports grouped by category.
+  // Inside a group: highest match percentage first.
+  const items = reports.map((r) => ({
+    report: r,
+    id: r.report_id,
+    code: issueCodes[r.report_id] ?? null,
+    score: breakdowns[r.report_id]?.total_score,
+    created: r.created_at,
+  }))
+  const anchorItem = items.find((i) => i.id === anchorId) || null
+  const others = items
+    .filter((i) => i.id !== anchorId)
+    .filter((i) =>
+      matchesSearch(
+        [
+          i.report.ticket_number,
+          names[i.report.consumer_id],
+          i.report.nearest_landmark,
+          i.report.zone,
+          i.report.barangay,
+          i.report.municipality,
+          i.report.report_details,
+          issueLabel(i.code),
+        ],
+        searchText
+      )
+    )
+  const groups = groupByCategory(others, { anchorCode, hasAnchor: !!anchorItem })
+  const flat = [
+    ...(anchorItem ? [{ item: anchorItem, group: null }] : []),
+    ...groups.flatMap((g) => g.items.map((item) => ({ item, group: g }))),
+  ]
+  const pg = usePagination(flat)
+
+  const mismatchCount = selectedIds
+    .slice(1)
+    .filter((id) => !sameCategory(issueCodes[id] ?? null, anchorCode)).length
 
   async function handleCreate() {
     if (selectedIds.length < 2) return
@@ -209,16 +263,27 @@ export default function CreateMasterTicketPage() {
 
       <h1 className="text-2xl font-bold text-gray-900">Create Master Ticket</h1>
       <p className="text-sm text-gray-500 mt-1 mb-1">
-        Select the first report to use as your anchor — every other report will then show its
-        match score and breakdown against it, so you can handpick which ones actually belong
-        together instead of guessing by distance alone.
+        Select the first report to use as your anchor. Every other report then shows its match
+        score and breakdown against it, grouped by category and sorted from the highest match to
+        the lowest, so you can handpick which ones actually belong together instead of guessing by
+        distance alone. The category is shown beside the score and is not part of the percentage.
       </p>
       {!anchorId && (
-        <p className="text-xs text-amber-600 font-medium mb-6">
-          No anchor selected yet — pick any report below to see match scores.
+        <p className="text-xs text-amber-600 font-medium mb-4">
+          No anchor selected yet. Pick any report below to see match scores.
         </p>
       )}
-      {anchorId && <div className="mb-6" />}
+      {anchorId && <div className="mb-4" />}
+
+      <SearchInput
+        className="mb-4"
+        value={searchText}
+        onChange={(v) => {
+          setSearchText(v)
+          pg.setPage(1)
+        }}
+        placeholder="Search ticket no., consumer name, landmark, barangay, municipality, category…"
+      />
 
       <Alert>{error}</Alert>
 
@@ -226,19 +291,39 @@ export default function CreateMasterTicketPage() {
         className="mb-6"
         columns={COLUMNS}
         loading={loading}
-        isEmpty={reports.length === 0}
-        empty="No standalone reports available to merge."
+        isEmpty={flat.length === 0}
+        empty={
+          searchText.trim()
+            ? 'No reports match your search.'
+            : 'No standalone reports available to merge.'
+        }
         footer={!loading && <Pagination {...pg.paginationProps} />}
       >
-        {pg.pageItems.map((r) => {
+        {pg.pageItems.map(({ item, group }, idx) => {
+          const r = item.report
           const isSelected = selectedIds.includes(r.report_id)
           const isAnchor = r.report_id === anchorId
           const breakdown = breakdowns[r.report_id]
           const tier = breakdown ? getMatchTier(breakdown.total_score) : null
           const isExpanded = expandedId === r.report_id
+          const prevGroup = idx > 0 ? pg.pageItems[idx - 1].group : undefined
+          const showHeader = group && (idx === 0 || prevGroup?.key !== group.key)
+          const differs = anchorId && !isAnchor && !sameCategory(item.code, anchorCode)
 
           return (
             <Fragment key={r.report_id}>
+              {showHeader && (
+                <tr className="border-b border-gray-100 bg-gray-50">
+                  <td colSpan={7} className="px-5 py-2">
+                    <CategoryGroupHeader
+                      label={group.label}
+                      count={group.items.length}
+                      hasAnchor={!!anchorItem}
+                      matchesAnchor={group.matchesAnchor}
+                    />
+                  </td>
+                </tr>
+              )}
               <tr
                 className={`border-b border-gray-100 last:border-0 ${
                   isAnchor ? 'bg-blue-50/40' : ''
@@ -259,7 +344,11 @@ export default function CreateMasterTicketPage() {
                       ANCHOR
                     </Badge>
                   )}
+                  {names[r.consumer_id] && (
+                    <p className="text-xs font-normal text-gray-400">{names[r.consumer_id]}</p>
+                  )}
                 </td>
+                <td className="px-5 py-4 text-gray-700">{issueLabel(item.code)}</td>
                 <td className="px-5 py-4">
                   <p className="text-gray-900">
                     {r.nearest_landmark || `${r.barangay}, ${r.municipality}`}
@@ -284,6 +373,9 @@ export default function CreateMasterTicketPage() {
                       {breakdown.feeder_match === false && (
                         <p className="text-xs text-red-500 font-medium mt-1">Different feeder</p>
                       )}
+                      {differs && (
+                        <CategoryMismatchTag code={item.code} referenceCode={anchorCode} />
+                      )}
                     </div>
                   ) : (
                     <span className="text-xs text-gray-400">—</span>
@@ -302,7 +394,7 @@ export default function CreateMasterTicketPage() {
               </tr>
               {isExpanded && (
                 <tr className="border-b border-gray-100 last:border-0">
-                  <td colSpan={6} className="px-5 py-4 bg-gray-50 space-y-3">
+                  <td colSpan={7} className="px-5 py-4 bg-gray-50 space-y-3">
                     <MatchReviewCard
                       title="Report Details"
                       ticketLabel={r.ticket_number}
@@ -331,6 +423,16 @@ export default function CreateMasterTicketPage() {
                             </span>
                           </div>
                         ))}
+                        <div className="flex items-center gap-2 text-xs">
+                          <span className={differs ? 'text-gray-300' : 'text-green-600'}>
+                            {differs ? '✗' : '✓'}
+                          </span>
+                          <span className={differs ? 'text-gray-400' : 'text-gray-700'}>
+                            {differs
+                              ? `Different category (${issueLabel(item.code)} vs ${issueLabel(anchorCode)}). Shown for review, not part of the percentage`
+                              : 'Same category as the anchor'}
+                          </span>
+                        </div>
                       </div>
                     )}
                   </td>
@@ -340,6 +442,13 @@ export default function CreateMasterTicketPage() {
           )
         })}
       </DataTable>
+
+      {mismatchCount > 0 && (
+        <p className="mb-3 max-w-2xl rounded-lg border border-amber-100 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          {mismatchCount} selected report{mismatchCount === 1 ? ' has' : 's have'} a different
+          category from the anchor. Merge them only if you are sure they are the same fault.
+        </p>
+      )}
 
       <Button
         size="wide"

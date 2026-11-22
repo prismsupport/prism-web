@@ -3,6 +3,11 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { reopenAssignment } from '@/lib/dispatch/reopenAssignment'
+import { PageLoading } from "@/components/ui/Skeleton";
+import { toast } from '@/lib/toast'
+import { issueLabel } from '@/lib/issueCodes'
+import TicketTabs, { TabDot } from '@/components/dispatch/TicketTabs'
 import ReportMap from '@/components/ui/ReportMap'
 import ReporterInfo from '@/components/dispatch/ReporterInfo'
 import MatchReviewCard from '@/components/dispatch/MatchReviewCard'
@@ -15,16 +20,12 @@ import JobOrderStatusLog from '@/components/dispatch/JobOrderStatusLog'
 import AttemptReviewCard from '@/components/dispatch/AttemptReviewCard'
 import LinemanDispatchedModal from '@/components/dispatch/LinemanDispatchedModal'
 import ResolveTicketBar from '@/components/dispatch/ResolveTicketBar'
-import { reopenAssignment } from '@/lib/dispatch/reopenAssignment'
-import { PageLoading } from "@/components/ui/Skeleton";
-import { toast } from '@/lib/toast'
 import ReopenTicketModal from '@/components/dispatch/ReopenTicketModal'
 import ReopenReasonNote from '@/components/dispatch/ReopenReasonNote'
 import Alert from '@/components/ui/Alert';
-import { issueLabel } from '@/lib/issueCodes'
 import StageTimesCard from '@/components/dispatch/StageTimesCard'
-import TicketTabs, { TabDot } from '@/components/dispatch/TicketTabs'
 import StickyActionBar from '@/components/dispatch/StickyActionBar'
+import MasterAffectedConsumers from '@/components/dispatch/MasterAffectedConsumers'
 
 export default function MasterTicketDetailPage() {
   const { id } = useParams()
@@ -32,6 +33,7 @@ export default function MasterTicketDetailPage() {
 
   const [master, setMaster] = useState(null)
   const [members, setMembers] = useState([])
+  const [memberCodes, setMemberCodes] = useState({})
   const [masterIssues, setMasterIssues] = useState([])
   const [assignment, setAssignment] = useState(null)
   const [assignedLinemanName, setAssignedLinemanName] = useState('')
@@ -52,7 +54,6 @@ export default function MasterTicketDetailPage() {
   const [showReopenModal, setShowReopenModal] = useState(false)
   const [linemanDetailsOpen, setLinemanDetailsOpen] = useState(true)
   const [showHistory, setShowHistory] = useState(false)
-  const [expandedReportId, setExpandedReportId] = useState(null)
   const [tab, setTab] = useState(null)
 
   useEffect(() => {
@@ -106,6 +107,11 @@ export default function MasterTicketDetailPage() {
       issueTally[label] = (issueTally[label] || 0) + 1
     })
     setMasterIssues(Object.entries(issueTally).sort((a, b) => b[1] - a[1]))
+    const codeMap = {}
+    ;(memberReportIds || []).forEach((r) => {
+      codeMap[r.report_id] = r.issue_code || null
+    })
+    setMemberCodes(codeMap)
     let memberReports = []
     if (ids.length > 0) {
       const { data } = await supabase.rpc('get_reports_with_location', {
@@ -359,6 +365,7 @@ export default function MasterTicketDetailPage() {
           markers={members.map((m) => ({
             lat: m.lat,
             lng: m.lng,
+            priority: m.priority ?? null,
             label: `${m.reporterName?.first_name || ''} ${m.reporterName?.last_name || ''} — ${m.ticket_number}`,
           }))}
         />
@@ -414,65 +421,8 @@ export default function MasterTicketDetailPage() {
             )}
           </div>
 
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-bold text-gray-900">Affected Consumers</h2>
-              <span className="bg-blue-50 text-blue-700 text-xs font-bold px-2 py-1 rounded">
-                TOTAL: {members.length}
-              </span>
-            </div>
-            <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
-              {members.map((m) => {
-                const isExpanded = expandedReportId === m.report_id
+            <MasterAffectedConsumers members={members} codes={memberCodes} />
 
-                return (
-                  <div key={m.report_id} className="border border-gray-200 rounded-lg">
-                    <div className="flex items-center justify-between gap-3 p-3">
-                      <div>
-                        <p className="text-sm font-semibold text-gray-900">
-                          {m.reporterName?.first_name} {m.reporterName?.last_name}
-                        </p>
-                        <p className="text-xs text-gray-400">
-                          Zone {m.zone || '—'}, {m.barangay}, {m.municipality}
-                        </p>
-                        <ReporterInfo compact reportId={m.report_id} consumerId={m.consumer_id} />
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <span className="text-xs font-medium text-blue-700">
-                          {m.ticket_number}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setExpandedReportId(isExpanded ? null : m.report_id)}
-                          className="inline-flex min-w-24 justify-center items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 shadow-sm transition-colors hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-600 whitespace-nowrap"
-                        >
-                          {isExpanded ? 'Hide Details' : 'View Details'}
-                        </button>
-                      </div>
-                    </div>
-
-                    {isExpanded && (
-                      <div className="border-t border-gray-100 bg-gray-50 p-3">
-                        <MatchReviewCard
-                          title="Report Details"
-                          ticketLabel={m.ticket_number}
-                          reportId={m.report_id}
-                          consumerId={m.consumer_id}
-                          barangay={m.barangay}
-                          municipality={m.municipality}
-                          zone={m.zone}
-                          nearestLandmark={m.nearest_landmark}
-                          description={m.report_details}
-                          photoUrl={m.photo_url}
-                          otherHomesAffected={m.other_homes_affected}
-                        />
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          </div>
             </>
           )}
 

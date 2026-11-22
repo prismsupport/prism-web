@@ -3,13 +3,24 @@
 import { Suspense, useEffect, useState } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import Alert from '@/components/ui/Alert';
+import { PageLoading } from '@/components/ui/Skeleton'
+import { issueLabel } from '@/lib/issueCodes'
+import { toast } from '@/lib/toast'
+import {
+  loadIssueCodes,
+  loadConsumerNames,
+  loadDominantCategory,
+  groupByCategory,
+  matchesSearch,
+  sameCategory,
+} from '@/lib/ticketGrouping'
+import CategoryGroupHeader, { CategoryMismatchTag } from '@/components/dispatch/CategoryGroupHeader'
+import Alert from '@/components/ui/Alert'
 import ReportMap from '@/components/ui/ReportMap'
+import SearchInput from '@/components/ui/SearchInput'
 import SuggestionConfidenceBanner from '@/components/dispatch/SuggestionConfidenceBanner'
 import MatchReviewCard from '@/components/dispatch/MatchReviewCard'
 import BackToDispatchLink from '@/components/dispatch/BackToDispatchLink'
-import { PageLoading } from "@/components/ui/Skeleton";
-import { toast } from '@/lib/toast'
 
 function generateMasterTicketNumber() {
   const date = new Date().toISOString().slice(0, 10).replace(/-/g, '')
@@ -31,7 +42,10 @@ function JoinGroupReviewContent() {
   const [targetLng, setTargetLng] = useState(null)
   const [targetStatus, setTargetStatus] = useState(null)
   const [targetPhotoUrl, setTargetPhotoUrl] = useState(null)
+  const [targetCode, setTargetCode] = useState(null)
   const [candidates, setCandidates] = useState([])
+  const [names, setNames] = useState({})
+  const [searchText, setSearchText] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [actionLoading, setActionLoading] = useState(false)
@@ -76,6 +90,7 @@ function JoinGroupReviewContent() {
       }
       setTargetStatus(masterRow.status)
       setTargetDetails(masterRow)
+      setTargetCode(await loadDominantCategory(supabase, targetId))
     } else {
       const { data: geo, error: reportError } = await supabase
         .rpc('get_report_with_location', { p_report_id: targetId })
@@ -90,6 +105,9 @@ function JoinGroupReviewContent() {
       setTargetLng(geo.lng)
       setTargetStatus(geo.status)
       setTargetDetails(geo)
+
+      const targetCodes = await loadIssueCodes(supabase, [targetId])
+      setTargetCode(targetCodes[targetId] ?? null)
 
       if (geo.photo_url) {
         const { data: signed } = await supabase.storage
@@ -130,7 +148,20 @@ function JoinGroupReviewContent() {
       })
     )
 
-    setCandidates(results.filter(Boolean))
+    const found = results.filter(Boolean)
+    const [codes, nameMap] = await Promise.all([
+      loadIssueCodes(
+        supabase,
+        found.map((c) => c.report.report_id)
+      ),
+      loadConsumerNames(
+        supabase,
+        found.map((c) => c.report.consumer_id)
+      ),
+    ])
+
+    setNames(nameMap)
+    setCandidates(found.map((c) => ({ ...c, code: codes[c.report.report_id] ?? null })))
     setLoading(false)
   }
 
@@ -236,7 +267,97 @@ function JoinGroupReviewContent() {
   }
 
   const checkedCount = candidates.filter((c) => c.checked).length
-  const bestScore = candidates.length > 0 ? Math.max(...candidates.map((c) => c.breakdown?.total_score || 0)) : 0
+  const bestScore =
+    candidates.length > 0 ? Math.max(...candidates.map((c) => c.breakdown?.total_score || 0)) : 0
+  const mismatchCount = candidates.filter((c) => !sameCategory(c.code, targetCode)).length
+  const targetTicket = isTargetMaster ? targetDetails?.master_ticket : targetDetails?.ticket_number
+
+  const visibleItems = candidates
+    .filter((c) =>
+      matchesSearch(
+        [
+          c.report.ticket_number,
+          names[c.report.consumer_id],
+          c.report.nearest_landmark,
+          c.report.zone,
+          c.report.barangay,
+          c.report.municipality,
+          c.report.report_details,
+          issueLabel(c.code),
+        ],
+        searchText
+      )
+    )
+    .map((c) => ({
+      c,
+      id: c.report.report_id,
+      code: c.code,
+      score: c.breakdown?.total_score,
+      created: c.report.created_at,
+    }))
+  const groups = groupByCategory(visibleItems, { anchorCode: targetCode, hasAnchor: true })
+
+  function renderCandidate({ c }) {
+    const differs = !sameCategory(c.code, targetCode)
+    return (
+      <div
+        key={c.report.report_id}
+        className={`bg-white rounded-xl border p-4 ${
+          c.checked ? 'border-blue-300' : 'border-gray-200 opacity-60'
+        }`}
+      >
+        <label className="flex items-start gap-3 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={c.checked}
+            onChange={() => toggleChecked(c.report.report_id)}
+            className="w-4 h-4 mt-1"
+          />
+          <div className="flex-1">
+            <div className="flex items-center justify-between mb-2">
+              <div>
+                <p className="text-sm font-semibold text-gray-900">{c.report.ticket_number}</p>
+                {names[c.report.consumer_id] && (
+                  <p className="text-xs text-gray-400">{names[c.report.consumer_id]}</p>
+                )}
+              </div>
+              {c.breakdown && (
+                <span className="text-xs font-bold text-green-600">
+                  {c.breakdown.total_score}% match
+                </span>
+              )}
+            </div>
+            {differs && (
+              <CategoryMismatchTag
+                code={c.code}
+                referenceCode={targetCode}
+                referenceLabel="existing ticket"
+              />
+            )}
+            <MatchReviewCard
+              title="Report Details"
+              ticketLabel={c.report.ticket_number}
+              reportId={c.report.report_id}
+              consumerId={c.report.consumer_id}
+              barangay={c.report.barangay}
+              municipality={c.report.municipality}
+              zone={c.report.zone}
+              nearestLandmark={c.report.nearest_landmark}
+              description={c.report.report_details}
+              photoUrl={c.photoUrl}
+              otherHomesAffected={c.report.other_homes_affected}
+            />
+            {c.breakdown?.feeder_match === false && (
+              <p className="text-xs text-red-600 font-medium mt-2">✗ Different feeder</p>
+            )}
+            {c.breakdown?.feeder_match === true && (
+              <p className="text-xs text-green-600 font-medium mt-2">✓ Same feeder</p>
+            )}
+          </div>
+        </label>
+      </div>
+    )
+  }
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:h-[calc(100vh-8rem)]">
@@ -246,12 +367,14 @@ function JoinGroupReviewContent() {
             {
               lat: targetLat,
               lng: targetLng,
-              label: `Existing: ${isTargetMaster ? targetDetails?.master_ticket : targetDetails?.ticket_number}`,
+              label: `Existing: ${targetTicket}`,
+              priority: targetDetails?.priority ?? null,
             },
             ...candidates.map((c) => ({
               lat: c.report.lat,
               lng: c.report.lng,
               label: c.report.ticket_number,
+              priority: c.report.priority ?? null,
             })),
           ]}
         />
@@ -265,16 +388,24 @@ function JoinGroupReviewContent() {
           description={
             <>
               These {candidates.length} report{candidates.length === 1 ? '' : 's'} may belong to{' '}
-              {isTargetMaster ? targetDetails?.master_ticket : targetDetails?.ticket_number}, which is
-              already {isTargetMaster ? 'a Master Ticket' : 'being worked on'}. Uncheck any report
-              below that doesn't actually belong before confirming.
+              {targetTicket}, which is already{' '}
+              {isTargetMaster ? 'a Master Ticket' : 'being worked on'}. Uncheck any report below
+              that doesn&apos;t actually belong before confirming.
+              {mismatchCount > 0 && (
+                <>
+                  {' '}
+                  {mismatchCount} report{mismatchCount === 1 ? ' has' : 's have'} a different
+                  category from the existing ticket ({issueLabel(targetCode)}). They are listed
+                  separately below; the consumer may have chosen another label for the same fault.
+                </>
+              )}
             </>
           }
         />
 
         <MatchReviewCard
           title={isTargetMaster ? 'Existing Master Ticket' : 'Existing Report'}
-          ticketLabel={isTargetMaster ? targetDetails?.master_ticket : targetDetails?.ticket_number}
+          ticketLabel={targetTicket}
           reportId={isTargetMaster ? null : targetId}
           consumerId={isTargetMaster ? null : targetDetails?.consumer_id}
           barangay={targetDetails?.barangay}
@@ -293,50 +424,29 @@ function JoinGroupReviewContent() {
           <p className="text-xs font-bold text-gray-400 uppercase">
             Incoming Reports ({checkedCount} of {candidates.length} selected)
           </p>
-          {candidates.map((c) => (
-            <div
-              key={c.report.report_id}
-              className={`bg-white rounded-xl border p-4 ${
-                c.checked ? 'border-blue-300' : 'border-gray-200 opacity-60'
-              }`}
-            >
-              <label className="flex items-start gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={c.checked}
-                  onChange={() => toggleChecked(c.report.report_id)}
-                  className="w-4 h-4 mt-1"
+
+          <SearchInput
+            value={searchText}
+            onChange={setSearchText}
+            placeholder="Search name, ticket no., landmark, barangay, category…"
+          />
+
+          {groups.length === 0 && (
+            <p className="text-sm text-gray-500">No reports match your search.</p>
+          )}
+
+          {groups.map((g) => (
+            <div key={g.key} className="space-y-3">
+              <div className="rounded-lg bg-gray-50 px-3 py-2">
+                <CategoryGroupHeader
+                  label={g.label}
+                  count={g.items.length}
+                  hasAnchor
+                  matchesAnchor={g.matchesAnchor}
+                  referenceLabel="existing ticket"
                 />
-                <div className="flex-1">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-sm font-semibold text-gray-900">{c.report.ticket_number}</p>
-                    {c.breakdown && (
-                      <span className="text-xs font-bold text-green-600">
-                        {c.breakdown.total_score}% match
-                      </span>
-                    )}
-                  </div>
-                  <MatchReviewCard
-                    title="Report Details"
-                    ticketLabel={c.report.ticket_number}
-                    reportId={c.report.report_id}
-                    consumerId={c.report.consumer_id}
-                    barangay={c.report.barangay}
-                    municipality={c.report.municipality}
-                    zone={c.report.zone}
-                    nearestLandmark={c.report.nearest_landmark}
-                    description={c.report.report_details}
-                    photoUrl={c.photoUrl}
-                    otherHomesAffected={c.report.other_homes_affected}
-                  />
-                  {c.breakdown?.feeder_match === false && (
-                    <p className="text-xs text-red-600 font-medium mt-2">✗ Different feeder</p>
-                  )}
-                  {c.breakdown?.feeder_match === true && (
-                    <p className="text-xs text-green-600 font-medium mt-2">✓ Same feeder</p>
-                  )}
-                </div>
-              </label>
+              </div>
+              {g.items.map(renderCandidate)}
             </div>
           ))}
         </div>

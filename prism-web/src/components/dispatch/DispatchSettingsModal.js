@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "@/lib/toast";
+import CategoryPrioritiesModal from "@/components/dispatch/CategoryPrioritiesModal";
 
 function SettingRow({ title, description, action }) {
   return (
@@ -43,6 +44,7 @@ export default function DispatchSettingsModal({
   const [targetInput, setTargetInput] = useState(target != null ? String(target) : "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [showCategoryPriorities, setShowCategoryPriorities] = useState(false);
 
   const newThreshold = parseInt(thresholdInput, 10);
   const newTarget = targetInput.trim() === "" ? null : parseInt(targetInput, 10);
@@ -85,110 +87,122 @@ export default function DispatchSettingsModal({
     "w-24 text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white";
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-      onClick={onClose}
-    >
+    <>
       <div
-        className="w-full max-w-xl rounded-2xl bg-white p-6 shadow-xl"
-        onClick={(e) => e.stopPropagation()}
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+        onClick={onClose}
       >
-        <div className="mb-4 flex items-start justify-between">
-          <div>
-            <h2 className="text-lg font-bold text-gray-900">Dispatch Settings</h2>
-            <p className="text-sm text-gray-500">
-              Targets and workflow options for your cooperative.
-            </p>
+        <div
+          className="w-full max-w-xl rounded-2xl bg-white p-6 shadow-xl"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="mb-4 flex items-start justify-between">
+            <div>
+              <h2 className="text-lg font-bold text-gray-900">Dispatch Settings</h2>
+              <p className="text-sm text-gray-500">
+                Targets and workflow options for your cooperative.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close"
+              className="text-xl leading-none text-gray-400 hover:text-gray-700"
+            >
+              ×
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            className="text-xl leading-none text-gray-400 hover:text-gray-700"
-          >
-            ×
-          </button>
-        </div>
 
-        <p className="mb-1 text-xs font-bold tracking-wide text-gray-400 uppercase">
-          Targets
-        </p>
-        <div className="divide-y divide-gray-100 rounded-xl border border-gray-200 px-4">
-          <SettingRow
-            title="Response Time Threshold"
-            description="Pending tickets unassigned past this limit are flagged and notify supervisors once."
-            action={
-              <div className="flex items-center gap-2">
-                <input
-                  type="number"
-                  min={1}
-                  value={thresholdInput}
-                  onChange={(e) => setThresholdInput(e.target.value)}
-                  className={inputClass}
-                />
-                <span className="text-sm text-gray-500">min</span>
-              </div>
-            }
-          />
-          <SettingRow
-            title="Resolution Target"
-            description="Time from report to final approval. Used by the dashboard. Leave blank for no target."
-            action={
-              <div className="flex items-center gap-2">
-                <input
-                  type="number"
-                  min={1}
-                  placeholder="Not set"
-                  value={targetInput}
-                  onChange={(e) => setTargetInput(e.target.value)}
-                  className={inputClass}
-                />
-                <span className="text-sm text-gray-500">min</span>
-              </div>
-            }
-          />
-        </div>
-
-        {error && (
-          <p className="mt-3 rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-600">
-            {error}
+          <p className="mb-1 text-xs font-bold tracking-wide text-gray-400 uppercase">
+            Targets
           </p>
-        )}
-
-        <div className="mt-3 flex justify-end">
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={saving || unchanged}
-            className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-800 disabled:opacity-50"
-          >
-            {saving ? "Saving…" : "Save targets"}
-          </button>
-        </div>
-
-        <p className="mb-1 mt-5 text-xs font-bold tracking-wide text-gray-400 uppercase">
-          Workflow
-        </p>
-        <div className="divide-y divide-gray-100 rounded-xl border border-gray-200 px-4">
-          {isOwner && (
+          <div className="divide-y divide-gray-100 rounded-xl border border-gray-200 px-4">
             <SettingRow
-              title="Office Hours"
-              description="When new outage reports are accepted (Owner only)."
-              action={<ManageButton onClick={onOpenOfficeHours} />}
+              title="Response Time Threshold"
+              description="Pending tickets unassigned past this limit are flagged and notify supervisors once."
+              action={
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min={1}
+                    value={thresholdInput}
+                    onChange={(e) => setThresholdInput(e.target.value)}
+                    className={inputClass}
+                  />
+                  <span className="text-sm text-gray-500">min</span>
+                </div>
+              }
             />
+            <SettingRow
+              title="Resolution Target"
+              description="Time from report to final approval. Used by the dashboard. Leave blank for no target."
+              action={
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min={1}
+                    placeholder="Not set"
+                    value={targetInput}
+                    onChange={(e) => setTargetInput(e.target.value)}
+                    className={inputClass}
+                  />
+                  <span className="text-sm text-gray-500">min</span>
+                </div>
+              }
+            />
+          </div>
+
+          {error && (
+            <p className="mt-3 rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-600">
+              {error}
+            </p>
           )}
-          <SettingRow
-            title="Priority Levels"
-            description="The priority levels your cooperative uses."
-            action={<ManageButton onClick={onOpenPriorityLevels} />}
-          />
-          <SettingRow
-            title="Status Names"
-            description="Rename ticket statuses and job steps."
-            action={<ManageButton onClick={onOpenStatusNames} />}
-          />
+
+          <div className="mt-3 flex justify-end">
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={saving || unchanged}
+              className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-800 disabled:opacity-50"
+            >
+              {saving ? "Saving…" : "Save targets"}
+            </button>
+          </div>
+
+          <p className="mb-1 mt-5 text-xs font-bold tracking-wide text-gray-400 uppercase">
+            Workflow
+          </p>
+          <div className="divide-y divide-gray-100 rounded-xl border border-gray-200 px-4">
+            {isOwner && (
+              <SettingRow
+                title="Office Hours"
+                description="When new outage reports are accepted (Owner only)."
+                action={<ManageButton onClick={onOpenOfficeHours} />}
+              />
+            )}
+            <SettingRow
+              title="Priority Levels"
+              description="The priority levels your cooperative uses."
+              action={<ManageButton onClick={onOpenPriorityLevels} />}
+            />
+            <SettingRow
+              title="Category Priorities"
+              description="The priority new reports get automatically, based on their category."
+              action={<ManageButton onClick={() => setShowCategoryPriorities(true)} />}
+            />
+            <SettingRow
+              title="Status Names"
+              description="Rename ticket statuses and job steps."
+              action={<ManageButton onClick={onOpenStatusNames} />}
+            />
+          </div>
         </div>
       </div>
-    </div>
+
+      {/* A sibling of the overlay, so clicks inside it do not close the settings dialog */}
+      {showCategoryPriorities && (
+        <CategoryPrioritiesModal onClose={() => setShowCategoryPriorities(false)} />
+      )}
+    </>
   );
 }
