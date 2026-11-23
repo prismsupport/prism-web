@@ -65,6 +65,7 @@ const NOW = Date.now()
 const MIN = 60000
 const RESPONSE_TIME_THRESHOLD_MINUTES = 30
 const EXCEEDED_REPORT_AGE_MINUTES = 35
+const MAX_ATTEMPTS = 5
 const DAY = 1440 // minutes in a day
 // Report categories (same codes the mobile report form saves in reports.issue_code)
 const ISSUE_LABELS = {
@@ -376,13 +377,86 @@ async function seed() {
   )
   const coopId = coop.id
   check(await sb.from('cooperatives').update({ status: 'Active' }).eq('id', coopId), 'activate cooperative')
-  check(
-    await sb.from('cooperative_status_logs').insert([
-      { cooperative_id: coopId, previous_status: null, new_status: 'Pending Approval', changed_at: ago(29 * DAY) },
-      { cooperative_id: coopId, previous_status: 'Pending Approval', new_status: 'Active', changed_at: ago(28 * DAY) },
-    ]),
-    'status history'
-  )
+  const statusHistory = [
+    {
+      cooperative_id: coopId,
+      previous_status: null,
+      new_status: 'Pending Approval',
+      changed_at: ago(29 * DAY),
+    },
+    {
+      cooperative_id: coopId,
+      previous_status: 'Pending Approval',
+      new_status: 'Active',
+      changed_at: ago(28 * DAY),
+    },
+  ]
+
+  let statusHistorySaved = false
+
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      const existing = check(
+        await sb
+          .from('cooperative_status_logs')
+          .select('previous_status, new_status')
+          .eq('cooperative_id', coopId),
+        'check status history'
+      )
+
+      const missing = statusHistory.filter(
+        (wanted) =>
+          !existing.some(
+            (saved) =>
+              saved.previous_status === wanted.previous_status &&
+              saved.new_status === wanted.new_status
+          )
+      )
+
+      if (missing.length === 0) {
+        statusHistorySaved = true
+        break
+      }
+
+      check(
+        await sb
+          .from('cooperative_status_logs')
+          .insert(missing),
+        'status history'
+      )
+
+      statusHistorySaved = true
+      break
+    } catch (error) {
+      const message = String(error?.message || error)
+
+      const isTransient =
+        error?.status === 0 ||
+        error?.status === 429 ||
+        (error?.status >= 500 && error?.status <= 599) ||
+        /fetch failed|network|timeout|timed out|ECONNRESET|ETIMEDOUT|EAI_AGAIN|rate limit|too many/i.test(
+          message
+        )
+
+      if (!isTransient || attempt === MAX_ATTEMPTS) {
+        throw new Error(`status history: ${message}`)
+      }
+
+      const delay = 2000 * attempt
+
+      console.warn(
+        `  Temporary network error saving status history. Retrying in ${delay / 1000}s (attempt ${attempt + 1}/${MAX_ATTEMPTS})...`
+      )
+
+      await sleep(delay)
+    }
+  }
+
+  if (!statusHistorySaved) {
+    throw new Error(
+      'status history: could not confirm that the records were saved'
+    )
+  }
   // Two more, for the Superadmin screens: one waiting for approval, one rejected
   const pendingCoop = check(
     await sb
@@ -420,13 +494,53 @@ async function seed() {
       .single(),
     'create rejected cooperative'
   )
-  check(
-    await sb
-      .from('cooperatives')
-      .update({ status: 'Rejected', rejection_reason: 'The registration documents were incomplete. Please attach your business permit and resubmit.' })
-      .eq('id', rejectedCoop.id),
-    'reject cooperative'
-  )
+  const rejectionUpdate = {
+    status: 'Rejected',
+    rejection_reason: 'The registration documents were incomplete. Please attach your business permit and resubmit.',
+  }
+
+  let rejectionSaved = false
+
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      check(
+        await sb
+          .from('cooperatives')
+          .update(rejectionUpdate)
+          .eq('id', rejectedCoop.id),
+        'reject cooperative'
+      )
+
+      rejectionSaved = true
+      break
+    } catch (error) {
+      const message = String(error?.message || error)
+
+      const isTransient =
+        error?.status === 0 ||
+        error?.status === 429 ||
+        (error?.status >= 500 && error?.status <= 599) ||
+        /fetch failed|network|timeout|timed out|ECONNRESET|ETIMEDOUT|EAI_AGAIN|rate limit|too many/i.test(
+          message
+        )
+
+      if (!isTransient || attempt === MAX_ATTEMPTS) {
+        throw new Error(`reject cooperative: ${message}`)
+      }
+
+      const delay = 2000 * attempt
+
+      console.warn(
+        `  Temporary network error rejecting cooperative. Retrying in ${delay / 1000}s (attempt ${attempt + 1}/${MAX_ATTEMPTS})...`
+      )
+
+      await sleep(delay)
+    }
+  }
+
+  if (!rejectionSaved) {
+    throw new Error('reject cooperative: could not confirm the update')
+  }
   check(
     await sb.from('cooperative_status_logs').insert([
       { cooperative_id: rejectedCoop.id, previous_status: null, new_status: 'Pending Approval', changed_at: ago(9 * DAY) },
@@ -1325,16 +1439,62 @@ async function cleanup() {
   const coopIds = coops.map((c) => c.id)
   const users = check(await sb.from('users').select('id').like('email', `%${MARKER}`), 'find sample users')
   const userIds = users.map((u) => u.id)
+
   const del = async (table, column, ids, label) => {
     if (!ids || ids.length === 0) return
-    check(await sb.from(table).delete().in(column, ids), `delete ${label}`)
+
+    const MAX_ATTEMPTS = 5
+
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      let lastError = null
+
+      try {
+        const res = await sb
+          .from(table)
+          .delete()
+          .in(column, ids)
+
+        if (!res.error) return
+
+        lastError = res.error
+      } catch (error) {
+        lastError = error
+      }
+
+      const message = String(lastError?.message || lastError || '')
+
+      const isTransient =
+        lastError?.status === 0 ||
+        lastError?.status === 429 ||
+        (lastError?.status >= 500 && lastError?.status <= 599) ||
+        /fetch failed|network|timeout|timed out|ECONNRESET|ETIMEDOUT|EAI_AGAIN|rate limit|too many/i.test(message)
+
+      if (!isTransient || attempt === MAX_ATTEMPTS) {
+        throw new Error(`delete ${label}: ${message}`)
+      }
+
+      const delay = 2000 * attempt
+
+      console.warn(
+        `  Temporary network error deleting ${label}. ` +
+        `Retrying in ${delay / 1000}s (attempt ${attempt + 1}/${MAX_ATTEMPTS})...`
+      )
+
+      await sleep(delay)
+    }
   }
-  // For rows that only exist for bookkeeping: a failure is reported but does not stop the cleanup
+
+  // For bookkeeping rows: retry temporary failures, but do not stop cleanup
   const delSoft = async (table, column, ids, label) => {
     if (!ids || ids.length === 0) return
-    const res = await sb.from(table).delete().in(column, ids)
-    if (res.error) warn(`could not delete ${label}: ${res.error.message}`)
+
+    try {
+      await del(table, column, ids, label)
+    } catch (error) {
+      warn(`could not delete ${label}: ${error.message}`)
+    }
   }
+
   console.log('Removing notifications...')
   await del('notifications', 'user_id', userIds, 'notifications')
   await del('notifications', 'reference_id', coopIds, 'cooperative notifications')
@@ -1396,6 +1556,6 @@ async function main() {
 }
 main().catch((e) => {
   console.error('\nERROR: ' + e.message)
-  console.error('If this stopped part-way, run  node scripts/seed-sample-cooperative.mjs --cleanup  and try again.')
+  console.error('If this stopped part-way, run  node scripts/seed-new-cooperative.mjs --cleanup  and try again.')
   process.exit(1)
 })
