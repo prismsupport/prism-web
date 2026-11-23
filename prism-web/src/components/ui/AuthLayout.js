@@ -1,3 +1,6 @@
+"use client";
+
+import { useLayoutEffect } from "react";
 import Logo from "@/components/ui/Logo";
 
 const CONTENT = {
@@ -23,6 +26,30 @@ const CONTENT = {
 
 export default function AuthLayout({ children, logoSubtitle, variant = "supervisor", wide = false }) {
   const c = CONTENT[variant] || CONTENT.supervisor;
+
+  useLayoutEffect(() => {
+    const root = document.documentElement;
+
+    if (!root.style.filter && !root.style.opacity) return;
+
+    root.style.transition = "filter 420ms ease, opacity 420ms ease";
+
+    const frame = requestAnimationFrame(() => {
+      root.style.filter = "blur(0px)";
+      root.style.opacity = "1";
+    });
+
+    const cleanup = setTimeout(() => {
+      root.style.removeProperty("filter");
+      root.style.removeProperty("opacity");
+      root.style.removeProperty("transition");
+    }, 500);
+
+    return () => {
+      cancelAnimationFrame(frame);
+      clearTimeout(cleanup);
+    };
+  }, []);
 
   return (
     <div

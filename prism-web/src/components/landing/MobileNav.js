@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import ActionLink from "@/components/landing/ActionLink"
 import { useEffect, useState } from "react";
 
 export default function MobileNav({ links }) {
@@ -79,18 +79,18 @@ export default function MobileNav({ links }) {
               ))}
             </ul>
             <div className="mt-3 grid grid-cols-2 gap-3 border-t border-gray-100 pt-4">
-              <Link
+              <ActionLink
                 href="/supervisor/login"
                 className="rounded-xl border border-gray-200 px-4 py-3 text-center text-sm font-semibold text-gray-700 hover:bg-gray-50"
               >
                 Log in
-              </Link>
-              <Link
+              </ActionLink>
+              <ActionLink
                 href="/supervisor/register"
                 className="rounded-xl bg-blue-700 px-4 py-3 text-center text-sm font-semibold text-white hover:bg-blue-800"
               >
                 Register
-              </Link>
+              </ActionLink>
             </div>
           </nav>
         </>
