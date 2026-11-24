@@ -76,7 +76,7 @@ const F = {
   },
   tracking: {
     title: "Live ticket tracking",
-    text: "Every status change reaches the consumer by push notification, from Pending to Resolved, including a rating and reopen option.",
+    text: "Consumers get a push notification when a lineman is dispatched, when work starts, and when the ticket is resolved. They can then confirm power is back, rate the job, or request a reopen.",
     icon: "bell",
     surface: "mobile",
   },
@@ -94,19 +94,19 @@ const F = {
   },
   monitoring: {
     title: "Response monitoring",
-    text: "Tickets left unassigned past your threshold are flagged, and supervisors are alerted once per ticket.",
+    text: "Tickets left unassigned past your threshold are flagged on the dispatch board, and supervisors get one alert per ticket.",
     icon: "clock",
     surface: "web",
   },
   qa: {
     title: "QA before closing",
-    text: "Repair photos, video, voice notes and a completion checklist are reviewed by a supervisor before a ticket is resolved.",
+    text: "Lineman attachments such as repair photos, video, voice notes and a completion checklist are reviewed by a supervisor before a ticket is resolved.",
     icon: "check",
     surface: "web",
   },
   advisories: {
     title: "Targeted advisories",
-    text: "Publish maintenance and interruption notices to a feeder, municipality, barangay or the whole cooperative. Only affected members are notified.",
+    text: "Publish power interruptions, monthly power rates, collection and payment schedules, programs and general announcements. Aim each notice at a feeder, municipality, barangay or the whole cooperative, and only affected members are notified.",
     icon: "megaphone",
     surface: "web",
   },
@@ -119,15 +119,18 @@ const F = {
 };
 
 const ALSO = [
-  { icon: "receipt", title: "Read-only bill inquiry", text: "Consumers view their bills in the app, pulled from your billing system. No payments, no changes." },
-  { icon: "chat", title: "FAQ chatbot (EN + TL)", text: "Answers common questions in English or Filipino. Unanswered ones go to a supervisor." },
-  { icon: "phone", title: "Offline report saving", text: "Reports filed without signal are saved on the phone and sent when the connection returns." },
-  { icon: "clock", title: "Office hours and hotlines", text: "Accept new reports only during set hours. Outside them, consumers see their area office hotline." },
   { icon: "list", title: "Custom status names", text: "Rename ticket statuses and job steps to the terms your cooperative already uses." },
   { icon: "sliders", title: "Custom priority levels", text: "Define your own 2 to 6 priority levels, from lowest to highest." },
-  { icon: "users", title: "Duty schedules and on-call", text: "Set each lineman's shifts, with an on-call override for emergencies. Dispatch uses it." },
-  { icon: "lock", title: "Module-level supervisor access", text: "The Owner chooses which areas each supervisor can open: Dispatch, Advisories or FAQ." },
+  { icon: "phone", title: "Offline report saving", text: "Reports filed without signal are saved on the phone and sent when the connection returns." },
+  { icon: "users", title: "Duty schedules and on-call", text: "Set each lineman's shifts, with an on-call override for emergencies. Dispatch uses it." }, 
+  { icon: "clock", title: "Office hours and hotlines", text: "Accept new reports only during set hours. Outside them, consumers see their area office hotline." },
   { icon: "archive", title: "Archive and restore", text: "Advisories, FAQ entries and service areas are archived, not deleted, and can be restored." },
+  { icon: "history", title: "Reopen with full history", text: "A rejected repair or approved reopen goes back to the same lineman as a new job order. Earlier attempts stay on the ticket." },
+  { icon: "building", title: "Service areas", text: "Map each barangay to its substation, feeder and area office. This drives duplicate detection, dispatch ranking and advisory targeting." },
+  { icon: "lock", title: "Module-level supervisor access", text: "The Owner chooses which of Dispatch, Advisories and FAQ each supervisor can open. Billing, users and office hours stay Owner-only." },
+  { icon: "receipt", title: "Read-only bill inquiry", text: "Consumers enter their account number, which is checked against your billing system, then view bills and history. No payments, no changes." },
+  { icon: "wallet", title: "Monthly power rates", text: "The Owner records each month's rate per kWh for residential, low-voltage and high-voltage consumers. Consumers see it with the change from last month, and it can be posted as an advisory." },
+  { icon: "chat", title: "FAQ chatbot", text: "Matches questions to answers your supervisors write, with optional Filipino versions. Unanswered questions go to a supervisor, who can publish the reply." },
 ];
 
 const STEPS = [
@@ -142,7 +145,7 @@ const STEPS = [
   {
     n: "2",
     title: "Supervisor dispatches",
-    text: "Duplicate reports are grouped and the best-matched lineman is assigned.",
+    text: "Suggested duplicates are merged once the supervisor confirms, and a lineman is chosen from a ranked recommendation.",
     device: "Web dashboard",
     icon: "bolt",
     tags: [["Master Ticket", "gray"], ["Lineman ranking", "gray"]],
@@ -201,7 +204,7 @@ const ROLES = [
 const FAQS = [
   {
     q: "How does a cooperative get started?",
-    a: "Register your cooperative and your Owner account. The PRISM administrator reviews the registration, and you can log in once it is approved. Then add your service areas, create lineman accounts, and your consumers register in the mobile app.",
+    a: "Register your cooperative and Owner account. The PRISM administrator reviews it, and you can log in once it is approved. Then connect your billing system (required before consumers can register), add your service areas, and create lineman accounts. Consumers register in the mobile app.",
   },
   {
     q: "Does PRISM dispatch crews automatically?",
@@ -870,7 +873,7 @@ function QAPanel() {
       <div className="mt-3 grid grid-cols-2 gap-2 rounded-lg bg-gray-50 p-2.5 text-[10px]">
         <div>
           <p className="text-[9px] text-gray-400">Category</p>
-          <p className="font-medium text-gray-900">Damaged Power Lines</p>
+          <p className="text-[12px] text-gray-900">Damaged Power Lines</p>
         </div>
         <div>
           <p className="mb-0.5 text-[9px] text-gray-400">Consumer evidence location</p>
@@ -880,7 +883,7 @@ function QAPanel() {
       <div className="mt-3 space-y-2.5 text-[10px]">
         <div>
           <p className="mb-1 text-[9px] text-gray-400">Proof of Completion Photo</p>
-          <div className="flex h-16 items-center justify-center rounded-lg border border-gray-200 bg-gray-100 text-gray-400">
+          <div className="flex h-18 items-center justify-center rounded-lg border border-gray-200 bg-gray-100 text-gray-400">
             <Icon name="image" className="h-5 w-5" />
           </div>
         </div>
@@ -918,7 +921,21 @@ function AdvisoryPanel() {
     <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
       <p className="text-[13px] font-bold text-gray-900">Create New Advisory</p>
       <div className="mt-3 space-y-2.5">
-        {field("Category", "Power Interruption")}
+        <div>
+          <p className="mb-1 text-[9px] font-medium text-gray-700">Category</p>
+          <div className="flex flex-wrap gap-1">
+            {["Power Interruption", "Power Rates", "Collection & Payment", "Programs & Activities", "General Announcement"].map((c, i) => (
+              <span
+                key={c}
+                className={`rounded-full px-2 py-0.5 text-[9px] font-semibold ring-1 ring-inset ${
+                  i === 0 ? "bg-amber-50 text-amber-700 ring-amber-200" : "bg-gray-100 text-gray-600 ring-gray-200"
+                }`}
+              >
+                {c}
+              </span>
+            ))}
+          </div>
+        </div>
         {field("Advisory Title", "Scheduled power interruption")}
         <div className="grid grid-cols-3 gap-2">
           {field("Date", "Select date")}
