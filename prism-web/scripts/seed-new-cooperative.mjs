@@ -1,11 +1,11 @@
-// scripts/seed-sample-cooperative.mjs
+// scripts/seed-new-cooperative.mjs
 
 // Creates a FICTIONAL sample cooperative ("Banahaw Electric Cooperative") with data on
 // every screen, for screenshots. Nothing here touches real cooperatives.
 
-//   node scripts/seed-sample-cooperative.mjs             create the sample data
-//   node scripts/seed-sample-cooperative.mjs --refresh   refresh live status before screenshots
-//   node scripts/seed-sample-cooperative.mjs --cleanup   remove everything this script created
+//   node scripts/seed-new-cooperative.mjs             create the sample data
+//   node scripts/seed-new-cooperative.mjs --refresh   refresh live status before screenshots
+//   node scripts/seed-new-cooperative.mjs --cleanup   remove everything this script created
 //   (add --no-photos to skip the placeholder photos)
 
 // Everything it creates uses an email ending in @sample-coop.test, which is how
