@@ -5,20 +5,17 @@ import { createClient } from '@/lib/supabase/client'
 import { getMyCooperativeId } from '@/lib/supabase/getCooperativeId'
 import { toast } from '@/lib/toast'
 import usePagination from '@/lib/usePagination'
-import Pagination from '@/components/ui/Pagination'
-import Modal from '@/components/ui/Modal'
+import { buildServiceAreaOptions, filterServiceAreas } from '@/lib/serviceAreas/serviceAreaHelpers'
 import PageHeader from '@/components/ui/PageHeader'
 import Alert from '@/components/ui/Alert'
-import Button from '@/components/ui/Button'
 import DataTable from '@/components/ui/DataTable'
-import { FilterBar } from '@/components/ui/FilterBar'
-import { FilterMenu, FilterChips } from '@/components/ui/FilterMenu'
-import SearchInput from '@/components/ui/SearchInput'
-import StatCard, { StatCardGrid } from '@/components/ui/StatCard'
+import Pagination from '@/components/ui/Pagination'
 import ServiceAreaFormModal from '@/components/service-areas/ServiceAreaFormModal'
 import ServiceAreaRow from '@/components/service-areas/ServiceAreaRow'
+import ServiceAreaStatCards from '@/components/service-areas/ServiceAreaStatCards'
+import ServiceAreaToolbar from '@/components/service-areas/ServiceAreaToolbar'
+import ArchiveServiceAreaModal from '@/components/service-areas/ArchiveServiceAreaModal'
 import ManageAreaOfficesModal from '@/components/users/ManageAreaOfficesModal'
-import ArchiveIcon from '@/components/ui/icons/ArchiveIcon'
 
 const COLUMNS = [
   'Barangay',
@@ -153,48 +150,19 @@ export default function ServiceAreasPage() {
     showArchived ? a.archived_at : !a.archived_at
   )
 
-  const substationOptions = Array.from(
-    new Set(visibleAreas.map((a) => a.substation).filter(Boolean))
-  ).sort()
+  const { substations, feeders, provinces, municipalities } = buildServiceAreaOptions(visibleAreas)
 
-  const feederOptions = Array.from(
-    new Set(visibleAreas.map((a) => a.feeder).filter(Boolean))
-  ).sort()
-
-  const provinceOptions = Array.from(
-    new Set(visibleAreas.map((a) => a.province).filter(Boolean))
-  ).sort()
-
-  const municipalityOptions = Array.from(
-    new Set(visibleAreas.map((a) => a.municipality).filter(Boolean))
-  ).sort()
-
-  const filtered = visibleAreas.filter((a) => {
-    const areaOfficeMatch =
-      areaOfficeFilter === 'All Area Offices' || a.area_office === areaOfficeFilter
-    const substationMatch =
-      substationFilter === 'All Substations' || a.substation === substationFilter
-    const feederMatch = feederFilter === 'All Feeders' || a.feeder === feederFilter
-    const provinceMatch = provinceFilter === 'All Provinces' || a.province === provinceFilter
-    const municipalityMatch =
-      municipalityFilter === 'All Municipalities' || a.municipality === municipalityFilter
-    const term = searchText.trim().toLowerCase()
-    const searchMatch =
-      !term ||
-      a.barangay?.toLowerCase().includes(term) ||
-      a.municipality?.toLowerCase().includes(term) ||
-      a.substation?.toLowerCase().includes(term) ||
-      a.feeder?.toLowerCase().includes(term) ||
-      a.area_office?.toLowerCase().includes(term)
-    return (
-      areaOfficeMatch &&
-      substationMatch &&
-      feederMatch &&
-      provinceMatch &&
-      municipalityMatch &&
-      searchMatch
-    )
-  })
+  const filtered = filterServiceAreas(
+    visibleAreas,
+    {
+      areaOffice: areaOfficeFilter,
+      substation: substationFilter,
+      feeder: feederFilter,
+      province: provinceFilter,
+      municipality: municipalityFilter,
+    },
+    searchText
+  )
 
   const pg = usePagination(filtered)
 
@@ -206,7 +174,7 @@ export default function ServiceAreasPage() {
     pg.setPage(1)
   }
 
-    const filters = [
+  const filters = [
     {
       key: 'areaOffice',
       label: 'Area Office',
@@ -226,7 +194,7 @@ export default function ServiceAreasPage() {
       onChange: withReset(setSubstationFilter),
       options: [
         { value: 'All Substations', label: 'All Substations' },
-        ...substationOptions.map((s) => ({ value: s, label: s })),
+        ...substations.map((s) => ({ value: s, label: s })),
       ],
     },
     {
@@ -237,7 +205,7 @@ export default function ServiceAreasPage() {
       onChange: withReset(setFeederFilter),
       options: [
         { value: 'All Feeders', label: 'All Feeders' },
-        ...feederOptions.map((f) => ({ value: f, label: f })),
+        ...feeders.map((f) => ({ value: f, label: f })),
       ],
     },
     {
@@ -248,7 +216,7 @@ export default function ServiceAreasPage() {
       onChange: withReset(setProvinceFilter),
       options: [
         { value: 'All Provinces', label: 'All Provinces' },
-        ...provinceOptions.map((p) => ({ value: p, label: p })),
+        ...provinces.map((p) => ({ value: p, label: p })),
       ],
     },
     {
@@ -259,10 +227,21 @@ export default function ServiceAreasPage() {
       onChange: withReset(setMunicipalityFilter),
       options: [
         { value: 'All Municipalities', label: 'All Municipalities' },
-        ...municipalityOptions.map((m) => ({ value: m, label: m })),
+        ...municipalities.map((m) => ({ value: m, label: m })),
       ],
     },
   ]
+
+  function handleToggleArchived() {
+    setShowArchived(!showArchived)
+    setSubstationFilter('All Substations')
+    setFeederFilter('All Feeders')
+    setAreaOfficeFilter('All Area Offices')
+    setProvinceFilter('All Provinces')
+    setMunicipalityFilter('All Municipalities')
+    setSearchText('')
+    pg.setPage(1)
+  }
 
   return (
     <div>
@@ -275,84 +254,24 @@ export default function ServiceAreasPage() {
         }
       />
 
-      <StatCardGrid columns={5}>
-        <StatCard
-          compact
-          label={showArchived ? 'Archived Areas' : 'Total Areas'}
-          value={showArchived ? visibleAreas.length : activeAreas.length}
-          color="text-blue-700"
-        />
-        <StatCard compact label="Substations" value={substationOptions.length} />
-        <StatCard compact label="Feeders" value={feederOptions.length} />
-        <StatCard compact label="Area Offices" value={areaOffices.length} />
-        <StatCard
-          compact
-          label="Unassigned Office"
-          value={unassignedCount}
-          color={unassignedCount > 0 ? 'text-amber-600' : 'text-gray-900'}
-        />
-      </StatCardGrid>
+      <ServiceAreaStatCards
+        showArchived={showArchived}
+        areaCount={showArchived ? visibleAreas.length : activeAreas.length}
+        substationCount={substations.length}
+        feederCount={feeders.length}
+        areaOfficeCount={areaOffices.length}
+        unassignedCount={unassignedCount}
+      />
 
-      <FilterBar className="flex flex-wrap items-center gap-3">
-        <SearchInput
-          className="flex-1 min-w-[200px]"
-          value={searchText}
-          onChange={withReset(setSearchText)}
-          placeholder="Search barangay, municipality, substation, feeder, area office…"
-        />
-        <FilterMenu filters={filters} />
-        <Button
-          variant="plain"
-          dim={false}
-          className="inline-flex items-center gap-2 whitespace-nowrap"
-          onClick={() => {
-            setShowArchived(!showArchived)
-            setSubstationFilter('All Substations')
-            setFeederFilter('All Feeders')
-            setAreaOfficeFilter('All Area Offices')
-            setProvinceFilter('All Provinces')
-            setMunicipalityFilter('All Municipalities')
-            setSearchText('')
-            pg.setPage(1)
-          }}
-        >
-          <ArchiveIcon />
-          {showArchived ? 'Back to Service Areas' : 'View Archive'}
-        </Button>
-        <Button
-          variant="plain"
-          dim={false}
-          className="inline-flex items-center gap-2 whitespace-nowrap"
-          onClick={() => setShowManageAreaOffices(true)}
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="h-4 w-4"
-            aria-hidden="true"
-          >
-            <path d="M3 21h18" />
-            <path d="M5 21V5l7-3 7 3v16" />
-            <path d="M9 9h1" />
-            <path d="M14 9h1" />
-            <path d="M9 13h1" />
-            <path d="M14 13h1" />
-            <path d="M9 21v-4h6v4" />
-          </svg>
-          Manage Area Offices
-        </Button>
-        {!showArchived && (
-          <Button dim={false} className="whitespace-nowrap" onClick={() => setShowCreateModal(true)}>
-            + Add Service Area
-          </Button>
-        )}
-        <FilterChips filters={filters} />
-      </FilterBar>
+      <ServiceAreaToolbar
+        searchText={searchText}
+        onSearchChange={withReset(setSearchText)}
+        filters={filters}
+        showArchived={showArchived}
+        onToggleArchived={handleToggleArchived}
+        onManageAreaOffices={() => setShowManageAreaOffices(true)}
+        onAdd={() => setShowCreateModal(true)}
+      />
 
       <Alert>{error}</Alert>
 
@@ -394,68 +313,15 @@ export default function ServiceAreasPage() {
       )}
 
       {deletingArea && (
-        <Modal title="Archive Service Area" onClose={() => setDeletingArea(null)}>
-          <p className="text-sm text-gray-700 mb-4">
-            <span className="font-semibold">{deletingArea.barangay}</span>,{' '}
-            {deletingArea.municipality}
-          </p>
-
-          {impactLoading && (
-            <p className="text-sm text-gray-500 mb-6">Checking what depends on this area…</p>
-          )}
-
-          {impactError && (
-            <Alert className="mb-6">
-              Could not check what depends on this area, so it can't be archived right now. (
-              {impactError})
-            </Alert>
-          )}
-
-          {impact && (
-            <>
-              <div className="border border-gray-200 rounded-lg divide-y divide-gray-100 mb-4 text-sm">
-                <div className="flex justify-between px-3 py-2">
-                  <span className="text-gray-600">Consumers registered here</span>
-                  <span className="font-semibold text-gray-900">{impact.consumer_count}</span>
-                </div>
-                <div className="flex justify-between px-3 py-2">
-                  <span className="text-gray-600">Current or upcoming advisories aimed here</span>
-                  <span className="font-semibold text-gray-900">{impact.advisory_count}</span>
-                </div>
-                <div className="flex justify-between px-3 py-2">
-                  <span className="text-gray-600">Open reports (not yet resolved)</span>
-                  <span className="font-semibold text-gray-900">{impact.open_report_count}</span>
-                </div>
-              </div>
-
-              {!impact.can_delete ? (
-                <p className="text-sm text-red-700 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-6">
-                  This area can't be archived while consumers or current/upcoming advisories depend
-                  on it. Archiving it would stop those consumers from saving an address change and
-                  leave the advisories pointing at an area that is no longer in use.
-                </p>
-              ) : (
-                <p className="text-sm text-gray-700 mb-6">
-                  {impact.open_report_count > 0
-                    ? `Archiving it removes the Area Office and feeder match for ${impact.open_report_count} open report(s), which changes how linemen and duplicates are ranked for them. `
-                    : 'Nothing depends on this area. '}
-                  You can restore it later from the archive.
-                </p>
-              )}
-            </>
-          )}
-
-          <div className="flex justify-end gap-3">
-            <Button variant="outline" dim={false} onClick={() => setDeletingArea(null)} disabled={deleteLoading}>
-              {impact && !impact.can_delete ? 'Close' : 'Cancel'}
-            </Button>
-            {impact?.can_delete && (
-              <Button variant="danger" onClick={handleArchiveConfirmed} disabled={deleteLoading}>
-                {deleteLoading ? 'Archiving…' : 'Archive'}
-              </Button>
-            )}
-          </div>
-        </Modal>
+        <ArchiveServiceAreaModal
+          area={deletingArea}
+          impact={impact}
+          impactLoading={impactLoading}
+          impactError={impactError}
+          loading={deleteLoading}
+          onConfirm={handleArchiveConfirmed}
+          onClose={() => setDeletingArea(null)}
+        />
       )}
 
       {showManageAreaOffices && (
