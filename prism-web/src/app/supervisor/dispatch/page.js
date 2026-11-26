@@ -1,33 +1,33 @@
 "use client";
 
 import { useEffect, useState, Suspense } from "react";
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { useSearchParams } from "next/navigation";
 import Pagination from "@/components/ui/Pagination";
 import DispatchStatCards from "@/components/dispatch/DispatchStatCards";
 import DispatchFilters, { DATE_RANGES } from "@/components/dispatch/DispatchFilters";
-import DispatchSettingsModal from "@/components/dispatch/DispatchSettingsModal";
 import DispatchAlerts from "@/components/dispatch/DispatchAlerts";
 import DispatchTicketRow from "@/components/dispatch/DispatchTicketRow";
-import StatusNamesModal from "@/components/dispatch/StatusNamesModal";
-import ManagePriorityLevelsModal from "@/components/dispatch/ManagePriorityLevelsModal";
-import OfficeHoursModal from "@/components/dispatch/OfficeHoursModal";
+import DispatchTicketTable from "@/components/dispatch/DispatchTicketTable";
+import DispatchModals from "@/components/dispatch/DispatchModals";
 import Alert from '@/components/ui/Alert';
 import { usePermissions } from "@/lib/supervisor/PermissionsContext";
 import {
   useSupervisorNotificationRefresh,
   useUnreadSupervisorNotifications,
 } from "@/lib/supervisor/useSupervisorLiveUpdates";
-import EmptyState from "@/components/ui/EmptyState" 
-import { TableSkeletonRows } from "@/components/ui/Skeleton"
-import { toast } from "@/lib/toast"
 import { issueLabel } from "@/lib/issueCodes"
 import {
   loadRecentIssueReports,
   buildRecurringGroups,
   recurringCountFor,
 } from "@/lib/recurring"
+import {
+  ASSIGNMENT_TO_BUCKET,
+  VALID_STATUS_FILTERS,
+  buildJoinGroups,
+  dominantIssueByMaster,
+} from "@/lib/dispatch/dispatchHelpers"
 
 const PAGE_SIZE = 10;
 
@@ -38,31 +38,10 @@ const MASTER_COLUMNS =
 const ASSIGNMENT_COLUMNS =
   "assignment_id, report_id, master_id, lineman_id, status, assigned_at, updated_at, completed_at";
 
-const VALID_STATUS_FILTERS = [
-  'pending',
-  'dispatched',
-  'in_progress',
-  'qa_review',
-  'resolved',
-  'cancelled',
-  'overdue',
-]
-
-const ASSIGNMENT_TO_BUCKET = {
-  assigned: "dispatched",
-  on_the_way: "dispatched",
-  arrived_at_site: "in_progress",
-  in_progress: "in_progress",
-  fixed: "qa_review",
-  resolved: "resolved",
-};
-
 function DispatchContent() {
   const searchParams = useSearchParams()
-  const [showSettings, setShowSettings] = useState(false)
-  const [showStatusNames, setShowStatusNames] = useState(false)
-  const [showPriorityLevels, setShowPriorityLevels] = useState(false)
-  const [showOfficeHours, setShowOfficeHours] = useState(false)
+  // null | 'settings' | 'statusNames' | 'priorityLevels' | 'officeHours'
+  const [activeModal, setActiveModal] = useState(null)
   const { isOwner } = usePermissions()
   const [reports, setReports] = useState([]);
   const [assignments, setAssignments] = useState([]);
@@ -247,16 +226,7 @@ function DispatchContent() {
       .not("master_id", "is", null)
       .not("issue_code", "is", null)
       .limit(1000);
-    const tally = {};
-    (memberRows || []).forEach((m) => {
-      tally[m.master_id] = tally[m.master_id] || {};
-      tally[m.master_id][m.issue_code] = (tally[m.master_id][m.issue_code] || 0) + 1;
-    });
-    const dominant = {};
-    Object.entries(tally).forEach(([masterId, codes]) => {
-      dominant[masterId] = Object.entries(codes).sort((a, b) => b[1] - a[1])[0][0];
-    });
-    setMasterIssues(dominant);
+    setMasterIssues(dominantIssueByMaster(memberRows));
 
     setLoading(false);
   }
@@ -351,23 +321,7 @@ function DispatchContent() {
   const clusteredReportIds = new Set(
     clusters.flatMap((c) => c.report_ids || []),
   );
-  const joinGroups = Object.values(
-    joinSuggestions.reduce((acc, s) => {
-      const key = `${s.target_type}-${s.target_id}`;
-      if (!acc[key]) {
-        acc[key] = {
-          target_type: s.target_type,
-          target_id: s.target_id,
-          target_label: s.target_label,
-          reportIds: [],
-          maxScore: 0,
-        };
-      }
-      acc[key].reportIds.push(s.report_id);
-      acc[key].maxScore = Math.max(acc[key].maxScore, s.score);
-      return acc;
-    }, {}),
-  );
+  const joinGroups = buildJoinGroups(joinSuggestions);
 
   function handleFilterChange(setter, value) {
     setter(value);
@@ -379,45 +333,25 @@ function DispatchContent() {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-2xl font-bold text-gray-900">Dispatch Management</h1>
       </div>
-      {showSettings && (
-        <DispatchSettingsModal
-          cooperativeId={cooperativeId}
-          threshold={threshold}
-          target={target}
-          isOwner={isOwner}
-          onClose={() => setShowSettings(false)}
-          onSaved={(newThreshold, newTarget) => {
-            setTarget(newTarget)
-            if (newThreshold !== threshold) {
-              setThreshold(newThreshold)
-              loadEverything()
-            }
-          }}
-          onOpenOfficeHours={() => {
-            setShowSettings(false)
-            setShowOfficeHours(true)
-          }}
-          onOpenPriorityLevels={() => {
-            setShowSettings(false)
-            setShowPriorityLevels(true)
-          }}
-          onOpenStatusNames={() => {
-            setShowSettings(false)
-            setShowStatusNames(true)
-          }}
-        />
-      )}
-      {showStatusNames && <StatusNamesModal onClose={() => setShowStatusNames(false)} />}
-      {showOfficeHours && <OfficeHoursModal onClose={() => setShowOfficeHours(false)} />}
-      {showPriorityLevels && (
-        <ManagePriorityLevelsModal
-          onClose={() => setShowPriorityLevels(false)}
-          onSaved={() => {
-            setPriorityFilter('all')
+      <DispatchModals
+        active={activeModal}
+        onActiveChange={setActiveModal}
+        cooperativeId={cooperativeId}
+        threshold={threshold}
+        target={target}
+        isOwner={isOwner}
+        onSettingsSaved={(newThreshold, newTarget) => {
+          setTarget(newTarget)
+          if (newThreshold !== threshold) {
+            setThreshold(newThreshold)
             loadEverything()
-          }}
-        />
-      )}
+          }
+        }}
+        onPriorityLevelsSaved={() => {
+          setPriorityFilter('all')
+          loadEverything()
+        }}
+      />
       <p className="text-sm text-gray-500 mt-1 mb-6">
         Real-time tickets monitoring and lineman coordination.
       </p>
@@ -454,92 +388,65 @@ function DispatchContent() {
         assigneeOptions={assigneeOptions}
         rangeKey={rangeKey}
         onRangeChange={(v) => handleFilterChange(setRangeKey, v)}
-        onSettings={() => setShowSettings(true)}
+        onSettings={() => setActiveModal('settings')}
       />
 
       <Alert>{error}</Alert>
 
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[1000px] text-sm">
-          <thead>
-            <tr className="bg-gray-50 border-b border-gray-200 text-left text-xs text-gray-500 uppercase tracking-wide">
-              <th className="px-5 py-3 font-semibold">Ticket ID</th>
-              <th className="px-5 py-3 font-semibold">Category</th>
-              <th className="px-5 py-3 font-semibold text-center">Priority</th>
-              <th className="px-5 py-3 font-semibold">Location</th>
-              <th className="px-5 py-3 font-semibold text-center">Job Order Status</th>
-              <th className="px-5 py-3 font-semibold">Assignee</th>
-              <th className="px-5 py-3 font-semibold text-center">Last Updated</th>
-              <th className="px-5 py-3 font-semibold">Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading && <TableSkeletonRows rows={6} cols={8} />}
-            {!loading && paginated.length === 0 && (
-              <tr>
-                <td colSpan={8}>
-                  <EmptyState
-                    title="No tickets match this view"
-                    description="Try a different filter, or wait for new outage reports to come in."
-                  />
-                </td>
-              </tr>
-            )}
-            {!loading &&
-              paginated.map((t) => {
-                const isMaster = t.kind === "master";
-                const assignment = isMaster
-                  ? assignmentFor(null, t.master_id)
-                  : assignmentFor(t.report_id, null);
-                return (
-                  <DispatchTicketRow
-                    key={t.ticketKey}
-                    ticket={t}
-                    assignment={assignment}
-                    bucket={bucketForTicket(t)}
-                    isClustered={
-                      !isMaster && clusteredReportIds.has(t.report_id)
-                    }
-                    isOverdue={overdueIds.has(t.ticketKey)}
-                    categoryLabel={issueLabel(t.issue_code)}
-                    recurringCount={recurringCountFor(
-                      recurringCounts,
-                      t.issue_code,
-                      t.barangay,
-                      t.municipality,
-                    )}
-                    assigneeName={
-                      assignment ? linemenNames[assignment.lineman_id] : null
-                    }
-                    isUnread={
-                      t.kind === "report" && isUnread("reports", t.report_id)
-                    }
-                    onOpen={() =>
-                      t.kind === "report" &&
-                      markNotificationRead("reports", t.report_id)
-                    }
-                  />
-                );
-              })}
-          </tbody>
-        </table>
-        </div>
-
-        {!loading && (
-          <Pagination
-            page={page}
-            totalPages={totalPages}
-            totalCount={filtered.length}
-            pageSize={PAGE_SIZE}
-            onPageChange={setPage}
-          />
-        )}
-      </div>
+      <DispatchTicketTable
+        loading={loading}
+        isEmpty={paginated.length === 0}
+        footer={
+          !loading && (
+            <Pagination
+              page={page}
+              totalPages={totalPages}
+              totalCount={filtered.length}
+              pageSize={PAGE_SIZE}
+              onPageChange={setPage}
+            />
+          )
+        }
+      >
+        {paginated.map((t) => {
+          const isMaster = t.kind === "master";
+          const assignment = isMaster
+            ? assignmentFor(null, t.master_id)
+            : assignmentFor(t.report_id, null);
+          return (
+            <DispatchTicketRow
+              key={t.ticketKey}
+              ticket={t}
+              assignment={assignment}
+              bucket={bucketForTicket(t)}
+              isClustered={
+                !isMaster && clusteredReportIds.has(t.report_id)
+              }
+              isOverdue={overdueIds.has(t.ticketKey)}
+              categoryLabel={issueLabel(t.issue_code)}
+              recurringCount={recurringCountFor(
+                recurringCounts,
+                t.issue_code,
+                t.barangay,
+                t.municipality,
+              )}
+              assigneeName={
+                assignment ? linemenNames[assignment.lineman_id] : null
+              }
+              isUnread={
+                t.kind === "report" && isUnread("reports", t.report_id)
+              }
+              onOpen={() =>
+                t.kind === "report" &&
+                markNotificationRead("reports", t.report_id)
+              }
+            />
+          );
+        })}
+      </DispatchTicketTable>
     </div>
   );
 }
-
 
 export default function DispatchPage() {
   return (
