@@ -31,7 +31,8 @@ export default function AdvisoryFormModal({ cooperativeId, advisory, onClose, on
   const [endTime, setEndTime] = useState(advisory?.end_time?.slice(0, 5) || '')
   const [description, setDescription] = useState(advisory?.description || '')
 
-  const timed = categoryOf(category).timed
+  const timed = categoryOf(category).timed  
+  const endOptional = categoryOf(category).endOptional
   
   const [targets, setTargets] = useState(
     advisory?.targets?.map((t) => ({
@@ -173,12 +174,16 @@ export default function AdvisoryFormModal({ cooperativeId, advisory, onClose, on
       setError('Select a value for every target scope.')
       return
     }
+    if (timed && endTime && endTime <= startTime) {
+      setError('End time must be after the start time.')
+      return
+    }
 
     setLoading(true)
     const supabase = createClient()
 
     const saveStart = timed ? startTime : ALL_DAY.start
-    const saveEnd = timed ? endTime : ALL_DAY.end
+    const saveEnd = timed ? (endTime || null) : ALL_DAY.end
 
     let advisoryId = advisory?.advisory_id
     let photoPathToSave = removePhoto ? null : existingPhotoPath
@@ -389,10 +394,15 @@ export default function AdvisoryFormModal({ cooperativeId, advisory, onClose, on
               <FormInput
                 wrapperClassName=""
                 label="End Time"
+                optional={endOptional}
+                hint={endOptional ? 'Leave blank if the restoration time is not yet known.' : undefined}
                 type="time"
-                required
+                required={!endOptional}
                 value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
+                onChange={(e) => {
+                  setCategory(e.target.value)
+                  if (categoryOf(e.target.value).endOptional) setEndTime('')
+                }}
               />
             </>
           )}

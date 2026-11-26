@@ -34,11 +34,10 @@ const COLUMNS = [
 function computeStatus(advisory) {
   const now = new Date()
   const start = new Date(`${advisory.date}T${advisory.start_time}`)
-  const end = new Date(`${advisory.date}T${advisory.end_time}`)
-
   if (now < start) return 'upcoming'
-  if (now >= start && now <= end) return 'active'
-  return 'completed'
+  if (!advisory.end_time) return 'active' // open-ended: active until an end time is entered
+  const end = new Date(`${advisory.date}T${advisory.end_time}`)
+  return now <= end ? 'active' : 'completed'
 }
 
 export default function AdvisoriesPage() {
@@ -61,6 +60,8 @@ export default function AdvisoriesPage() {
   const [deletingAdvisory, setDeletingAdvisory] = useState(null)
   const [archiving, setArchiving] = useState(false)
   const [showArchived, setShowArchived] = useState(false)
+  const [restoringAdvisory, setRestoringAdvisory] = useState(null)
+  const [markingRestored, setMarkingRestored] = useState(false)
 
   useEffect(() => {
     loadAdvisories()
@@ -169,6 +170,44 @@ export default function AdvisoriesPage() {
     }
 
     toast.success('Advisory restored')
+    await loadAdvisories()
+  }
+
+  // Sets the end time of an open-ended (unscheduled) advisory to "now", Philippine time.
+  async function handleMarkRestoredConfirmed() {
+    setMarkingRestored(true)
+    const now = new Date()
+    const phDate = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' }) // YYYY-MM-DD
+    let endTime = now.toLocaleTimeString('en-GB', {
+      timeZone: 'Asia/Manila',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }) // HH:MM
+
+    // The advisory has a single date, so a restoration on a later day closes it at end of its day
+    if (phDate > restoringAdvisory.date) endTime = '23:59'
+    // Never store an end time at or before the start
+    if (phDate === restoringAdvisory.date && endTime <= restoringAdvisory.start_time.slice(0, 5)) {
+      endTime = restoringAdvisory.start_time.slice(0, 5)
+    }
+
+    const supabase = createClient()
+    const { data, error: updateError } = await supabase
+      .from('advisories')
+      .update({ end_time: endTime })
+      .eq('advisory_id', restoringAdvisory.advisory_id)
+      .is('end_time', null) // guard: never overwrite an end time that was set meanwhile
+      .select('advisory_id')
+
+    setMarkingRestored(false)
+    if (updateError || !data?.length) {
+      toast.error(updateError || "Couldn't mark this advisory as restored. Refresh and try again.")
+      return
+    }
+
+    toast.success('Marked as restored')
+    setRestoringAdvisory(null)
     await loadAdvisories()
   }
 
@@ -491,6 +530,7 @@ export default function AdvisoriesPage() {
             onEdit={setEditingAdvisory}
             onDelete={setDeletingAdvisory}
             onRestore={handleRestore}
+            onMarkRestored={setRestoringAdvisory}
           />
         ))}
       </DataTable>
@@ -522,6 +562,21 @@ export default function AdvisoriesPage() {
           Are you sure you want to archive "
           <span className="font-semibold">{deletingAdvisory.title}</span>"? It will be hidden
           from consumers, but you can restore it later from the archive.
+        </ConfirmDialog>
+      )}
+
+      {restoringAdvisory && (
+        <ConfirmDialog
+          title="Mark as Restored"
+          confirmLabel="Mark as Restored"
+          tone="success"
+          loading={markingRestored}
+          onConfirm={handleMarkRestoredConfirmed}
+          onClose={() => setRestoringAdvisory(null)}
+        >
+          Power has been restored for "
+          <span className="font-semibold">{restoringAdvisory.title}</span>"? The restoration
+          time will be recorded as now and the advisory will move to Completed.
         </ConfirmDialog>
       )}
     </div>

@@ -12,6 +12,7 @@ export default function AdvisoryRow({
   onEdit,
   onDelete,
   onRestore,
+  onMarkRestored,
 }) {
   const category = categoryOf(advisory.category)
 
@@ -49,8 +50,10 @@ export default function AdvisoryRow({
       {/* Time */}
       <td className="px-5 py-4 text-center text-gray-600 whitespace-nowrap">
         {category.timed
+        ? advisory.end_time
           ? `${formatClockTime(advisory.start_time)} - ${formatClockTime(advisory.end_time)}`
-          : 'All day'}
+          : `${formatClockTime(advisory.start_time)} - Until restored`
+        : 'All day'}
       </td>
 
       {/* Status */}
@@ -84,12 +87,26 @@ export default function AdvisoryRow({
             Restore
           </Button>
         ) : (
-          <RowActions
-            className="justify-center"
-            archive
-            onEdit={() => onEdit(advisory)}
-            onDelete={() => onDelete(advisory)}
-          />
+          <div className="flex items-center justify-center gap-3">
+            {advisory.category === 'unscheduled_interruption' &&
+              !advisory.end_time &&
+              advisory.computedStatus === 'active' && (
+                <Button
+                  type="button"
+                  variant="success"
+                  size="xs"
+                  dim={false}
+                  onClick={() => onMarkRestored(advisory)}
+                >
+                  Mark as Restored
+                </Button>
+              )}
+            <RowActions
+              archive
+              onEdit={() => onEdit(advisory)}
+              onDelete={() => onDelete(advisory)}
+            />
+          </div>
         )}
       </td>
     </tr>
