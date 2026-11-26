@@ -3,32 +3,23 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { issueLabel } from '@/lib/issueCodes'
-import { recurringSinceIso, RECURRING_MIN_REPORTS, RECURRING_WINDOW_DAYS } from '@/lib/recurring'
+import { recurringSinceIso } from '@/lib/recurring'
 import { reopenAssignment } from '@/lib/dispatch/reopenAssignment'
+import { loadJobAttempts } from '@/lib/dispatch/loadJobAttempts'
 import { PageLoading } from "@/components/ui/Skeleton";
 import { toast } from '@/lib/toast'
 import TicketTabs, { TabDot } from '@/components/dispatch/TicketTabs'
 import Alert from '@/components/ui/Alert'
 import ReportMap from '@/components/ui/ReportMap'
 import LinemanRecommendationPanel from '@/components/ui/LinemanRecommendationPanel'
-import QAReviewSection from '@/components/ui/QAReviewSection'
-import TicketDetailHeader from '@/components/dispatch/TicketDetailHeader'
-import TicketStatusPriority from '@/components/dispatch/TicketStatusPriority'
-import AssignedLinemanCard from '@/components/dispatch/AssignedLinemanCard'
-import JobOrderStatusLog from '@/components/dispatch/JobOrderStatusLog'
-import PhotoDropdown from '@/components/dispatch/PhotoDropdown'
-import ReporterInfo from '@/components/dispatch/ReporterInfo'
 import DeclineReportModal from '@/components/dispatch/DeclineReportModal'
 import LinemanDispatchedModal from '@/components/dispatch/LinemanDispatchedModal'
-import ResolveTicketBar from '@/components/dispatch/ResolveTicketBar'
-import AttemptReviewCard from '@/components/dispatch/AttemptReviewCard'
 import ReopenTicketModal from '@/components/dispatch/ReopenTicketModal'
 import ReopenReasonNote from '@/components/dispatch/ReopenReasonNote'
-import StageTimesCard from '@/components/dispatch/StageTimesCard'
-import ProofLocationBadge from '@/components/dispatch/ProofLocationBadge'
-import VideoDropdown from '@/components/dispatch/VideoDropdown'
-import StickyActionBar from '@/components/dispatch/StickyActionBar'
+import ReportDetailsTab from '@/components/dispatch/report/ReportDetailsTab'
+import ReportJobTab from '@/components/dispatch/report/ReportJobTab'
+import ReportHistoryTab from '@/components/dispatch/report/ReportHistoryTab'
+import ReportActionBar from '@/components/dispatch/report/ReportActionBar'
 
 export default function ReportReviewPage() {
   const { id } = useParams()
@@ -43,7 +34,6 @@ export default function ReportReviewPage() {
   const [photoSignedUrl, setPhotoSignedUrl] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [showHistory, setShowHistory] = useState(false)
   const [showMap, setShowMap] = useState(true)
   const [issueCode, setIssueCode] = useState(null)
   const [proofLocation, setProofLocation] = useState(null)
@@ -60,7 +50,7 @@ export default function ReportReviewPage() {
   const [actionLoading, setActionLoading] = useState(false)
 
   const [dispatchedInfo, setDispatchedInfo] = useState(null)
-    const [showReopenModal, setShowReopenModal] = useState(false)
+  const [showReopenModal, setShowReopenModal] = useState(false)
   const [linemanDetailsOpen, setLinemanDetailsOpen] = useState(true)
   const [tab, setTab] = useState(null)
 
@@ -153,59 +143,10 @@ export default function ReportReviewPage() {
       setStatusLogs(logs || [])
     }
 
-    // Build full history for every prior attempt (before the current/latest
-    // assignment) so a reopened or QA-rejected report keeps its complete
-    // trail visible here, not just on the separate Reopen Review page.
+    // Full history of every attempt, so a reopened or QA-rejected report keeps
+    // its complete trail visible here, not just on the Reopen Review page.
     if (assignmentList.length > 1) {
-      const priorAssignments = assignmentList
-
-      const linemanIds = Array.from(new Set(priorAssignments.map((a) => a.lineman_id)))
-      let linemenMap = {}
-      if (linemanIds.length > 0) {
-        const { data } = await supabase
-          .from('users')
-          .select('id, first_name, last_name')
-          .in('id', linemanIds)
-        ;(data || []).forEach((u) => {
-          linemenMap[u.id] = `${u.first_name} ${u.last_name}`
-        })
-      }
-
-      const attempts = []
-      for (const [index, a] of priorAssignments.entries()) {
-        const { data: logs } = await supabase
-          .from('job_assignment_status_logs')
-          .select('*')
-          .eq('assignment_id', a.assignment_id)
-          .order('changed_at', { ascending: true })
-
-        const { data: review } = await supabase
-          .from('qa_reviews')
-          .select('*')
-          .eq('assignment_id', a.assignment_id)
-          .order('reviewed_at', { ascending: false })
-          .limit(1)
-          .maybeSingle()
-
-        let attemptPhotoUrl = null
-        if (a.photo_url) {
-          const { data: signedAttempt } = await supabase.storage
-            .from('assignment-proofs')
-            .createSignedUrl(a.photo_url, 3600)
-          if (signedAttempt) attemptPhotoUrl = signedAttempt.signedUrl
-        }
-
-        attempts.push({
-          ...a,
-          attemptNumber: index + 1,
-          isCurrent: index === assignmentList.length - 1,
-          linemanName: linemenMap[a.lineman_id] || 'Unknown',
-          logs: logs || [],
-          review,
-          photoUrl: attemptPhotoUrl,
-        })
-      }
-      setPastAttempts(attempts)
+      setPastAttempts(await loadJobAttempts(supabase, assignmentList))
     } else {
       setPastAttempts([])
     }
@@ -392,191 +333,54 @@ export default function ReportReviewPage() {
           />
 
           {activeTab === 'details' && (
-            <>
-          <div className="space-y-4">
-          <div className={`relative bg-white rounded-xl border border-gray-200 p-6 ${compactLayout ? 'lg:max-h-[calc(100vh-15rem)] lg:overflow-y-auto' : ''}`}>
-            <div className="flex items-start justify-between gap-4">
-              <TicketDetailHeader
-                ticketNumber={report.ticket_number}
-                reporterName={reporterName}
-                reopened={!!report.reopened_at}
-              />
-              {!showMap && (
-                <button
-                  type="button"
-                  onClick={() => setShowMap(true)}
-                  className="mr-8 text-sm text-blue-700 font-medium border border-blue-200 rounded-lg px-3 py-1.5 hover:bg-blue-50 whitespace-nowrap"
-                >
-                  View Map
-                </button>
-              )}
-            </div>
-
-            <TicketStatusPriority status={currentStatus} priority={report.priority} />
-
-            <ReporterInfo reportId={report.report_id} consumerId={report.consumer_id} />
-
-            <div className={compactLayout ? 'grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3 text-sm' : 'space-y-3 text-sm'}>
-              <div>
-                <p className="text-xs text-gray-400">Time Reported</p>
-                <p className="text-gray-900">
-                  {new Date(report.created_at).toLocaleString('en-PH', {
-                    month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit',
-                  })}
-                </p>
-              </div>
-              {assignment?.completed_at && (
-                <div>
-                  <p className="text-xs text-gray-400">Time Restored</p>
-                  <p className="text-gray-900">
-                    {new Date(assignment.completed_at).toLocaleString('en-PH', {
-                      month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit',
-                    })}
-                  </p>
-                </div>
-              )}
-              <div>
-                <p className="text-xs text-gray-400">Location</p>
-                <p className="text-gray-900 font-medium">
-                  {report.nearest_landmark || `${report.barangay}, ${report.municipality}`}
-                </p>
-                <p className="text-gray-500 text-xs">
-                  Zone {report.zone || '—'}, {report.barangay}, {report.municipality}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-400">Category</p>
-                <p className="text-gray-900 font-medium">{issueLabel(issueCode)}</p>
-                {recurringCount >= RECURRING_MIN_REPORTS && (
-                  <p className="text-xs text-amber-600 font-medium mt-0.5">
-                    ↻ Recurring: {recurringCount} reports of this type in {report.barangay} in the last {RECURRING_WINDOW_DAYS} days
-                  </p>
-                )}
-              </div>
-              <div>
-                <p className="text-xs text-gray-400 mb-1">Evidence location</p>
-                <ProofLocationBadge value={proofLocation} />
-              </div>
-              <div className={compactLayout ? 'md:col-span-2' : ''}>
-                <p className="text-xs text-gray-400">Description</p>
-                <p className="text-gray-700 bg-gray-50 rounded-lg p-3 mt-1">
-                  "{report.report_details}"
-                </p>
-              </div>
-              {report.other_homes_affected && (
-                <p className="text-xs text-amber-600 font-medium">
-                  ⚠ Consumer indicated nearby households are also affected
-                </p>
-              )}
-              <PhotoDropdown label="Photo Evidence" photoUrl={photoSignedUrl} />
-              <VideoDropdown label="Video Evidence" bucket="report-photos" path={videoPath} />
-            </div>
-          </div>
-
-          {report.status === 'cancelled' && (
-            <div className={`bg-red-50 border border-red-200 rounded-xl p-6 ${compactLayout ? 'lg:max-h-[calc(100vh-15rem)] lg:overflow-y-auto' : ''}`}>
-              <h2 className="text-sm font-bold text-red-700 mb-2">Report Declined</h2>
-              <p className="text-sm text-gray-700 bg-white rounded-lg p-3 border border-red-100">
-                {report.decline_reason || 'No reason provided.'}
-              </p>
-              <p className="text-xs text-gray-400 mt-2">
-                Declined:{' '}
-                {new Date(report.updated_at).toLocaleString('en-PH', {
-                  month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit',
-                })}
-              </p>
-            </div>
-          )}
-          </div>
-            </>
+            <ReportDetailsTab
+              report={report}
+              reporterName={reporterName}
+              assignment={assignment}
+              currentStatus={currentStatus}
+              issueCode={issueCode}
+              proofLocation={proofLocation}
+              videoPath={videoPath}
+              photoSignedUrl={photoSignedUrl}
+              recurringCount={recurringCount}
+              showMap={showMap}
+              onShowMap={() => setShowMap(true)}
+              compactLayout={compactLayout}
+            />
           )}
 
           {activeTab === 'job' && (
-            <>
-          <div className={compactLayout ? 'grid grid-cols-1 xl:grid-cols-2 gap-4 items-start' : 'space-y-4'}>
-          {(assignment?.status === 'fixed' || assignment?.status === 'resolved') && (
-            <div className={compactLayout ? 'lg:max-h-[calc(100vh-15rem)] lg:overflow-y-auto' : ''}>
-              <QAReviewSection
-                assignment={assignment}
-                reportId={id}
-                onReviewed={loadReport}
-                issueCode={issueCode}
-                proofLocationConsistent={proofLocation}
-                showReportInfo
-                actionPortalId="ticket-action-bar"
-              />
-            </div>
-          )}
-
-          {assignment ? (
-            <div className={compactLayout ? 'lg:max-h-[calc(100vh-15rem)] lg:overflow-y-auto' : ''}>
-              <AssignedLinemanCard
-                name={assignedLinemanName}
-                assignedAt={assignment.assigned_at}
-                expandable
-                expanded={linemanDetailsOpen}
-                onToggleExpand={() => setLinemanDetailsOpen(!linemanDetailsOpen)}
-              >
-                <JobOrderStatusLog logs={statusLogs} />
-              </AssignedLinemanCard>
-            </div>
-          ) : (
-            <p className="text-sm text-gray-500 bg-white rounded-xl border border-gray-200 p-6">
-              No lineman has been assigned yet.
-            </p>
-          )}
-          </div>
-            </>
+            <ReportJobTab
+              reportId={id}
+              assignment={assignment}
+              assignedLinemanName={assignedLinemanName}
+              statusLogs={statusLogs}
+              issueCode={issueCode}
+              proofLocation={proofLocation}
+              linemanDetailsOpen={linemanDetailsOpen}
+              onToggleLinemanDetails={() => setLinemanDetailsOpen(!linemanDetailsOpen)}
+              onReviewed={loadReport}
+              compactLayout={compactLayout}
+            />
           )}
 
           {activeTab === 'history' && (
-            <>
-          <div className={compactLayout ? 'grid grid-cols-1 xl:grid-cols-2 gap-4 items-start' : 'space-y-4'}>
-          <div className={compactLayout ? 'lg:max-h-[calc(100vh-15rem)] lg:overflow-y-auto' : ''}>
-            <StageTimesCard reportId={id} key={assignment?.status || 'none'} />
-          </div>
-
-          {pastAttempts.length > 0 && (
-            <div className={compactLayout ? 'lg:max-h-[calc(100vh-15rem)] lg:overflow-y-auto' : ''}>
-              <button
-                type="button"
-                onClick={() => setShowHistory(!showHistory)}
-                className="group flex items-center justify-between w-full bg-white rounded-xl border border-gray-200 px-5 py-4 text-xs font-bold text-gray-900 shadow-sm transition-colors hover:border-blue-200 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-600"
-              >
-                <span>Job Order History ({pastAttempts.length})</span>
-                <span className="inline-flex w-fit items-center gap-2 rounded-lg border border-gray-200 bg-white px-3.5 py-2 text-xs font-semibold text-gray-700 shadow-sm whitespace-nowrap group-hover:border-blue-200 group-hover:bg-blue-50 group-hover:text-blue-700">
-                  {showHistory ? 'Hide ▲' : 'View ▾'}
-                </span>
-              </button>
-              {showHistory && (
-                <div className="mt-4 space-y-4">
-                  {pastAttempts.map((a) => (
-                    <AttemptReviewCard key={a.assignment_id} attempt={a} />
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-          {pastAttempts.length === 0 && (
-            <p className="text-xs text-gray-400">No earlier attempts on this ticket.</p>
-          )}
-          </div>
-            </>
+            <ReportHistoryTab
+              reportId={id}
+              assignmentStatus={assignment?.status}
+              pastAttempts={pastAttempts}
+              compactLayout={compactLayout}
+            />
           )}
 
-          <StickyActionBar id="ticket-action-bar">
-            {isPending && (
-              <div className="flex gap-3">
-                <button onClick={handleOpenAssignPanel} className="flex-1 bg-blue-700 hover:bg-blue-800 text-white font-semibold text-sm py-3 rounded-lg transition-colors">
-                  Assign Lineman
-                </button>
-                <button onClick={() => setShowDeclineModal(true)} className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold text-sm py-3 rounded-lg transition-colors">
-                  Decline Report
-                </button>
-              </div>
-            )}
-            <ResolveTicketBar status={assignment?.status} onReopen={() => setShowReopenModal(true)} loading={actionLoading} />
-          </StickyActionBar>
+          <ReportActionBar
+            isPending={isPending}
+            assignmentStatus={assignment?.status}
+            actionLoading={actionLoading}
+            onAssign={handleOpenAssignPanel}
+            onDecline={() => setShowDeclineModal(true)}
+            onReopen={() => setShowReopenModal(true)}
+          />
         </div>
       )}
 
