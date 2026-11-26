@@ -18,9 +18,9 @@ export const metadata = {
 
 // One place to edit on every release. Set url to "" to show the "coming soon" state.
 const APK = {
-  url: "https://github.com/prismsupport/prism-web/releases/download/android-v1.3.3/prism-android-v1.3.3.apk",
-  version: "1.3.3",
-  size: "140.8 MB",
+  url: "https://github.com/prismsupport/prism-web/releases/download/android-v1.3.4/prism-android-v1.3.4.apk",
+  version: "1.3.4",
+  size: "140.9 MB",
   minAndroid: "Android 7.0+",
 };
 const APK_URL = APK.url;
