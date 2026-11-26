@@ -1,17 +1,13 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import usePagination from '@/lib/usePagination'
-import Pagination from '@/components/ui/Pagination'
-import PageHeader from '@/components/ui/PageHeader'
 import Alert from '@/components/ui/Alert'
 import Button from '@/components/ui/Button'
-import DataTable from '@/components/ui/DataTable'
-import { FilterBar, FilterSelect } from '@/components/ui/FilterBar'
-import { FilterMenu, FilterChips } from '@/components/ui/FilterMenu'
-import SearchInput from '@/components/ui/SearchInput'
+import { FilterSelect } from '@/components/ui/FilterBar'
 import Tabs from '@/components/ui/Tabs'
+import UserListPanel from '@/components/users/UserListPanel'
 import CreateLinemanModal from '@/components/users/CreateLinemanModal'
 import LinemanDetailsModal from '@/components/users/LinemanDetailsModal'
 import ConsumerDetailsModal from '@/components/users/ConsumerDetailsModal'
@@ -22,49 +18,39 @@ import LinemanRow from '@/components/users/LinemanRow'
 import ConsumerRow from '@/components/users/ConsumerRow'
 import SupervisorRow from '@/components/users/SupervisorRow'
 import { toast } from '@/lib/toast'
-
-const TABS = [
-  { key: 'lineman', label: 'Personnel (Lineman)' },
-  { key: 'consumer', label: 'Consumer Accounts' },
-  { key: 'supervisor', label: 'Supervisors' },
-]
-
-const LINEMAN_COLUMNS = [
-  'Name',
-  'Assigned Area Office',
-  'Shift',
-  'Duty Status',
-  'Contact Number',
-  'Action',
-].map((label) => ({ label, className: 'text-center' }))
-const CONSUMER_COLUMNS = [
-  'Name',
-  'Contact Number',
-  'Account Number',
-  'Zone',
-  'Barangay',
-  'Municipality',
-  'Action',
-].map((label) => ({ label, className: 'text-center' }))
-const SUPERVISOR_COLUMNS = [
-  'Name',
-  'Access',
-  'Contact Number',
-  'Action',
-].map((label) => ({ label, className: 'text-center' }))
+import {
+  TABS,
+  LINEMAN_COLUMNS,
+  CONSUMER_COLUMNS,
+  SUPERVISOR_COLUMNS,
+} from '@/lib/users/constants'
+import {
+  filterLinemen,
+  filterConsumers,
+  filterSupervisors,
+  municipalityOptionsOf,
+  barangayOptionsOf,
+} from '@/lib/users/filters'
+import { useUsersData, useLinemanDutyStatus } from '@/lib/users/useUsersData'
 
 export default function UsersPage() {
   const [activeTab, setActiveTab] = useState('lineman')
-  const [cooperativeId, setCooperativeId] = useState(null)
-  const [currentUserId, setCurrentUserId] = useState(null)
-  const [areaOffices, setAreaOffices] = useState([])
 
-  const [linemen, setLinemen] = useState([])
-  const [dutyById, setDutyById] = useState({})
-  const [consumers, setConsumers] = useState([])
-  const [supervisors, setSupervisors] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
+  const {
+    cooperativeId,
+    currentUserId,
+    areaOffices,
+    setAreaOffices,
+    linemen,
+    consumers,
+    supervisors,
+    loading,
+    error,
+    reload,
+  } = useUsersData()
+
+  // Keep the live duty badges fresh while the Personnel tab is open
+  const dutyById = useLinemanDutyStatus(activeTab === 'lineman')
 
   const [areaFilter, setAreaFilter] = useState('All Area Offices')
   const [shiftFilter, setShiftFilter] = useState('All Shifts')
@@ -83,165 +69,6 @@ export default function UsersPage() {
   const [selectedSupervisor, setSelectedSupervisor] = useState(null)
   const [showManageAreas, setShowManageAreas] = useState(false)
 
-  useEffect(() => {
-    loadEverything()
-  }, [])
-
-  // Keep the live duty badges fresh while the Personnel tab is open
-  useEffect(() => {
-    if (activeTab !== 'lineman') return
-    loadDutyStatus()
-    const timer = setInterval(loadDutyStatus, 60000)
-    return () => clearInterval(timer)
-  }, [activeTab])
-
-  async function loadEverything() {
-    setLoading(true)
-    setError('')
-    const supabase = createClient()
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    setCurrentUserId(user.id)
-
-    const { data: myRow, error: myRowError } = await supabase
-      .from('users')
-      .select('cooperative_id')
-      .eq('id', user.id)
-      .single()
-
-    if (myRowError || !myRow) {
-      setError('Unable to load your cooperative.')
-      setLoading(false)
-      return
-    }
-
-    const coopId = myRow.cooperative_id
-    setCooperativeId(coopId)
-
-    const { data: coop } = await supabase
-      .from('cooperative_settings')
-      .select('area_offices')
-      .eq('cooperative_id', coopId)
-      .single()
-
-    setAreaOffices(coop?.area_offices || [])
-
-    // ---- Lineman accounts ----
-    const { data: linemanUsers, error: linemanError } = await supabase
-      .from('users')
-      .select('*')
-      .eq('cooperative_id', coopId)
-      .eq('user_type', 'lineman')
-      .order('first_name', { ascending: true })
-
-    if (linemanError) setError(linemanError.message)
-
-    const linemanIds = (linemanUsers || []).map((u) => u.id)
-    let linemanDetails = []
-    if (linemanIds.length > 0) {
-      const { data } = await supabase
-        .from('lineman')
-        .select('*')
-        .in('profile_id', linemanIds)
-      linemanDetails = data || []
-    }
-
-    const mergedLinemen = (linemanUsers || []).map((u) => ({
-      ...u,
-      ...linemanDetails.find((l) => l.profile_id === u.id),
-    }))
-    setLinemen(mergedLinemen)
-
-    // ---- Consumer accounts ----
-    const { data: consumerUsers, error: consumerUsersError } = await supabase
-      .from('users')
-      .select('*')
-      .eq('cooperative_id', coopId)
-      .eq('user_type', 'consumer')
-      .order('first_name', { ascending: true })
-
-    if (consumerUsersError) setError(consumerUsersError.message)
-
-    const consumerIds = (consumerUsers || []).map((u) => u.id)
-    let consumerDetails = []
-    if (consumerIds.length > 0) {
-      const { data } = await supabase
-        .from('consumer')
-        .select('*')
-        .in('profile_id', consumerIds)
-      consumerDetails = data || []
-    }
-
-    // Approved account numbers for this cooperative's consumers (primary first)
-    const { data: linkData } = await supabase
-      .from('consumer_bill_links')
-      .select('consumer_id, account_number, is_primary')
-      .eq('cooperative_id', coopId)
-      .eq('status', 'approved')
-    const accountLinks = linkData || []
-
-    const mergedConsumers = (consumerUsers || []).map((u) => ({
-      ...u,
-      ...consumerDetails.find((c) => c.profile_id === u.id),
-      accounts: accountLinks
-        .filter((a) => a.consumer_id === u.id)
-        .sort((a, b) => Number(b.is_primary) - Number(a.is_primary))
-        .map((a) => a.account_number),
-    }))
-    setConsumers(mergedConsumers)
-
-    // ---- Supervisor accounts ----
-    const { data: supervisorUsers, error: supervisorError } = await supabase
-      .from('users')
-      .select('*')
-      .eq('cooperative_id', coopId)
-      .eq('user_type', 'supervisor')
-      .order('first_name', { ascending: true })
-
-    if (supervisorError) setError(supervisorError.message)
-
-    const supervisorIds = (supervisorUsers || []).map((u) => u.id)
-    let supervisorDetails = []
-    if (supervisorIds.length > 0) {
-      const { data } = await supabase
-        .from('supervisor')
-        .select('*')
-        .in('profile_id', supervisorIds)
-      supervisorDetails = data || []
-    }
-
-    const mergedSupervisors = (supervisorUsers || [])
-      .map((u) => ({
-        ...u,
-        ...supervisorDetails.find((s) => s.profile_id === u.id),
-      }))
-      .sort((a, b) => (a.is_owner === b.is_owner ? 0 : a.is_owner ? -1 : 1))
-
-    setSupervisors(mergedSupervisors)
-
-    setLoading(false)
-  }
-
-  async function loadDutyStatus() {
-    const supabase = createClient()
-    const [dutyRes, seenRes] = await Promise.all([
-      supabase.rpc('get_lineman_duty_status'),
-      supabase.from('lineman').select('profile_id, location_updated_at'),
-    ])
-
-    const map = {}
-    ;(dutyRes.data || []).forEach((d) => {
-      map[d.lineman_id] = { ...d }
-    })
-    ;(seenRes.data || []).forEach((s) => {
-      if (map[s.profile_id]) map[s.profile_id].location_updated_at = s.location_updated_at
-    })
-    setDutyById(map)
-  }
-
   async function handleToggleActive(userId, currentlyActive) {
     const supabase = createClient()
     const { error } = await supabase
@@ -253,88 +80,34 @@ export default function UsersPage() {
       return
     }
     toast.success(currentlyActive ? 'Account deactivated' : 'Account activated')
-    await loadEverything()
+    await reload()
     setSelectedLineman(null)
     setSelectedConsumer(null)
     setSelectedSupervisor(null)
   }
 
-  const term = searchText.trim().toLowerCase()
-  const matches = (...values) =>
-    !term ||
-    values
-      .filter(Boolean)
-      .join(' ')
-      .toLowerCase()
-      .includes(term)
+  const filteredLinemen = filterLinemen(linemen, {
+    areaFilter,
+    shiftFilter,
+    sortOrder,
+    searchText,
+  })
 
-  const filteredLinemen = linemen
-    .filter((l) => areaFilter === 'All Area Offices' || l.assigned_area_office === areaFilter)
-    .filter((l) => {
-      if (shiftFilter === 'All Shifts') return true
-      const shiftName = shiftFilter === 'Morning Duty' ? 'morning' : 'night'
-      return (l.schedule || []).some((shift) =>
-        shift.name?.toLowerCase().includes(shiftName)
-      )
-    })
-    .filter((l) =>
-      matches(
-        l.first_name,
-        l.last_name,
-        `${l.first_name} ${l.last_name}`,
-        l.email,
-        l.phone_number,
-        l.company_id_number,
-        l.assigned_area_office
-      )
-    )
-    .sort((a, b) =>
-      sortOrder === 'Name (A-Z)'
-        ? a.first_name.localeCompare(b.first_name)
-        : b.first_name.localeCompare(a.first_name)
-    )
+  const municipalityOptions = municipalityOptionsOf(consumers)
+  const barangayOptions = barangayOptionsOf(consumers)
 
-  const municipalityOptions = [...new Set(consumers.map((c) => c.municipality).filter(Boolean))].sort()
-  const barangayOptions = [...new Set(consumers.map((c) => c.barangay).filter(Boolean))].sort()
+  const filteredConsumers = filterConsumers(consumers, {
+    municipalityFilter,
+    barangayFilter,
+    sortOrder: consumerSortOrder,
+    searchText,
+  })
 
-  const filteredConsumers = consumers
-    .filter(
-      (c) =>
-        municipalityFilter === 'All Municipalities' || c.municipality === municipalityFilter
-    )
-    .filter((c) => barangayFilter === 'All Barangays' || c.barangay === barangayFilter)
-    .filter((c) =>
-      matches(
-        `${c.first_name} ${c.last_name}`,
-        c.email,
-        c.phone_number,
-        (c.accounts || []).join(' '),
-        c.zone,
-        c.barangay,
-        c.municipality
-      )
-    )
-    .sort((a, b) =>
-      consumerSortOrder === 'Name (A-Z)'
-        ? a.first_name.localeCompare(b.first_name)
-        : b.first_name.localeCompare(a.first_name)
-    )
-
-  const filteredSupervisors = supervisors
-    .filter((s) => {
-      if (supervisorAccessFilter === 'All Access') return true
-      if (supervisorAccessFilter === 'owner') return s.is_owner
-      if (supervisorAccessFilter === 'no_access') {
-        return !s.is_owner && (!s.feature_access || s.feature_access.length === 0)
-      }
-      return !s.is_owner && s.feature_access?.includes(supervisorAccessFilter)
-    })
-    .filter((s) => matches(`${s.first_name} ${s.last_name}`, s.email, s.phone_number))
-    .sort((a, b) =>
-      supervisorSortOrder === 'Name (A-Z)'
-        ? a.first_name.localeCompare(b.first_name)
-        : b.first_name.localeCompare(a.first_name)
-    )
+  const filteredSupervisors = filterSupervisors(supervisors, {
+    accessFilter: supervisorAccessFilter,
+    sortOrder: supervisorSortOrder,
+    searchText,
+  })
 
   const linemanPg = usePagination(filteredLinemen)
   const consumerPg = usePagination(filteredConsumers)
@@ -421,124 +194,78 @@ export default function UsersPage() {
       <Alert>{error}</Alert>
 
       {activeTab === 'lineman' ? (
-        <>
-          <PageHeader
-            title="Lineman Accounts"
-            description="Manage field personnel accounts under your cooperative."
-          />
-
-          <FilterBar className="flex flex-wrap items-center gap-3">
-            <SearchInput
-              className="flex-1 min-w-[200px]"
-              value={searchText}
-              onChange={(v) => {
-                setSearchText(v)
-                linemanPg.setPage(1)
-              }}
-              placeholder="Search name, email, contact number, company ID, area office…"
-            />
-            <FilterSelect
-              label="SORT"
-              value={sortOrder}
-              onChange={(value) => {
-                setSortOrder(value)
-                linemanPg.setPage(1)
-              }}
-            >
-              <option value="Name (A-Z)">Name (A-Z)</option>
-              <option value="Name (Z-A)">Name (Z-A)</option>
-            </FilterSelect>
-            <FilterMenu filters={linemanFilters} />
+        <UserListPanel
+          title="Lineman Accounts"
+          description="Manage field personnel accounts under your cooperative."
+          searchPlaceholder="Search name, email, contact number, company ID, area office…"
+          searchText={searchText}
+          onSearchChange={(v) => {
+            setSearchText(v)
+            linemanPg.setPage(1)
+          }}
+          sortValue={sortOrder}
+          onSortChange={(value) => {
+            setSortOrder(value)
+            linemanPg.setPage(1)
+          }}
+          filters={linemanFilters}
+          action={
             <Button dim={false} className="whitespace-nowrap" onClick={() => setShowCreateModal(true)}>
               + Create Lineman Account
             </Button>
-            <FilterChips filters={linemanFilters} />
-          </FilterBar>
-
-          <DataTable
-            columns={LINEMAN_COLUMNS}
-            loading={loading}
-            isEmpty={filteredLinemen.length === 0}
-            empty="No lineman accounts yet."
-            footer={!loading && <Pagination {...linemanPg.paginationProps} />}
-          >
-            {linemanPg.pageItems.map((l) => (
-              <LinemanRow key={l.id} lineman={l} duty={dutyById[l.id]} onSelect={setSelectedLineman} />
-            ))}
-          </DataTable>
-        </>
+          }
+          columns={LINEMAN_COLUMNS}
+          loading={loading}
+          isEmpty={filteredLinemen.length === 0}
+          emptyText="No lineman accounts yet."
+          paginationProps={linemanPg.paginationProps}
+        >
+          {linemanPg.pageItems.map((l) => (
+            <LinemanRow key={l.id} lineman={l} duty={dutyById[l.id]} onSelect={setSelectedLineman} />
+          ))}
+        </UserListPanel>
       ) : activeTab === 'consumer' ? (
-        <>
-          <PageHeader
-            title="Consumer Accounts"
-            description="View and manage consumer accounts under your cooperative."
-          />
-
-          <FilterBar className="flex flex-wrap items-center gap-3">
-            <SearchInput
-              className="flex-1 min-w-[200px]"
-              value={searchText}
-              onChange={(v) => {
-                setSearchText(v)
-                consumerPg.setPage(1)
-              }}
-              placeholder="Search name, email, contact number, account number, zone, barangay, municipality…"
-            />
-            <FilterSelect
-              label="SORT"
-              value={consumerSortOrder}
-              onChange={(value) => {
-                setConsumerSortOrder(value)
-                consumerPg.setPage(1)
-              }}
-            >
-              <option value="Name (A-Z)">Name (A-Z)</option>
-              <option value="Name (Z-A)">Name (Z-A)</option>
-            </FilterSelect>
-            <FilterMenu filters={consumerFilters} />
-            <FilterChips filters={consumerFilters} />
-          </FilterBar>
-
-          <DataTable
-            columns={CONSUMER_COLUMNS}
-            loading={loading}
-            isEmpty={filteredConsumers.length === 0}
-            empty="No consumer accounts yet."
-            footer={!loading && <Pagination {...consumerPg.paginationProps} />}
-          >
-            {consumerPg.pageItems.map((c) => (
-              <ConsumerRow key={c.id} consumer={c} onSelect={setSelectedConsumer} />
-            ))}
-          </DataTable>
-        </>
+        <UserListPanel
+          title="Consumer Accounts"
+          description="View and manage consumer accounts under your cooperative."
+          searchPlaceholder="Search name, email, contact number, account number, zone, barangay, municipality…"
+          searchText={searchText}
+          onSearchChange={(v) => {
+            setSearchText(v)
+            consumerPg.setPage(1)
+          }}
+          sortValue={consumerSortOrder}
+          onSortChange={(value) => {
+            setConsumerSortOrder(value)
+            consumerPg.setPage(1)
+          }}
+          filters={consumerFilters}
+          columns={CONSUMER_COLUMNS}
+          loading={loading}
+          isEmpty={filteredConsumers.length === 0}
+          emptyText="No consumer accounts yet."
+          paginationProps={consumerPg.paginationProps}
+        >
+          {consumerPg.pageItems.map((c) => (
+            <ConsumerRow key={c.id} consumer={c} onSelect={setSelectedConsumer} />
+          ))}
+        </UserListPanel>
       ) : (
-        <>
-          <PageHeader
-            title="Supervisor Accounts"
-            description="Manage other supervisor accounts and their feature access under your cooperative."
-          />
-
-          <FilterBar className="flex flex-wrap items-center gap-3">
-            <SearchInput
-              className="flex-1 min-w-[200px]"
-              value={searchText}
-              onChange={(v) => {
-                setSearchText(v)
-                supervisorPg.setPage(1)
-              }}
-              placeholder="Search name, email, or contact number…"
-            />
-            <FilterSelect
-              label="SORT"
-              value={supervisorSortOrder}
-              onChange={(value) => {
-                setSupervisorSortOrder(value)
-                supervisorPg.setPage(1)
-              }}
-            >
-              <option value="Name (A-Z)">Name (A-Z)</option>
-              <option value="Name (Z-A)">Name (Z-A)</option>
-            </FilterSelect>
+        <UserListPanel
+          title="Supervisor Accounts"
+          description="Manage other supervisor accounts and their feature access under your cooperative."
+          searchPlaceholder="Search name, email, or contact number…"
+          searchText={searchText}
+          onSearchChange={(v) => {
+            setSearchText(v)
+            supervisorPg.setPage(1)
+          }}
+          sortValue={supervisorSortOrder}
+          onSortChange={(value) => {
+            setSupervisorSortOrder(value)
+            supervisorPg.setPage(1)
+          }}
+          extraControls={
             <FilterSelect
               label="FILTER"
               value={supervisorAccessFilter}
@@ -552,9 +279,10 @@ export default function UsersPage() {
               <option value="dispatch">Dispatch</option>
               <option value="advisories">Advisories + Service Areas</option>
               <option value="faq">FAQ</option>
-              <option value="billing">Billing Requests</option>
               <option value="no_access">No Access</option>
             </FilterSelect>
+          }
+          action={
             <Button
               dim={false}
               className="whitespace-nowrap"
@@ -562,25 +290,22 @@ export default function UsersPage() {
             >
               + Create Supervisor Account
             </Button>
-          </FilterBar>
-
-          <DataTable
-            columns={SUPERVISOR_COLUMNS}
-            loading={loading}
-            isEmpty={filteredSupervisors.length === 0}
-            empty="No supervisor accounts yet."
-            footer={!loading && <Pagination {...supervisorPg.paginationProps} />}
-          >
-            {supervisorPg.pageItems.map((s) => (
-              <SupervisorRow
-                key={s.id}
-                supervisor={s}
-                currentUserId={currentUserId}
-                onSelect={setSelectedSupervisor}
-              />
-            ))}
-          </DataTable>
-        </>
+          }
+          columns={SUPERVISOR_COLUMNS}
+          loading={loading}
+          isEmpty={filteredSupervisors.length === 0}
+          emptyText="No supervisor accounts yet."
+          paginationProps={supervisorPg.paginationProps}
+        >
+          {supervisorPg.pageItems.map((s) => (
+            <SupervisorRow
+              key={s.id}
+              supervisor={s}
+              currentUserId={currentUserId}
+              onSelect={setSelectedSupervisor}
+            />
+          ))}
+        </UserListPanel>
       )}
 
       {showCreateModal && (
@@ -591,7 +316,7 @@ export default function UsersPage() {
           onClose={() => setShowCreateModal(false)}
           onCreated={() => {
             setShowCreateModal(false)
-            loadEverything()
+            reload()
           }}
         />
       )}
@@ -602,7 +327,7 @@ export default function UsersPage() {
           onClose={() => setShowCreateSupervisorModal(false)}
           onCreated={() => {
             setShowCreateSupervisorModal(false)
-            loadEverything()
+            reload()
           }}
         />
       )}
@@ -615,7 +340,7 @@ export default function UsersPage() {
           onToggleActive={handleToggleActive}
           onSaved={() => {
             setSelectedLineman(null)
-            loadEverything()
+            reload()
           }}
         />
       )}
@@ -636,7 +361,7 @@ export default function UsersPage() {
           onToggleActive={handleToggleActive}
           onSaved={() => {
             setSelectedSupervisor(null)
-            loadEverything()
+            reload()
           }}
         />
       )}
