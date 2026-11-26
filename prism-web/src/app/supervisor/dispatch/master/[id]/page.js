@@ -4,28 +4,21 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { reopenAssignment } from '@/lib/dispatch/reopenAssignment'
+import { loadJobAttempts } from '@/lib/dispatch/loadJobAttempts'
 import { PageLoading } from "@/components/ui/Skeleton";
 import { toast } from '@/lib/toast'
 import { issueLabel } from '@/lib/issueCodes'
 import TicketTabs, { TabDot } from '@/components/dispatch/TicketTabs'
 import ReportMap from '@/components/ui/ReportMap'
-import ReporterInfo from '@/components/dispatch/ReporterInfo'
-import MatchReviewCard from '@/components/dispatch/MatchReviewCard'
 import LinemanRecommendationPanel from '@/components/ui/LinemanRecommendationPanel'
-import QAReviewSection from '@/components/ui/QAReviewSection'
-import TicketDetailHeader from '@/components/dispatch/TicketDetailHeader'
-import TicketStatusPriority from '@/components/dispatch/TicketStatusPriority'
-import AssignedLinemanCard from '@/components/dispatch/AssignedLinemanCard'
-import JobOrderStatusLog from '@/components/dispatch/JobOrderStatusLog'
-import AttemptReviewCard from '@/components/dispatch/AttemptReviewCard'
 import LinemanDispatchedModal from '@/components/dispatch/LinemanDispatchedModal'
 import ResolveTicketBar from '@/components/dispatch/ResolveTicketBar'
 import ReopenTicketModal from '@/components/dispatch/ReopenTicketModal'
-import ReopenReasonNote from '@/components/dispatch/ReopenReasonNote'
 import Alert from '@/components/ui/Alert';
-import StageTimesCard from '@/components/dispatch/StageTimesCard'
 import StickyActionBar from '@/components/dispatch/StickyActionBar'
-import MasterAffectedConsumers from '@/components/dispatch/MasterAffectedConsumers'
+import MasterDetailsTab from '@/components/dispatch/master/MasterDetailsTab'
+import MasterJobTab from '@/components/dispatch/master/MasterJobTab'
+import MasterHistoryTab from '@/components/dispatch/master/MasterHistoryTab'
 
 export default function MasterTicketDetailPage() {
   const { id } = useParams()
@@ -53,7 +46,6 @@ export default function MasterTicketDetailPage() {
   const [dispatchedInfo, setDispatchedInfo] = useState(null)
   const [showReopenModal, setShowReopenModal] = useState(false)
   const [linemanDetailsOpen, setLinemanDetailsOpen] = useState(true)
-  const [showHistory, setShowHistory] = useState(false)
   const [tab, setTab] = useState(null)
 
   useEffect(() => {
@@ -177,59 +169,11 @@ export default function MasterTicketDetailPage() {
       setStatusLogs(logs || [])
     }
 
-    // Same "prior attempts" history pattern as the Report detail page and the
-    // Reopen Review page, so a reopened/QA-rejected master ticket keeps its
-    // full job order history visible here too.
+    // Same "prior attempts" history as the Report detail page and the Reopen
+    // Review page, so a reopened/QA-rejected master ticket keeps its full
+    // job order history visible here too.
     if (assignmentList.length > 1) {
-      const priorAssignments = assignmentList
-
-      const linemanIds = Array.from(new Set(priorAssignments.map((a) => a.lineman_id)))
-      let linemenMap = {}
-      if (linemanIds.length > 0) {
-        const { data } = await supabase
-          .from('users')
-          .select('id, first_name, last_name')
-          .in('id', linemanIds)
-        ;(data || []).forEach((u) => {
-          linemenMap[u.id] = `${u.first_name} ${u.last_name}`
-        })
-      }
-
-      const attempts = []
-      for (const [index, a] of priorAssignments.entries()) {
-        const { data: logs } = await supabase
-          .from('job_assignment_status_logs')
-          .select('*')
-          .eq('assignment_id', a.assignment_id)
-          .order('changed_at', { ascending: true })
-
-        const { data: review } = await supabase
-          .from('qa_reviews')
-          .select('*')
-          .eq('assignment_id', a.assignment_id)
-          .order('reviewed_at', { ascending: false })
-          .limit(1)
-          .maybeSingle()
-
-        let attemptPhotoUrl = null
-        if (a.photo_url) {
-          const { data: signedAttempt } = await supabase.storage
-            .from('assignment-proofs')
-            .createSignedUrl(a.photo_url, 3600)
-          if (signedAttempt) attemptPhotoUrl = signedAttempt.signedUrl
-        }
-
-        attempts.push({
-          ...a,
-          attemptNumber: index + 1,
-          isCurrent: index === assignmentList.length - 1,
-          linemanName: linemenMap[a.lineman_id] || 'Unknown',
-          logs: logs || [],
-          review,
-          photoUrl: attemptPhotoUrl,
-        })
-      }
-      setPastAttempts(attempts)
+      setPastAttempts(await loadJobAttempts(supabase, assignmentList))
     } else {
       setPastAttempts([])
     }
@@ -392,100 +336,35 @@ export default function MasterTicketDetailPage() {
           />
 
           {activeTab === 'details' && (
-            <>
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <TicketDetailHeader
-              ticketNumber={master.master_ticket}
-              reopened={!!master.reopened_at}
+            <MasterDetailsTab
+              master={master}
+              currentStatus={currentStatus}
+              masterIssues={masterIssues}
+              members={members}
+              memberCodes={memberCodes}
             />
-
-            <TicketStatusPriority status={currentStatus} priority={master.priority} />
-
-            <div className="text-sm">
-              <p className="text-xs text-gray-400">Location</p>
-              <p className="text-gray-900 font-medium">
-                {master.barangay}, {master.municipality}
-              </p>
-            </div>
-            {masterIssues.length > 0 && (
-              <div className="text-sm mt-3">
-                <p className="text-xs text-gray-400">Reported concerns</p>
-                <div className="flex flex-wrap gap-1.5 mt-1">
-                  {masterIssues.map(([label, n]) => (
-                    <span key={label} className="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded">
-                      {label} · {n}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-            <MasterAffectedConsumers members={members} codes={memberCodes} />
-
-            </>
           )}
 
           <Alert className="">{error}</Alert>
 
           {activeTab === 'job' && (
-            <>
-          {assignment?.reopen_reason && (
-            <ReopenReasonNote source={assignment.reopen_source} reason={assignment.reopen_reason} />
-          )}
-
-          {(assignment?.status === 'fixed' || assignment?.status === 'resolved') && (
-            <QAReviewSection
-              assignment={assignment}
+            <MasterJobTab
               masterId={id}
+              assignment={assignment}
+              assignedLinemanName={assignedLinemanName}
+              statusLogs={statusLogs}
+              linemanDetailsOpen={linemanDetailsOpen}
+              onToggleLinemanDetails={() => setLinemanDetailsOpen(!linemanDetailsOpen)}
               onReviewed={loadMaster}
-              actionPortalId="ticket-action-bar"
             />
           )}
 
-          {assignment && (
-            <AssignedLinemanCard
-              name={assignedLinemanName}
-              assignedAt={assignment.assigned_at}
-              expandable
-              expanded={linemanDetailsOpen}
-              onToggleExpand={() => setLinemanDetailsOpen(!linemanDetailsOpen)}
-            >
-              <JobOrderStatusLog logs={statusLogs} />
-            </AssignedLinemanCard>
-          )}
-            </>
-          )}
-
           {activeTab === 'history' && (
-            <>
-          <StageTimesCard masterId={id} key={assignment?.status || 'none'} />
-
-          {pastAttempts.length > 0 && (
-            <div>
-              <button
-                type="button"
-                onClick={() => setShowHistory(!showHistory)}
-                className="group flex items-center justify-between w-full bg-white rounded-xl border border-gray-200 px-5 py-4 text-xs font-bold text-gray-900 shadow-sm transition-colors hover:border-blue-200 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-600"
-              >
-                <span>Job Order History ({pastAttempts.length})</span>
-                <span className="inline-flex w-fit items-center gap-2 rounded-lg border border-gray-200 bg-white px-3.5 py-2 text-xs font-semibold text-gray-700 shadow-sm whitespace-nowrap group-hover:border-blue-200 group-hover:bg-blue-50 group-hover:text-blue-700">
-                  {showHistory ? 'Hide ▲' : 'View ▾'}
-                </span>
-              </button>
-              {showHistory && (
-                <div className="mt-4 space-y-4">
-                  {pastAttempts.map((a) => (
-                    <AttemptReviewCard key={a.assignment_id} attempt={a} />
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-          {pastAttempts.length === 0 && (
-            <p className="text-xs text-gray-400">No earlier attempts on this ticket.</p>
-          )}
-            </>
+            <MasterHistoryTab
+              masterId={id}
+              assignmentStatus={assignment?.status}
+              pastAttempts={pastAttempts}
+            />
           )}
 
           <StickyActionBar id="ticket-action-bar">
