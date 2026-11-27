@@ -1,4 +1,3 @@
-
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -9,63 +8,18 @@ import Button from '@/components/ui/Button'
 import Alert from '@/components/ui/Alert'
 import { PageLoading } from '@/components/ui/Skeleton'
 import { toast } from '@/lib/toast'
-
-const CLASSES = [
-  { key: 'residential', label: 'Residential', hint: 'Residential consumers' },
-  { key: 'low_voltage', label: 'Low Voltage', hint: 'Commercial, industrial, irrigation, public buildings, streetlights' },
-  { key: 'high_voltage', label: 'High Voltage', hint: 'Industrial and commercial' },
-]
-
-const MAX_PHOTO_MB = 5
-
-const INPUT =
-  'w-full px-3.5 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400'
-
-const monthLabel = (ym) =>
-  new Date(`${ym}-01T00:00:00`).toLocaleDateString('en-PH', {
-    month: 'long',
-    year: 'numeric',
-  })
-
-const peso = (n) => `₱${Number(n).toFixed(4)}`
-
-const toNum = (v) =>
-  v === '' || v == null || Number.isNaN(Number(v)) ? null : Number(v)
-
-const currentMonth = () => {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-}
-
-function emptyForm() {
-  return {
-    residential: { total: '', components: [] },
-    low_voltage: { total: '', components: [] },
-    high_voltage: { total: '', components: [] },
-  }
-}
-
-function Delta({ current, previous }) {
-  if (current == null || previous == null) return null
-
-  const diff = Math.round((current - previous) * 10000) / 10000
-
-  if (diff === 0) {
-    return (
-      <span className="text-xs text-gray-400">
-        No change from last month
-      </span>
-    )
-  }
-
-  const up = diff > 0
-
-  return (
-    <span className={`text-xs font-semibold ${up ? 'text-red-600' : 'text-green-600'}`}>
-      {up ? '▲' : '▼'} {peso(Math.abs(diff))} vs last month ({peso(previous)})
-    </span>
-  )
-}
+import RateClassCard from '@/components/billing/RateClassCard'
+import PowerRatesAdvisoryPopup from '@/components/billing/PowerRatesAdvisoryPopup'
+import {
+  RATE_CLASSES,
+  MAX_PHOTO_MB,
+  monthLabel,
+  toNum,
+  currentMonth,
+  emptyForm,
+  computeTotals,
+  buildAdvisoryDescription,
+} from '@/lib/billing/powerRates'
 
 export default function PowerRatesPanel() {
   const [coopId, setCoopId] = useState(null)
@@ -122,7 +76,7 @@ export default function PowerRatesPanel() {
   const previous = useMemo(() => {
     const out = {}
 
-    CLASSES.forEach((c) => {
+    RATE_CLASSES.forEach((c) => {
       out[c.key] =
         rows.find((r) => r.consumer_class === c.key && r.ym < month) || null
     })
@@ -137,7 +91,7 @@ export default function PowerRatesPanel() {
   useEffect(() => {
     const next = emptyForm()
 
-    CLASSES.forEach((c) => {
+    RATE_CLASSES.forEach((c) => {
       const existing = saved.find((r) => r.consumer_class === c.key)
 
       if (existing) {
@@ -166,51 +120,13 @@ export default function PowerRatesPanel() {
   }, [month, saved, previous])
 
   // Calculate totals from breakdown components
-  const totals = useMemo(() => {
-    const out = {}
-
-    CLASSES.forEach((c) => {
-      const filled = form[c.key].components.filter(
-        (x) => x.label.trim() && toNum(x.amount) != null
-      )
-
-      out[c.key] = filled.length
-        ? Math.round(
-            filled.reduce((s, x) => s + Number(x.amount), 0) * 10000
-          ) / 10000
-        : toNum(form[c.key].total)
-    })
-
-    return out
-  }, [form])
+  const totals = useMemo(() => computeTotals(form), [form])
 
   // Automatically generate advisory description
   useEffect(() => {
     if (descEdited) return
 
-    const lines = CLASSES.filter(
-      (c) => totals[c.key] != null
-    ).map((c) => {
-      const prev = previous[c.key]
-
-      let line = `${c.label} rate for ${monthLabel(month)} is ${peso(totals[c.key])}/kWh`
-
-      if (prev) {
-        const diff =
-          Math.round(
-            (totals[c.key] - Number(prev.total_rate)) * 10000
-          ) / 10000
-
-        line +=
-          diff === 0
-            ? `, unchanged from ${monthLabel(prev.ym)}`
-            : `, ${diff > 0 ? 'up' : 'down'} ${peso(Math.abs(diff))} from ${monthLabel(prev.ym)} (${peso(prev.total_rate)}/kWh)`
-      }
-
-      return line + '.'
-    })
-
-    setDescription(lines.join('\n'))
+    setDescription(buildAdvisoryDescription(totals, previous, month))
   }, [totals, previous, month, descEdited])
 
   function setTotal(cls, value) {
@@ -279,6 +195,12 @@ export default function PowerRatesPanel() {
     setPhotoFile(file)
   }
 
+  function closeAdvisory() {
+    setAdvisoryOpen(false)
+    setPost(false)
+    setError('')
+  }
+
   // Save power rates and optionally publish advisory
   async function handleSave(e) {
     e.preventDefault()
@@ -286,7 +208,7 @@ export default function PowerRatesPanel() {
 
     const payload = []
 
-    for (const c of CLASSES) {
+    for (const c of RATE_CLASSES) {
       const total = totals[c.key]
 
       if (total == null) continue
@@ -429,127 +351,19 @@ export default function PowerRatesPanel() {
       {/* Consumer Class Cards */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
 
-        {CLASSES.map((c) => {
-          const hasComponents = form[c.key].components.some(
-            (x) => x.label.trim() && toNum(x.amount) != null
-          )
-
-          return (
-            <Card key={c.key}>
-              <div className="mb-4">
-                <h3 className="text-base font-bold text-gray-900">
-                  {c.label}
-                </h3>
-
-                <p className="text-xs text-gray-400">
-                  {c.hint}
-                </p>
-              </div>
-
-              {/* Optional Breakdown */}
-              <div className="mb-4 space-y-3">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-wide text-gray-500">
-                    Breakdown{' '}
-                    <span className="font-normal normal-case text-gray-400">
-                      (optional)
-                    </span>
-                  </p>
-
-                  <p className="mt-1 text-xs text-gray-400">
-                    Add individual charges to calculate the total rate.
-                  </p>
-                </div>
-
-                {form[c.key].components.map((x, i) => (
-                  <div
-                    key={i}
-                    className="space-y-2 rounded-lg border border-gray-100 bg-gray-50 p-2"
-                  >
-                    <input
-                      value={x.label}
-                      maxLength={60}
-                      onChange={(e) =>
-                        setComponent(c.key, i, {
-                          label: e.target.value,
-                        })
-                      }
-                      placeholder="Charge name (e.g. Generation)"
-                      className={INPUT}
-                    />
-
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="number"
-                        step="0.0001"
-                        min="0"
-                        value={x.amount}
-                        onChange={(e) =>
-                          setComponent(c.key, i, {
-                            amount: e.target.value,
-                          })
-                        }
-                        placeholder="0.0000"
-                        className={`${INPUT} min-w-0 flex-1`}
-                      />
-
-                      <button
-                        type="button"
-                        onClick={() => removeComponent(c.key, i)}
-                        className="shrink-0 rounded-lg px-2 py-2 text-xs font-semibold text-red-600 hover:bg-red-50"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  </div>
-                ))}
-
-                <button
-                  type="button"
-                  onClick={() => addComponent(c.key)}
-                  className="text-sm font-medium text-blue-700 hover:text-blue-800"
-                >
-                  + Add charge
-                </button>
-              </div>
-
-              {/* Total Rate */}
-              <div className="border-t border-gray-100 pt-4">
-                <label className="block">
-                  <span className="mb-1 block text-xs font-bold uppercase tracking-wide text-gray-500">
-                    Total {hasComponents ? '(sum of breakdown)' : 'per kWh'}
-                  </span>
-
-                  <input
-                    type="number"
-                    step="0.0001"
-                    min="0"
-                    disabled={hasComponents}
-                    value={
-                      hasComponents
-                        ? totals[c.key] ?? ''
-                        : form[c.key].total
-                    }
-                    onChange={(e) => setTotal(c.key, e.target.value)}
-                    placeholder="0.0000"
-                    className={`${INPUT} disabled:opacity-70`}
-                  />
-                </label>
-
-                <div className="mt-3">
-                  <Delta
-                    current={totals[c.key]}
-                    previous={
-                      previous[c.key]
-                        ? Number(previous[c.key].total_rate)
-                        : null
-                    }
-                  />
-                </div>
-              </div>
-            </Card>
-          )
-        })}
+        {RATE_CLASSES.map((c) => (
+          <RateClassCard
+            key={c.key}
+            cls={c}
+            formClass={form[c.key]}
+            total={totals[c.key]}
+            previousRate={previous[c.key]}
+            setTotal={setTotal}
+            setComponent={setComponent}
+            addComponent={addComponent}
+            removeComponent={removeComponent}
+          />
+        ))}
 
       </div>
 
@@ -582,229 +396,20 @@ export default function PowerRatesPanel() {
 
       {/* Advisory Popup */}
       {advisoryOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-          onClick={(e) => {
-            if (e.target === e.currentTarget && !saving) {
-              setAdvisoryOpen(false)
-              setPost(false)
-              setError('')
-            }
-          }}
-        >
-          <div className="flex max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-xl bg-white shadow-2xl">
-
-            {/* Popup Header */}
-            <div className="flex items-center justify-between border-b border-gray-100 px-6 py-5">
-              <div>
-                <h2 className="text-lg font-bold text-gray-900">
-                  Post Power Rates Advisory
-                </h2>
-
-                <p className="mt-1 text-sm text-gray-500">
-                  Prepare the announcement for your consumers.
-                </p>
-              </div>
-
-              <button
-                type="button"
-                disabled={saving}
-                onClick={() => {
-                  setAdvisoryOpen(false)
-                  setPost(false)
-                  setError('')
-                }}
-                className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
-                aria-label="Close advisory popup"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                >
-                  <path d="M18 6 6 18M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            {/* Popup Content */}
-            <div className="space-y-5 overflow-y-auto p-6">
-
-              {error && <Alert>{error}</Alert>}
-
-              {/* Title */}
-              <label className="block">
-                <span className="mb-1.5 block text-sm font-semibold text-gray-700">
-                  Advisory Title
-                </span>
-
-                <input
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="Enter advisory title"
-                  className={INPUT}
-                  maxLength={150}
-                />
-              </label>
-
-              {/* Description */}
-              <label className="block">
-                <span className="mb-1.5 block text-sm font-semibold text-gray-700">
-                  Description
-                </span>
-
-                <textarea
-                  rows={5}
-                  value={description}
-                  onChange={(e) => {
-                    setDescription(e.target.value)
-                    setDescEdited(true)
-                  }}
-                  placeholder="Write the advisory details..."
-                  className={`${INPUT} resize-y`}
-                />
-
-                {descEdited && (
-                  <button
-                    type="button"
-                    onClick={() => setDescEdited(false)}
-                    className="mt-2 text-xs font-medium text-blue-700 hover:underline"
-                  >
-                    Rewrite from the rates above
-                  </button>
-                )}
-              </label>
-
-              {/* Poster Attachment */}
-              <div>
-                <div className="mb-2">
-                  <span className="block text-sm font-semibold text-gray-700">
-                    Advisory Poster{' '}
-                    <span className="font-normal text-gray-400">
-                      (Optional)
-                    </span>
-                  </span>
-
-                  <p className="mt-1 text-xs text-gray-500">
-                    Upload an image to accompany your power rates announcement.
-                  </p>
-                </div>
-
-                <label
-                  htmlFor="advisory-poster"
-                  className="group flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 px-5 py-8 text-center transition-colors hover:border-blue-400 hover:bg-blue-50/50"
-                >
-                  <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-blue-100 text-blue-600 transition-colors group-hover:bg-blue-200">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="24"
-                      height="24"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.8"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <rect x="3" y="3" width="18" height="18" rx="2" />
-                      <circle cx="8.5" cy="8.5" r="1.5" />
-                      <path d="m21 15-5-5L5 21" />
-                    </svg>
-                  </div>
-
-                  <span className="text-sm font-semibold text-gray-700">
-                    {photoFile
-                      ? 'Change poster image'
-                      : 'Click to upload a poster'}
-                  </span>
-
-                  <span className="mt-1 text-xs text-gray-500">
-                    JPG or PNG · Maximum file size: {MAX_PHOTO_MB} MB
-                  </span>
-
-                  <input
-                    id="advisory-poster"
-                    type="file"
-                    accept="image/jpeg,image/png"
-                    onChange={handlePhoto}
-                    className="hidden"
-                  />
-                </label>
-
-                {/* Selected File */}
-                {photoFile && (
-                  <div className="mt-3 flex items-center justify-between gap-3 rounded-lg border border-gray-200 bg-white p-3">
-                    <div className="flex min-w-0 items-center gap-3">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="20"
-                          height="20"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="1.8"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <rect x="3" y="3" width="18" height="18" rx="2" />
-                          <circle cx="8.5" cy="8.5" r="1.5" />
-                          <path d="m21 15-5-5L5 21" />
-                        </svg>
-                      </div>
-
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-gray-800">
-                          {photoFile.name}
-                        </p>
-
-                        <p className="text-xs text-gray-400">
-                          {(photoFile.size / 1024 / 1024).toFixed(2)} MB
-                        </p>
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => setPhotoFile(null)}
-                      className="shrink-0 rounded-md px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-50"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                )}
-              </div>
-
-            </div>
-
-            {/* Popup Footer */}
-            <div className="flex flex-wrap justify-end gap-3 border-t border-gray-100 bg-gray-50 px-6 py-4">
-
-              <button
-                type="button"
-                onClick={() => {
-                  setAdvisoryOpen(false)
-                  setPost(false)
-                  setError('')
-                }}
-                disabled={saving}
-                className="rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
-              >
-                Cancel
-              </button>
-
-              <Button type="submit" disabled={saving}>
-                {saving ? 'Publishing…' : 'Save and Publish'}
-              </Button>
-
-            </div>
-          </div>
-        </div>
+        <PowerRatesAdvisoryPopup
+          error={error}
+          saving={saving}
+          title={title}
+          setTitle={setTitle}
+          description={description}
+          setDescription={setDescription}
+          descEdited={descEdited}
+          setDescEdited={setDescEdited}
+          photoFile={photoFile}
+          setPhotoFile={setPhotoFile}
+          onPhoto={handlePhoto}
+          onClose={closeAdvisory}
+        />
       )}
 
     </form>
