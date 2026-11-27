@@ -5,15 +5,12 @@ import { createClient } from '@/lib/supabase/client'
 
 const PermissionsContext = createContext(null)
 
-// Every restricted page, matched by path prefix so sub-pages are covered too
-// (e.g. /supervisor/dispatch/report/123 follows /supervisor/dispatch).
-// Pages not listed here (Dashboard, profile) are open to every Supervisor.
 const PAGE_RULES = [
   { prefix: '/supervisor/users', label: 'Users', ownerOnly: true },
   { prefix: '/supervisor/billing', label: 'Billing Integration', ownerOnly: true },
   { prefix: '/supervisor/dispatch', label: 'Dispatch', feature: 'dispatch' },
-  { prefix: '/supervisor/lineman-performance', label: 'Lineman Performance', feature: 'dispatch' },
   { prefix: '/supervisor/reports', label: 'Reports', feature: 'dispatch' },
+  { prefix: '/supervisor/lineman-performance', label: 'Lineman Performance', feature: 'dispatch' },
   { prefix: '/supervisor/advisories', label: 'Advisories', feature: 'advisories' },
   { prefix: '/supervisor/service-areas', label: 'Service Areas', feature: 'advisories' },
   { prefix: '/supervisor/faq', label: 'FAQ', feature: 'faq' },
