@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { formatLastSeen } from '@/lib/lineman/duty'
+import { shiftBadge } from '@/lib/lineman/shiftInfo'
 import { useStatusLabels } from '@/lib/workflow/StatusLabelsContext'
 import Avatar from '@/components/ui/Avatar'
 import Alert from '@/components/ui/Alert'
@@ -53,10 +54,16 @@ export default function LinemanRecommendationPanel({
   onBack,
   assigning,
   compact = false,
+  title = 'Smart Dispatch Recommendation',
+  assignLabel = 'Assign Selected Lineman',
+  excludeLinemanId = null,
+  shiftInfo = null,
+  requireReason = false,
 }) {
   const [selectedId, setSelectedId] = useState(null)
+  const [reason, setReason] = useState('')
   const { priorityLevels, priorityLabel } = useStatusLabels()
-  const [confirmed, setConfirmed] = useState(false)
+  const [confirmed, setConfirmed] = useState(requireReason)
   const [showAll, setShowAll] = useState(false)
   const hasPriority = Boolean(priority)
   const priorityReady = hasPriority && confirmed
@@ -64,6 +71,7 @@ export default function LinemanRecommendationPanel({
   // Scores are computed in the database (score_lineman_candidates).
   // This panel only displays them.
   const ranked = linemen
+    .filter((l) => l.lineman_id !== excludeLinemanId)
     .map((l) => ({ ...l, eta: estimateEtaMinutes(l.distance_meters) }))
     .sort((a, b) => tier(b) - tier(a) || b.total_score - a.total_score)
 
@@ -84,7 +92,7 @@ export default function LinemanRecommendationPanel({
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-6 pb-0 h-full overflow-y-auto">
       <h1 className="text-lg font-bold text-gray-900 mb-4">
-        Smart Dispatch Recommendation
+        {title}
       </h1>
 
       <div className="mb-4">
@@ -216,6 +224,12 @@ export default function LinemanRecommendationPanel({
                           OFF SCHEDULE
                         </span>
                       )}
+                      {(() => {
+                        const b = shiftInfo && shiftBadge(shiftInfo[l.lineman_id])
+                        if (!b || b.text === 'OFF SCHEDULE') return null
+                        const tone = b.tone === 'amber' ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'
+                        return <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${tone}`}>{b.text}</span>
+                      })()}
                     </div>
                   </div>
                 </div>
@@ -289,6 +303,14 @@ export default function LinemanRecommendationPanel({
       )}
 
       <div className="sticky bottom-0 z-10 -mx-6 rounded-xl bg-white px-9 pt-3">
+        {requireReason && (
+          <div className="mb-3">
+            <label className="block text-xs font-bold tracking-wide text-gray-600 mb-1.5">REASON FOR TRANSFER</label>
+            <textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={2} maxLength={500}
+              placeholder="e.g. Shift ends soon and the repair is not finished"
+              className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm placeholder-gray-400" />
+          </div>
+        )}
         {selected && !selected.is_available && (
           <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 mb-3">
             {availabilityNote(selected)}
@@ -297,11 +319,11 @@ export default function LinemanRecommendationPanel({
 
         <div className="space-y-2 pb-1">
           <button
-            onClick={() => selectedId && onAssign(selectedId)}
-            disabled={!selectedId || !priorityReady || assigning}
+            onClick={() => selectedId && onAssign(selectedId, reason.trim())}
+            disabled={!selectedId || !priorityReady || assigning || (requireReason && !reason.trim())}
             className="w-full bg-blue-700 hover:bg-blue-800 disabled:opacity-50 text-white font-semibold text-sm py-3 rounded-lg transition-colors"
           >
-            {assigning ? 'Assigning…' : 'Assign Selected Lineman'}
+            {assigning ? 'Assigning…' : assignLabel}
           </button>
           <button
             onClick={onBack}

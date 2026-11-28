@@ -1,3 +1,4 @@
+
 'use client'
 
 import { createPortal } from 'react-dom'
@@ -13,6 +14,7 @@ import ReasonBox from '@/components/ui/ReasonBox'
 import ProofLocationBadge from '@/components/dispatch/ProofLocationBadge'
 import VideoDropdown from '@/components/dispatch/VideoDropdown'
 import StickyActionBar from '@/components/dispatch/StickyActionBar'
+import ReopenLinemanSelect from '@/components/dispatch/ReopenLinemanSelect'
 
 // issueCode and proofLocationConsistent are optional (single reports only).
 // A Master Ticket has several reports, so the page leaves them out.
@@ -32,6 +34,7 @@ export default function QAReviewSection({
   const [loading, setLoading] = useState(true)
   const [showRejectBox, setShowRejectBox] = useState(false)
   const [remarks, setRemarks] = useState('')
+  const [rejectLinemanId, setRejectLinemanId] = useState(null)
   const [error, setError] = useState('')
   const [actionLoading, setActionLoading] = useState(false)
   const [actionTarget, setActionTarget] = useState(null)
@@ -109,6 +112,7 @@ export default function QAReviewSection({
       setError('Please provide remarks explaining the rejection.')
       return
     }
+
     setActionLoading(true)
     setError('')
     const supabase = createClient()
@@ -131,13 +135,12 @@ export default function QAReviewSection({
       return
     }
 
-    // Sends the job back to the lineman as a fresh cycle — same pattern
-    // as a formal reopen request — so this rejected attempt stays intact
-    // as history instead of being overwritten.
+    // Sends the job back to the selected lineman as a fresh cycle.
+    // The rejected attempt stays intact as history instead of being overwritten.
     const { error: reopenError } = await reopenAssignment({
       reportId,
       masterId,
-      linemanId: assignment.lineman_id,
+      linemanId: rejectLinemanId || assignment.lineman_id,
       reason: remarks.trim(),
       source: 'qa_rejection',
     })
@@ -173,15 +176,24 @@ export default function QAReviewSection({
       </Button>
     </div>
   ) : (
-    <ReasonBox
-      value={remarks}
-      onChange={setRemarks}
-      placeholder="Explain what needs to be corrected…"
-      confirmLabel={actionLoading ? 'Submitting…' : 'Confirm Rejection'}
-      onConfirm={handleReject}
-      onCancel={() => setShowRejectBox(false)}
-      loading={actionLoading}
-    />
+    <>
+      <ReopenLinemanSelect
+        className="mb-4"
+        originalLinemanId={assignment.lineman_id}
+        value={rejectLinemanId}
+        onChange={setRejectLinemanId}
+      />
+
+      <ReasonBox
+        value={remarks}
+        onChange={setRemarks}
+        placeholder="Explain what needs to be corrected…"
+        confirmLabel={actionLoading ? 'Submitting…' : 'Confirm Rejection'}
+        onConfirm={handleReject}
+        onCancel={() => setShowRejectBox(false)}
+        loading={actionLoading}
+      />
+    </>
   )
 
   return (

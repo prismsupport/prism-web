@@ -1,9 +1,12 @@
+
 'use client'
 
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { reopenAssignment } from '@/lib/dispatch/reopenAssignment'
+import { transferAssignment } from '@/lib/dispatch/transferAssignment'
+import { loadShiftInfo } from '@/lib/lineman/shiftInfo'
 import { loadJobAttempts } from '@/lib/dispatch/loadJobAttempts'
 import { PageLoading } from "@/components/ui/Skeleton";
 import { toast } from '@/lib/toast'
@@ -37,6 +40,8 @@ export default function MasterTicketDetailPage() {
   const [error, setError] = useState('')
 
   const [showAssignPanel, setShowAssignPanel] = useState(false)
+  const [panelMode, setPanelMode] = useState('assign') // 'assign' | 'transfer'
+  const [shiftInfo, setShiftInfo] = useState({})
   const [linemen, setLinemen] = useState([])
   const [linemenLoading, setLinemenLoading] = useState(false)
   const [linemenError, setLinemenError] = useState('')
@@ -181,24 +186,54 @@ export default function MasterTicketDetailPage() {
     setLoading(false)
   }
 
-  async function handleOpenAssignPanel() {
+  async function handleOpenAssignPanel(mode = 'assign') {
+    setPanelMode(mode)
     setShowAssignPanel(true)
     setLinemenLoading(true)
     setLinemenError('')
     const supabase = createClient()
-    const { data, error: rpcError } = await supabase.rpc(
-  'get_lineman_recommendations_by_location',
-  {
-    p_lat: master._lat,
-    p_lng: master._lng,
-    p_cooperative_id: cooperativeId,
-    p_barangay: master.barangay,
-    p_municipality: master.municipality,
-  }
-)
+    const [{ data, error: rpcError }, shifts] = await Promise.all([
+      supabase.rpc('get_lineman_recommendations_by_location', {
+        p_lat: master._lat,
+        p_lng: master._lng,
+        p_cooperative_id: cooperativeId,
+        p_barangay: master.barangay,
+        p_municipality: master.municipality,
+      }),
+      loadShiftInfo(supabase),
+    ])
     if (rpcError) setLinemenError(rpcError.message)
     setLinemen(data || [])
+    setShiftInfo(shifts)
     setLinemenLoading(false)
+  }
+
+  async function handleTransferLineman(linemanId, reason) {
+    if (!assignment?.assignment_id) {
+      const message = 'No active assignment was found to transfer.'
+      toast.error(message)
+      setLinemenError(message)
+      return
+    }
+
+    setAssigning(true)
+    setLinemenError('')
+    const { error: transferError } = await transferAssignment({
+      assignmentId: assignment.assignment_id,
+      newLinemanId: linemanId,
+      reason,
+    })
+    setAssigning(false)
+
+    if (transferError) {
+      toast.error(transferError)
+      setLinemenError(transferError)
+      return
+    }
+
+    toast.success('Job order transferred')
+    setShowAssignPanel(false)
+    loadMaster()
   }
 
   async function handlePriorityChange(newPriority) {
@@ -267,10 +302,10 @@ export default function MasterTicketDetailPage() {
   }
 
   // Called by the Re-open dialog. Returns an error message, or null on success.
-  async function handleReopen(reason) {
+  async function handleReopen(reason, linemanId) {
     const { error: reopenError } = await reopenAssignment({
       masterId: id,
-      linemanId: assignment.lineman_id,
+      linemanId: linemanId || assignment.lineman_id,
       reason,
       source: 'supervisor',
     })
@@ -322,9 +357,14 @@ export default function MasterTicketDetailPage() {
           error={linemenError}
           priority={master.priority}
           onPriorityChange={handlePriorityChange}
-          onAssign={handleAssignLineman}
+          onAssign={panelMode === 'transfer' ? handleTransferLineman : handleAssignLineman}
           onBack={() => setShowAssignPanel(false)}
           assigning={assigning}
+          title={panelMode === 'transfer' ? 'Transfer Job Order' : 'Smart Dispatch Recommendation'}
+          assignLabel={panelMode === 'transfer' ? 'Transfer to Selected Lineman' : 'Assign Selected Lineman'}
+          excludeLinemanId={panelMode === 'transfer' ? assignment?.lineman_id : null}
+          requireReason={panelMode === 'transfer'}
+          shiftInfo={shiftInfo}
         />
       ) : (
         <div className="overflow-y-auto space-y-4">
@@ -370,10 +410,19 @@ export default function MasterTicketDetailPage() {
           <StickyActionBar id="ticket-action-bar">
           {!assignment && (
             <button
-              onClick={handleOpenAssignPanel}
+              onClick={() => handleOpenAssignPanel('assign')}
               className="w-full bg-blue-700 hover:bg-blue-800 text-white font-semibold text-sm py-3 rounded-lg transition-colors"
             >
               Assign Lineman
+            </button>
+          )}
+
+          {assignment && ['assigned', 'on_the_way', 'arrived_at_site', 'in_progress'].includes(assignment.status) && (
+            <button
+              onClick={() => handleOpenAssignPanel('transfer')}
+              className="w-full bg-white hover:bg-gray-50 text-gray-700 font-semibold text-sm py-3 rounded-lg border border-gray-200 transition-colors"
+            >
+              Transfer Job
             </button>
           )}
 
@@ -385,6 +434,7 @@ export default function MasterTicketDetailPage() {
       {showReopenModal && (
         <ReopenTicketModal
           ticketLabel={master.master_ticket}
+          originalLinemanId={assignment?.lineman_id}
           onConfirm={handleReopen}
           onClose={() => setShowReopenModal(false)}
         />

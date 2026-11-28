@@ -70,6 +70,7 @@ function DispatchContent() {
   const [threshold, setThreshold] = useState(30);
   const [target, setTarget] = useState(null); // resolution target, minutes (null = not set)
   const [overdueTickets, setOverdueTickets] = useState([]);
+  const [shiftJobs, setShiftJobs] = useState([]);
   const { isUnread, markNotificationRead } = useUnreadSupervisorNotifications([
     "reports",
   ]);
@@ -121,8 +122,16 @@ function DispatchContent() {
     setCooperativeId(coopId);
 
     // Everything below only needs coopId, so fetch it all at the same time.
-    const [settingsRes, reportsRes, mastersRes, clustersRes, joinsRes, reopenRes, overdueRes] =
-      await Promise.all([
+    const [
+      settingsRes,
+      reportsRes,
+      mastersRes,
+      clustersRes,
+      joinsRes,
+      reopenRes,
+      overdueRes,
+      shiftJobsRes,
+    ] = await Promise.all([
         supabase
           .from("cooperative_settings")
           .select("response_time_threshold_minutes, resolution_target_minutes")
@@ -149,6 +158,9 @@ function DispatchContent() {
           .eq("status", "pending"),
         // Response Time Monitoring — checks + fires overdue notifications as a side effect
         supabase.rpc("check_response_time_overdue", { p_cooperative_id: coopId }),
+
+        // Checks for jobs affected by an approaching shift end.
+        supabase.rpc("check_shift_ending_jobs", { p_cooperative_id: coopId }),
       ]);
 
     const coop = settingsRes.data;
@@ -214,6 +226,11 @@ function DispatchContent() {
 
     if (overdueRes.error) setError((prev) => prev || overdueRes.error.message);
     setOverdueTickets(overdueRes.data || []);
+
+    if (shiftJobsRes.error) {
+      setError((prev) => prev || shiftJobsRes.error.message);
+    }
+    setShiftJobs(shiftJobsRes.data || []);
 
     // Recurring issues: last 30 days of reports (including those inside Master Tickets)
     setRecentIssueReports(await loadRecentIssueReports(supabase, coopId));
@@ -358,6 +375,7 @@ function DispatchContent() {
 
       <DispatchAlerts
         overdueTickets={overdueTickets}
+        shiftJobs={shiftJobs}
         threshold={threshold}
         reopenRequests={reopenRequests}
         clusters={clusters}

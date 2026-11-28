@@ -1,3 +1,4 @@
+
 'use client'
 
 import { useEffect, useState } from 'react'
@@ -6,6 +7,8 @@ import { createClient } from '@/lib/supabase/client'
 import { recurringSinceIso } from '@/lib/recurring'
 import { reopenAssignment } from '@/lib/dispatch/reopenAssignment'
 import { loadJobAttempts } from '@/lib/dispatch/loadJobAttempts'
+import { transferAssignment } from '@/lib/dispatch/transferAssignment'
+import { loadShiftInfo } from '@/lib/lineman/shiftInfo'
 import { PageLoading } from "@/components/ui/Skeleton";
 import { toast } from '@/lib/toast'
 import TicketTabs, { TabDot } from '@/components/dispatch/TicketTabs'
@@ -41,6 +44,8 @@ export default function ReportReviewPage() {
   const [recurringCount, setRecurringCount] = useState(0)
 
   const [showAssignPanel, setShowAssignPanel] = useState(false)
+  const [panelMode, setPanelMode] = useState('assign') // 'assign' | 'transfer'
+  const [shiftInfo, setShiftInfo] = useState({})
   const [linemen, setLinemen] = useState([])
   const [linemenLoading, setLinemenLoading] = useState(false)
   const [linemenError, setLinemenError] = useState('')
@@ -154,17 +159,39 @@ export default function ReportReviewPage() {
     setLoading(false)
   }
 
-  async function handleOpenAssignPanel() {
+  async function handleOpenAssignPanel(mode = 'assign') {
+    setPanelMode(mode)
     setShowAssignPanel(true)
     setLinemenLoading(true)
     setLinemenError('')
     const supabase = createClient()
-    const { data, error: rpcError } = await supabase.rpc('get_lineman_recommendations', {
-      p_report_id: id,
-    })
+    const [{ data, error: rpcError }, shifts] = await Promise.all([
+      supabase.rpc('get_lineman_recommendations', { p_report_id: id }),
+      loadShiftInfo(supabase),
+    ])
     if (rpcError) setLinemenError(rpcError.message)
     setLinemen(data || [])
+    setShiftInfo(shifts)
     setLinemenLoading(false)
+  }
+
+  async function handleTransferLineman(linemanId, reason) {
+    setAssigning(true)
+    setLinemenError('')
+    const { error: transferError } = await transferAssignment({
+      assignmentId: assignment.assignment_id,
+      newLinemanId: linemanId,
+      reason,
+    })
+    setAssigning(false)
+    if (transferError) {
+      toast.error(transferError)
+      setLinemenError(transferError)
+      return
+    }
+    toast.success('Job order transferred')
+    setShowAssignPanel(false)
+    loadReport()
   }
 
   async function handlePriorityChange(newPriority) {
@@ -251,10 +278,10 @@ export default function ReportReviewPage() {
   }
 
   // Called by the Re-open dialog. Returns an error message, or null on success.
-  async function handleReopen(reason) {
+  async function handleReopen(reason, linemanId) {
     const { error: reopenError } = await reopenAssignment({
       reportId: id,
-      linemanId: assignment.lineman_id,
+      linemanId: linemanId || assignment.lineman_id,
       reason,
       source: 'supervisor',
     })
@@ -314,7 +341,12 @@ export default function ReportReviewPage() {
           error={linemenError}
           priority={report.priority}
           onPriorityChange={handlePriorityChange}
-          onAssign={handleAssignLineman}
+          onAssign={panelMode === 'transfer' ? handleTransferLineman : handleAssignLineman}
+          title={panelMode === 'transfer' ? 'Transfer Job Order' : 'Smart Dispatch Recommendation'}
+          assignLabel={panelMode === 'transfer' ? 'Transfer to Selected Lineman' : 'Assign Selected Lineman'}
+          excludeLinemanId={panelMode === 'transfer' ? assignment?.lineman_id : null}
+          requireReason={panelMode === 'transfer'}
+          shiftInfo={shiftInfo}
           onBack={() => setShowAssignPanel(false)}
           assigning={assigning}
           compact={!showMap}
@@ -377,7 +409,9 @@ export default function ReportReviewPage() {
             isPending={isPending}
             assignmentStatus={assignment?.status}
             actionLoading={actionLoading}
-            onAssign={handleOpenAssignPanel}
+            onAssign={() => handleOpenAssignPanel('assign')}
+            canTransfer={!!assignment && ['assigned', 'on_the_way', 'arrived_at_site', 'in_progress'].includes(assignment.status)}
+            onTransfer={() => handleOpenAssignPanel('transfer')}
             onDecline={() => setShowDeclineModal(true)}
             onReopen={() => setShowReopenModal(true)}
           />
@@ -397,6 +431,7 @@ export default function ReportReviewPage() {
       {showReopenModal && (
         <ReopenTicketModal
           ticketLabel={report.ticket_number}
+          originalLinemanId={assignment?.lineman_id}
           onConfirm={handleReopen}
           onClose={() => setShowReopenModal(false)}
         />

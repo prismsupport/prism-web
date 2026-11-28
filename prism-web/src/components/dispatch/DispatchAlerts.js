@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -5,6 +6,7 @@ import Link from "next/link";
 
 const GROUPS = {
   overdue: { label: "Response Time Exceeded", badge: "bg-red-600 text-white" },
+  shiftEnding: { label: "Shift Ending Jobs", badge: "bg-orange-100 text-orange-800" },
   reopen: { label: "Reopen Requests", badge: "bg-amber-100 text-amber-800" },
   clusters: { label: "Possible Duplicates", badge: "bg-blue-100 text-blue-800" },
   joins: { label: "Possible Matches", badge: "bg-purple-100 text-purple-800" },
@@ -24,10 +26,26 @@ function Row({ text, href, buttonLabel }) {
   );
 }
 
-// A slim summary bar. Each chip opens a short scrollable list, so alerts
-// never push the ticket table off the screen.
+function getShiftReason(reason) {
+  switch (reason) {
+    case "transfer_requested":
+      return "Transfer requested";
+
+    case "off_schedule":
+      return "Lineman is off schedule";
+
+    case "shift_ending":
+      return "Shift is ending";
+
+    default:
+      return "Job needs attention";
+  }
+}
+
+// A slim summary bar. Each chip opens a short scrollable list.
 export default function DispatchAlerts({
   overdueTickets,
+  shiftJobs = [],
   threshold,
   reopenRequests,
   clusters,
@@ -37,15 +55,16 @@ export default function DispatchAlerts({
 
   const counts = {
     overdue: overdueTickets.length,
+    shiftEnding: shiftJobs.length,
     reopen: reopenRequests.length,
     clusters: clusters.length,
     joins: joinGroups.length,
   };
+
   const visible = Object.keys(GROUPS).filter((k) => counts[k] > 0);
   if (visible.length === 0) return null;
 
   const total = visible.reduce((sum, k) => sum + counts[k], 0);
-  // Red when a ticket is waiting past the response time threshold, amber otherwise
   const urgent = counts.overdue > 0;
 
   return (
@@ -69,6 +88,7 @@ export default function DispatchAlerts({
               }`}
             />
           </span>
+
           <div>
             <p
               className={`text-base font-extrabold tracking-wide uppercase ${
@@ -77,7 +97,9 @@ export default function DispatchAlerts({
             >
               {total} {total === 1 ? "item needs" : "items need"} your attention
             </p>
-            <p className="text-xs text-gray-600">Select a category below to review it.</p>
+            <p className="text-xs text-gray-600">
+              Select a category below to review it.
+            </p>
           </div>
         </div>
 
@@ -89,13 +111,19 @@ export default function DispatchAlerts({
               onClick={() => setOpen(open === key ? null : key)}
               aria-expanded={open === key}
               className={`flex items-center gap-2 rounded-lg border bg-white px-3 py-2 text-sm font-semibold text-gray-800 shadow-sm transition-colors hover:bg-gray-50 ${
-                open === key ? "border-gray-900 ring-1 ring-gray-900" : "border-gray-300"
+                open === key
+                  ? "border-gray-900 ring-1 ring-gray-900"
+                  : "border-gray-300"
               }`}
             >
-              <span className={`rounded-md px-1.5 text-sm font-bold tabular-nums ${GROUPS[key].badge}`}>
+              <span
+                className={`rounded-md px-1.5 text-sm font-bold tabular-nums ${GROUPS[key].badge}`}
+              >
                 {counts[key]}
               </span>
+
               {GROUPS[key].label}
+
               <span aria-hidden="true" className="text-xs text-gray-500">
                 {open === key ? "▲" : "▼"}
               </span>
@@ -106,14 +134,19 @@ export default function DispatchAlerts({
 
       {open && counts[open] > 0 && (
         <div className="max-h-56 divide-y divide-gray-100 overflow-y-auto border-t-2 border-inherit bg-white">
+
+          {/* RESPONSE TIME EXCEEDED */}
           {open === "overdue" &&
             overdueTickets.map((o) => (
               <Row
                 key={o.ticket_id}
                 text={
                   <>
-                    <span className="font-medium">{o.ticket_number}</span> unassigned for{" "}
-                    <span className="font-semibold text-red-600">{o.minutes_elapsed} min</span>{" "}
+                    <span className="font-medium">{o.ticket_number}</span>{" "}
+                    unassigned for{" "}
+                    <span className="font-semibold text-red-600">
+                      {o.minutes_elapsed} min
+                    </span>{" "}
                     (threshold: {threshold} min)
                   </>
                 }
@@ -126,14 +159,61 @@ export default function DispatchAlerts({
               />
             ))}
 
+          {/* SHIFT ENDING JOBS */}
+          {open === "shiftEnding" &&
+            shiftJobs.map((job) => (
+              <Row
+                key={job.assignment_id}
+                text={
+                  <div className="space-y-1">
+                    <p>
+                      <span className="font-semibold text-gray-900">
+                        {job.ticket_number}
+                      </span>
+                      {" — "}
+                      <span className="font-medium text-orange-700">
+                        {getShiftReason(job.reason)}
+                      </span>
+                    </p>
+
+                    <p className="text-sm text-gray-600">
+                      Lineman:{" "}
+                      <span className="font-medium">{job.lineman_name}</span>
+                    </p>
+
+                    <p className="text-xs text-gray-500">
+                      Job status: {job.job_status?.replaceAll("_", " ")}
+                      {job.minutes_left != null &&
+                        ` • ${job.minutes_left} minutes left`}
+                    </p>
+
+                    {job.transfer_note && (
+                      <p className="text-sm text-gray-600 italic">
+                        Transfer note: {job.transfer_note}
+                      </p>
+                    )}
+                  </div>
+                }
+                href={
+                  job.ticket_kind === "master"
+                    ? `/supervisor/dispatch/master/${job.ticket_id}`
+                    : `/supervisor/dispatch/report/${job.ticket_id}`
+                }
+                buttonLabel="Review Job"
+              />
+            ))}
+
+          {/* REOPEN REQUESTS */}
           {open === "reopen" &&
             reopenRequests.map((r) => (
               <Row
                 key={r.reopen_id}
                 text={
                   <>
-                    <span className="font-medium">{r.reports?.ticket_number}</span>: consumer
-                    requested this resolved ticket be reopened
+                    <span className="font-medium">
+                      {r.reports?.ticket_number}
+                    </span>
+                    : consumer requested this resolved ticket be reopened
                   </>
                 }
                 href={`/supervisor/dispatch/reopen/${r.reopen_id}`}
@@ -141,16 +221,22 @@ export default function DispatchAlerts({
               />
             ))}
 
+          {/* POSSIBLE DUPLICATES */}
           {open === "clusters" &&
             clusters.map((c) => (
               <Row
                 key={c.cluster_anchor_id}
                 text={
                   <>
-                    <span className="font-medium text-blue-700">{c.area_label}</span>
+                    <span className="font-medium text-blue-700">
+                      {c.area_label}
+                    </span>
                     {"  "}Confidence:{" "}
-                    <span className="font-semibold text-green-600">{c.confidence}%</span>
-                    {"  "}Related reports: <span className="font-semibold">{c.related_count}</span>
+                    <span className="font-semibold text-green-600">
+                      {c.confidence}%
+                    </span>
+                    {"  "}Related reports:{" "}
+                    <span className="font-semibold">{c.related_count}</span>
                   </>
                 }
                 href={`/supervisor/dispatch/cluster/${c.cluster_anchor_id}`}
@@ -158,16 +244,22 @@ export default function DispatchAlerts({
               />
             ))}
 
+          {/* POSSIBLE MATCHES */}
           {open === "joins" &&
             joinGroups.map((g) => (
               <Row
                 key={`${g.target_type}-${g.target_id}`}
                 text={
                   <>
-                    {g.reportIds.length} report{g.reportIds.length === 1 ? "" : "s"} may belong to{" "}
-                    <span className="font-medium text-purple-700">{g.target_label}</span>
+                    {g.reportIds.length} report
+                    {g.reportIds.length === 1 ? "" : "s"} may belong to{" "}
+                    <span className="font-medium text-purple-700">
+                      {g.target_label}
+                    </span>
                     {"  "}Best match:{" "}
-                    <span className="font-semibold text-green-600">{g.maxScore}%</span>
+                    <span className="font-semibold text-green-600">
+                      {g.maxScore}%
+                    </span>
                   </>
                 }
                 href={`/supervisor/dispatch/join-group/${g.target_type}/${g.target_id}?reports=${g.reportIds.join(",")}`}

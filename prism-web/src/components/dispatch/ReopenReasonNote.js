@@ -1,7 +1,9 @@
+
 export const REOPEN_SOURCE_LABELS = {
   supervisor: 'Reopened by supervisor',
   consumer: "Reopened at the consumer's request",
   qa_rejection: 'Sent back after QA review',
+  transfer: 'Transferred from another lineman',
 }
 
 export default function ReopenReasonNote({ source, reason, className = '' }) {

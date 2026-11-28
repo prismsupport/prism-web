@@ -1,3 +1,4 @@
+
 'use client'
 
 import { useEffect, useState } from 'react'
@@ -15,6 +16,7 @@ import ReporterInfo from '@/components/dispatch/ReporterInfo'
 import PhotoDropdown from '@/components/dispatch/PhotoDropdown'
 import MapModal from '@/components/dispatch/MapModal'
 import AttemptReviewCard from '@/components/dispatch/AttemptReviewCard'
+import ReopenLinemanSelect from '@/components/dispatch/ReopenLinemanSelect'
 
 export default function ReopenReviewPage() {
   const { reopenId } = useParams()
@@ -35,6 +37,7 @@ export default function ReopenReviewPage() {
   const [showMapModal, setShowMapModal] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
   const [originalMeta, setOriginalMeta] = useState(null)
+  const [chosenLinemanId, setChosenLinemanId] = useState(null)
 
   useEffect(() => {
     loadData()
@@ -86,6 +89,7 @@ export default function ReopenReviewPage() {
     const assignmentList = allAssignments || []
     const latestAssignment = assignmentList[assignmentList.length - 1] || null
     setOriginalAssignment(latestAssignment)
+    setChosenLinemanId(null)
 
     const linemanIds = Array.from(new Set(assignmentList.map((a) => a.lineman_id)))
     let linemenMap = {}
@@ -168,7 +172,7 @@ export default function ReopenReviewPage() {
 
     const { error: reopenErrorMsg } = await reopenAssignment({
       reportId: reopen.report_id,
-      linemanId: originalAssignment.lineman_id,
+      linemanId: chosenLinemanId || originalAssignment.lineman_id,
       reason: reopen.description,
       source: 'consumer',
     })
@@ -336,21 +340,33 @@ export default function ReopenReviewPage() {
       <Alert className="mt-6">{error}</Alert>
 
       {!showRejectBox ? (
-        <div className="flex gap-3 mt-6 max-w-2xl">
-          <button
-            onClick={() => setShowRejectBox(true)}
-            disabled={actionLoading}
-            className="flex-1 bg-red-50 hover:bg-red-100 text-red-700 font-semibold text-sm py-3 rounded-lg border border-red-200"
-          >
-            Reject Request
-          </button>
-          <button
-            onClick={handleApprove}
-            disabled={actionLoading}
-            className="flex-1 bg-blue-700 hover:bg-blue-800 disabled:opacity-60 text-white font-semibold text-sm py-3 rounded-lg"
-          >
-            {actionLoading ? 'Approving…' : 'Approve Reopen'}
-          </button>
+        <div className="mt-6 max-w-2xl">
+          {originalAssignment && (
+            <div className="mb-4 bg-white rounded-xl border border-gray-200 p-5">
+              <ReopenLinemanSelect
+                originalLinemanId={originalAssignment.lineman_id}
+                value={chosenLinemanId}
+                onChange={setChosenLinemanId}
+              />
+            </div>
+          )}
+
+          <div className="flex gap-3">
+            <button
+              onClick={() => setShowRejectBox(true)}
+              disabled={actionLoading}
+              className="flex-1 bg-red-50 hover:bg-red-100 text-red-700 font-semibold text-sm py-3 rounded-lg border border-red-200"
+            >
+              Reject Request
+            </button>
+            <button
+              onClick={handleApprove}
+              disabled={actionLoading}
+              className="flex-1 bg-blue-700 hover:bg-blue-800 disabled:opacity-60 text-white font-semibold text-sm py-3 rounded-lg"
+            >
+              {actionLoading ? 'Approving…' : 'Approve Reopen'}
+            </button>
+          </div>
         </div>
       ) : (
         <div className="bg-white rounded-xl border border-gray-200 p-6 mt-6 max-w-2xl">
