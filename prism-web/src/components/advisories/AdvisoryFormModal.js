@@ -21,6 +21,20 @@ const scopeLabels = {
 
 const MAX_PHOTO_SIZE_MB = 5
 
+// Current date and time in Philippine time, as 'YYYY-MM-DD' and 'HH:MM'
+function phNow() {
+  const now = new Date()
+  return {
+    date: now.toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' }),
+    time: now.toLocaleTimeString('en-GB', {
+      timeZone: 'Asia/Manila',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }),
+  }
+}
+
 export default function AdvisoryFormModal({ cooperativeId, advisory, onClose, onSaved }) {
   const isEditing = !!advisory
 
@@ -33,6 +47,10 @@ export default function AdvisoryFormModal({ cooperativeId, advisory, onClose, on
 
   const timed = categoryOf(category).timed  
   const endOptional = categoryOf(category).endOptional
+
+  const today = phNow()
+  // When editing an older advisory, its own saved date stays selectable
+  const minDate = isEditing && advisory.date < today.date ? advisory.date : today.date
   
   const [targets, setTargets] = useState(
     advisory?.targets?.map((t) => ({
@@ -174,9 +192,47 @@ export default function AdvisoryFormModal({ cooperativeId, advisory, onClose, on
       setError('Select a value for every target scope.')
       return
     }
-    if (timed && endTime && endTime <= startTime) {
-      setError('End time must be after the start time.')
+
+    const now = phNow()
+    const dateChanged = !isEditing || date !== advisory.date
+    const startChanged =
+      dateChanged || startTime !== (advisory?.start_time?.slice(0, 5) || '')
+
+    if (dateChanged && date < now.date) {
+      setError('The date cannot be in the past.')
       return
+    }
+    if (timed) {
+      if (!startTime) {
+        setError('Enter a start time.')
+        return
+      }
+      if (
+        category === 'power_interruption' &&
+        startChanged &&
+        date === now.date &&
+        startTime <= now.time
+      ) {
+        setError('For a scheduled interruption, the start time must be later than the current time.')
+        return
+      }
+      if (
+        category === 'unscheduled_interruption' &&
+        startChanged &&
+        date === now.date &&
+        startTime > now.time
+      ) {
+        setError('An unscheduled interruption has already started, so its start time cannot be in the future.')
+        return
+      }
+      if (category === 'power_interruption' && !endTime) {
+        setError('Enter an end time for a scheduled interruption.')
+        return
+      }
+      if (endTime && endTime <= startTime) {
+        setError('End time must be after the start time.')
+        return
+      }
     }
 
     setLoading(true)
@@ -376,6 +432,7 @@ export default function AdvisoryFormModal({ cooperativeId, advisory, onClose, on
             label="Date Selection"
             type="date"
             required
+            min={minDate}
             value={date}
             onChange={(e) => setDate(e.target.value)}
           />
@@ -399,10 +456,7 @@ export default function AdvisoryFormModal({ cooperativeId, advisory, onClose, on
                 type="time"
                 required={!endOptional}
                 value={endTime}
-                onChange={(e) => {
-                  setCategory(e.target.value)
-                  if (categoryOf(e.target.value).endOptional) setEndTime('')
-                }}
+                onChange={(e) => setEndTime(e.target.value)}
               />
             </>
           )}
